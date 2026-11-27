@@ -1184,6 +1184,8 @@ for (const fault of [
           encoding: "utf8",
           windowsHide: true,
           shell: false,
+          // Dockerの構成代役を読み込む子は、親の製品カバレッジと分ける。
+          env: { ...process.env, NODE_V8_COVERAGE: "" },
           timeout: 90_000,
           maxBuffer: 64 * 1024,
         },
@@ -1191,6 +1193,7 @@ for (const fault of [
       assert.equal(child.error, undefined);
       assert.equal(child.signal, null);
       assert.equal(child.status, 1, child.stderr);
+      assert.notEqual(child.stdout.trim(), "", child.stderr);
       const report = JSON.parse(child.stdout);
       assert.equal(report.pid, child.pid);
       assert.notEqual(report.pid, process.pid);

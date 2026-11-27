@@ -24,10 +24,9 @@ import {
   createFilesystemStoreRoot,
   type FilesystemStoreRoot,
 } from "../../../src/initialization/root.ts";
-import { createRetiredCredentialFixture } from "../../support/retired-credential.ts";
 import { saveRepositoryRegistration } from "../../../src/repository/register.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
-import { readAccessManagementState } from "../../../src/storage/store.ts";
+import { readHostInitializationState } from "../../../src/initialization/state.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
 import type { AccountAccessPrincipal } from "../../../src/index.ts";
 import { saveUserRegistration } from "../../../src/user/crud.ts";
@@ -73,7 +72,7 @@ export function removeKnownStoppedTestLock(
   assert.match(record.identity, /^filesystem-store:[a-f0-9]{64}$/u);
   const root = createFilesystemStoreRoot(directory);
   assert.ok(root);
-  assert.equal(readAccessManagementState(root).status, "unavailable");
+  assert.equal(readHostInitializationState(root).status, "unknown");
   const current = fs.lstatSync(target, { bigint: true });
   assert.equal(current.dev, before.dev);
   assert.equal(current.ino, before.ino);
@@ -122,43 +121,6 @@ export function baseline(): AccessManagementState {
       connection: "account_confirmed",
     },
   };
-}
-
-/** 旧版の提示済み初回状態を自己所有の試験領域に置く。 */
-export function seedRetiredInitialCredential(f: ReturnType<typeof fixture>) {
-  const current = path.join(f.directory, "access-management.json");
-  const legacy = baseline();
-  const user = legacy.users[0];
-  assert.ok(user);
-  const { token, ...credential } = createRetiredCredentialFixture();
-  const material = {
-    ...legacy,
-    schemaRevision: 3,
-    revision: 3,
-    operationId: crypto.randomUUID(),
-    credentials: [
-      {
-        ...credential,
-        userId: user.userId,
-        tokenVersion: 1,
-        revoked: false,
-        operationId: legacy.initialization.attemptId,
-        presentation: "confirmed",
-      },
-    ],
-    unresolvedKeyExchanges: [],
-    initialization: {
-      stage: "credential_stored",
-      attemptId: legacy.initialization.attemptId,
-      userId: user.userId,
-      initialCredentialId: credential.credentialId,
-      confirmationCredentialId: credential.credentialId,
-    },
-  };
-  const data = bytes(material);
-  assert.equal(parseAccessManagementState(data).status, "invalid");
-  fs.writeFileSync(current, data);
-  return { token, data };
 }
 
 /**
@@ -232,20 +194,22 @@ export function fixture(t: TestContext): {
 }
 
 /**
- * 三Roleの資格を持つ通常管理前状態を作る。
+ * 三つのロールの確認済み主体を持つ管理状態を作る。
  * @responsibility 実Hostと分離した現在認証とUser対象を準備する。
  * @trace RFD-IT-021
  * @precondition 自己生成試験Rootだけを使用する。
- * @stimulus 最小Userと一回性資格材料を保存する。
+ * @stimulus 利用者と外部アカウントの紐付けを保存する。
  * @observation 完全Schemaとcurrent byteを確認する。
- * @oracle 生鍵は短命メモリだけ、Storeにはsalt／Verifierだけ。
+ * @oracle 現在の紐付けに対応する主体を返す。
  * @cleanup FixtureがRoot不存在を確認する。
- * @boundary 公開暗号部品と自己生成Filesystem。
+ * @boundary 確認済み主体と試験用の保存先。
  */
 export function managementFixture(t: TestContext) {
   const f = fixture(t);
-  const tokens = { administrator: "", manager: "", developer: "" };
-  const principals = {} as Record<keyof typeof tokens, AccountAccessPrincipal>;
+  const principals = {} as Record<
+    "administrator" | "manager" | "developer",
+    AccountAccessPrincipal
+  >;
   f.state.revision = 2;
   f.state.operationId = "00000000-0000-4000-8000-000000000002";
   for (const [index, role] of (
@@ -269,15 +233,13 @@ export function managementFixture(t: TestContext) {
       bindingId,
       expiresAt: Date.now() + 300_000,
     };
-    const material = createRetiredCredentialFixture();
-    tokens[role] = material.token;
   }
   assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
   fs.writeFileSync(
     path.join(f.directory, "access-management.json"),
     bytes(f.state),
   );
-  return { ...f, tokens, principals };
+  return { ...f, principals };
 }
 
 /** 通常の利用者登録は確認済みの主体と、対象専用の招待をそろえて行う。 */
@@ -411,11 +373,11 @@ export function contentFixture(t: TestContext) {
 /** 現行の内容認可の境界に、確認済み本人と合成Gitホスト対象を渡す。 */
 export function hostedContentFixture(t: TestContext) {
   const f = contentFixture(t);
-  return { ...f, ...attachHostedContentFixture(f) };
+  return { ...f, ...attachGitHostLinkedContentFixture(f) };
 }
 
 /** 試験が登録した対象と利用者に、合成の外部IDを結び付ける。 */
-export function attachHostedContentFixture(
+export function attachGitHostLinkedContentFixture(
   f: ReturnType<typeof managementFixture>,
 ) {
   const currentPath = path.join(f.directory, "access-management.json");

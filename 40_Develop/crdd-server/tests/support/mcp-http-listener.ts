@@ -1,15 +1,107 @@
 /** 合成資格を使う統合試験専用のローカルListener。製品の起動入口ではない。 */
 import http, { type IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
+import {
+  type AuthInfo,
+  OAuthError,
+  OAuthErrorCode,
+} from "@modelcontextprotocol/server";
 import { createMcpHttpRequestHandler } from "../../src/transport/mcp-http.ts";
+import { mcpScope, verifyMcpBearer } from "../../src/transport/mcp-oauth.ts";
+import { createOAuthMcpAccess } from "../../src/transport/mcp-server.ts";
 import type {
   McpAuthenticatedHttpOptions,
-  McpAuthenticatedRequestHandlerResolver,
+  McpServerFactory,
 } from "../../src/transport/mcp-types.ts";
 
 const ENDPOINT = "/mcp";
 const MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT =
   "crdd-mcp/streamable-http-transport/v1" as const;
+
+type FixtureResolver = (
+  token: string,
+  signal: AbortSignal,
+) => McpServerFactory | null | Promise<McpServerFactory | null>;
+
+const fixtureResource = new URL("http://127.0.0.1/mcp");
+const authenticatedFixtureAccounts = new WeakMap<McpServerFactory, AuthInfo>();
+
+/** 本番と同じ共有構成へ、合成トークンの照会結果を接続する。 */
+type OAuthAccessParameters = Parameters<typeof createOAuthMcpAccess>;
+
+export function createFixtureOAuthResolver(
+  root: OAuthAccessParameters[0],
+  verify: OAuthAccessParameters[1],
+  hostAccess?: NonNullable<OAuthAccessParameters[3]> & {
+    hasCurrentToken: OAuthAccessParameters[2];
+  },
+  objectiveRuns?: OAuthAccessParameters[4],
+): FixtureResolver {
+  const access = createOAuthMcpAccess(
+    root,
+    verify,
+    hostAccess?.hasCurrentToken ?? (() => true),
+    hostAccess,
+    objectiveRuns,
+  );
+  return async (token, signal) => {
+    if (signal.aborted) return null;
+    const verified = await verify(token, signal);
+    if (verified.status !== "completed" || signal.aborted) return null;
+    const auth = {
+      token,
+      clientId: "fixture",
+      scopes: [mcpScope],
+      resource: fixtureResource,
+      expiresAt: Math.floor(verified.expiresAt / 1_000),
+      extra: { subject: verified.subject },
+    };
+    if (!access.admit(auth)) return null;
+    const factory = { createServer: access.factory.createServer };
+    authenticatedFixtureAccounts.set(factory, auth);
+    return factory;
+  };
+}
+
+/** 直接試験でも、共有認可済みの主体をSDKへ渡す。 */
+export function readFixtureMcpAuth(source: McpServerFactory) {
+  return authenticatedFixtureAccounts.get(source);
+}
+
+/** 合成の照会・操作を、製品と同じBearer検証とHTTP経路に接続する。 */
+export function fixtureMcpHttpAccess(resolve: FixtureResolver) {
+  const requests = new WeakMap<AuthInfo, McpServerFactory>();
+  return {
+    authenticate: (header: string | undefined, signal: AbortSignal) =>
+      verifyMcpBearer(
+        header,
+        fixtureResource,
+        async (token) => {
+          const factory = await resolve(token, signal);
+          if (!factory || signal.aborted)
+            throw new OAuthError(OAuthErrorCode.InvalidToken, "Invalid token");
+          const auth = authenticatedFixtureAccounts.get(factory) ?? {
+            token,
+            clientId: "fixture",
+            scopes: [mcpScope],
+            resource: fixtureResource,
+            expiresAt: Math.floor(Date.now() / 1_000) + 60,
+          };
+          requests.set(auth, factory);
+          return auth;
+        },
+        signal,
+      ),
+    admit: (auth: AuthInfo) => requests.has(auth),
+    factory: {
+      createServer(request, signal, observe, auth) {
+        const source = auth && requests.get(auth);
+        if (!source) throw new Error("Fixture authentication unavailable");
+        return source.createServer(request, signal, observe, auth);
+      },
+    } satisfies McpServerFactory,
+  };
+}
 
 /**
  * process-signal-shutdownで使用するMcp Http Server Close Boundaryの値契約を定義する。
@@ -49,10 +141,13 @@ type McpProcessSignalSource = Readonly<{
  * @boundary MCP単独のHTTP接続とProcess内要求処理。
  */
 async function startMcpStreamableHttpWithHandler(
-  resolveHandler: McpAuthenticatedRequestHandlerResolver,
+  resolveHandler: FixtureResolver,
   options: McpAuthenticatedHttpOptions,
 ) {
-  const { handle } = createMcpHttpRequestHandler(resolveHandler, options);
+  const { handle } = createMcpHttpRequestHandler(
+    fixtureMcpHttpAccess(resolveHandler),
+    options,
+  );
   if (
     !Number.isInteger(options.port) ||
     options.port < 0 ||
@@ -173,7 +268,7 @@ async function startMcpStreamableHttpWithHandler(
  * @concurrency Requestごとに独立してresolverを呼び出す。
  */
 export async function startMcpAuthenticatedStreamableHttp(
-  resolver: McpAuthenticatedRequestHandlerResolver,
+  resolver: FixtureResolver,
   options: McpAuthenticatedHttpOptions,
 ) {
   return startMcpStreamableHttpWithHandler(resolver, options);

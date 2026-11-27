@@ -133,7 +133,7 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
                   };
                 })();
               default:
-                throw new Error("unexpected recovery read: " + request.kind);
+                throw new Error(`unexpected recovery read: ${request.kind}`);
             }
           },
           writeStateSnapshot(_a: unknown, repository: unknown) {

@@ -118,6 +118,11 @@ export type ManagementStateSnapshot = Readonly<{ revision: number }> &
           userId: string;
           username: string;
           role: AccessRole;
+          actions?: Readonly<{
+            rename: boolean;
+            changeRoles: readonly AccessRole[];
+            renewInvitation: boolean;
+          }>;
         }>[];
       }>
     | Readonly<{

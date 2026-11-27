@@ -128,11 +128,11 @@ test("履歴は旧行を拒否し、現行の別操作行は形式成立と操�
   assert.equal(
     decodeHistoryRows(
       Buffer.from(
-        encodeStateValue({
+        `${encodeStateValue({
           schema: "crdd-coordinator/history-row/v2",
           occurredAt: "2026-09-01T00:00:00.000Z",
           summary: current,
-        }) + "\n",
+        })}\n`,
       ),
     ),
     null,

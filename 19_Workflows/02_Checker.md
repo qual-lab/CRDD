@@ -10,6 +10,8 @@ Checkerは現在のCRDD仕様を検査する。旧形式からの調査・移行
 
 フロントAIは旧成果物の意味と新Owner、利用側、停止・復旧条件を確認して移行し、その後に現在仕様のCheckerを実行する。Checker成功を旧成果物の移行完了証明にはしない。過去Evidenceは当時の記録として維持する。
 
+公式リポジトリの試験台帳は改訂10から11へ同時に更新する。改訂10の互換読込みや自動移行はない。標準導入時にこの台帳を配布・必須化していなかった採用先に、一律の移行作業は発生しない。独自に改訂10の台帳を運用している場合だけ、所有者・実行条件・共有パスを改訂11で宣言し直すか、任意の機械照合を外す。
+
 ## 試験台帳と回帰計画
 
 次は試験を起動せず、台帳検査または計画だけを表示する。
@@ -23,6 +25,10 @@ node 40_Develop/checker/bin/checker.ts --test-catalog --root . --changed 40_Deve
 `--changed`、`--base`、`--all`は互いに排他的である。引数不正64、台帳不整合1、Root・読取り・差分観測不能2、台帳検査／計画成功0を返す。成功0は試験Passではなく、常に試験未起動として扱う。手動UAT、外部AI、Windows固有Process制御、高負荷の必要条件を計画から確認し、実行許可がない操作は実行しない。PT／LTは全条件があっても計画のみである。
 
 フロントAI／人間は計画の段階順に実施し、先行失敗時は後続を止め、実施済みと未実施を既存QAへ記録する。Checkerはこの起動・停止・結果収集を自動化しない。適用先は言語や環境に合う実行手段を使う。
+
+試験台帳の形式は改訂11とする。[ひな型](../template/07_Quality/Registry/test-catalog.json)と[スキーマ](../template/tools/schemas/test-catalog-schema.json)を参照する。所有者のルート、実行環境、実行プロファイル、共有設定は台帳で宣言する。正規化したパスが共有設定または台帳そのものであれば、指定された試験段階の全件を選ぶ。台帳に未使用の実行環境がある場合の警告は、試験未起動や台帳不整合とは区別する。改訂10を互換読込みしない。
+
+試験を追加・変更する所有者は、台帳と専用の実行段階を一緒に更新する。例えば、Windows固有の実プロセス制御を必要とする試験は、実行プロファイルを明示し、公式台帳と実行段階の接続を検証する。Checkerはソース本文から実行条件を推定しない。
 
 CRDD公式Repositoryの開発に限り、各Packageの`npm run check`、`npm run test:run`等を使う。Owner全試験は選択範囲より広いため未許可試験を含めないことを確認する。Coordinator／Docker Isolationの通常とHost Windows入口を分ける。Platform AccessのRust確認は同Packageの`rust:check`、`test:rust:unit`、`test:rust:integration`に移した固定toolchain・明示targetを使う。WorkbenchのSTは`test:system`を通常ITと区別する。Checkerへ移した計画理解UATは人間参加のままで、自動Passにしない。npm成功や手動UATのskipを全体QA成立へ読み替えない。
 
@@ -66,7 +72,7 @@ node 40_Develop/checker/bin/checker.ts --semantic --root . @semanticInputs
 
 `npm run semantic --prefix 40_Develop/checker -- <対象指定>`も同じ入口である。従来の対象指定なし呼出しは64となるため、フロントAI／人間が対象を確認して引数を更新する。互換用の製品固定fallbackは設けない。Root省略時だけ起動Directoryを含む最寄りの検証済みRepositoryを使い、通常文書検査の対象選択は変えない。
 
-既定はJSON表示のみ。`--write`指定時だけ既存の`07_Quality/Registry/semantic-coverage-pilot.json`へ保存する。保存されたBundleとその中の意味IRの形式は、配布用の[Semantic Coverageスキーマ](../template/tools/schemas/semantic-coverage-pilot-schema.json)と[Semantic IRスキーマ](../template/tools/schemas/semantic-ir-pilot-schema.json)に対応する。手動検証が未観測の場合は`manual_pending`であり、試験合格を意味しない。保存先Directoryは既存を前提とし、観測不能や入力不成立では書き込まない。成功0、検査不成立1、実行不能・保存失敗2、引数不正／Architecture未指定64を返す。既存の保存結果や履歴は書き換えない。今回の入力指定対応を全工程の品質Passとは扱わない。
+既定はJSON表示のみ。保存する場合だけ `--write --output <リポジトリ相対のJSONパス>` を指定する。既定の保存先はなく、対象リポジトリ自身の既存サブディレクトリを指定する。別のリポジトリ、意味カバレッジ以外の既存ファイルには書き込まない。保存形式は[Semantic Coverageスキーマ](../template/tools/schemas/semantic-coverage-pilot-schema.json)と[Semantic IRスキーマ](../template/tools/schemas/semantic-ir-pilot-schema.json)に従う。手動検証が未観測の場合は`manual_pending`であり、試験合格を意味しない。観測不能や入力不成立では書き込まない。成功0、検査不成立1、実行不能・保存失敗2、引数不正／Architecture未指定64を返す。
 
 以下は通常文書検査（`--semantic`なし）にだけ適用する。
 

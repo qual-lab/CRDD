@@ -1645,7 +1645,7 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
       "objective/crud.ts",
       "task/crud.ts",
       "workspace/crud.ts",
-    ].map((file) => new URL("../../src/" + file, import.meta.url).href),
+    ].map((file) => new URL(`../../src/${file}`, import.meta.url).href),
   );
   t.mock.method(
     fs,
@@ -1728,7 +1728,7 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
     transforms++;
     // 変異本文は元の例外class除去前に受け取る。
     assert.ok(value.includes("class ExecutionStorageBlockedError"));
-    return value + "\nwriteStateSnapshot = () => " + transforms + ";\n";
+    return `${value}\nwriteStateSnapshot = () => ${transforms};\n`;
   };
   const mutantA = createRuntimeStorageSourceFixture(transform);
   const normalA = createRuntimeStorageSourceFixture();
@@ -1749,13 +1749,13 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
     (error) => error === expected,
   );
   assert.throws(
-    () => createRuntimeStorageSourceFixture((source) => source + "\n("),
+    () => createRuntimeStorageSourceFixture((source) => `${source}\n(`),
     SyntaxError,
   );
   assert.throws(
     () =>
       createRuntimeStorageSourceFixture(
-        (source) => source + "\nthrow new Error('evaluation_failed');",
+        (source) => `${source}\nthrow new Error('evaluation_failed');`,
       ),
     /evaluation_failed/u,
   );

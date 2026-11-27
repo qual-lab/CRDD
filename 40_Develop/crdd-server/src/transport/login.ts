@@ -5,11 +5,37 @@
  * @boundary OIDCの検証結果は本人確認だけ。CRDDのロール・管理許可ではない。
  */
 import * as oidc from "openid-client";
-import { matchesSecret } from "../secret.ts";
-import type { LoginProviderProfile } from "./login-providers.ts";
+import type { InvitationProof, VerifiedIdentity } from "../service/session.ts";
+import { matchesSecret } from "../service/secret.ts";
+import {
+  type ConfiguredLoginProvider,
+  loginFailure,
+} from "../service/login-providers.ts";
 
 const loginLifetime = 5 * 60_000;
 const maximumPendingLogins = 128;
+
+/** ブラウザー受付とHost CLIが利用する一回限りの外部ログイン。 @trace ARCH-000012 */
+export interface LoginFlow {
+  start(returnTo: string, invitationDigest?: string): Promise<LoginStart>;
+  complete(
+    search: URLSearchParams,
+    browserBinding: string | undefined,
+    signal: AbortSignal,
+  ): Promise<LoginCompletion | null>;
+}
+
+export interface LoginStart {
+  readonly location: URL;
+  readonly browserBinding: string;
+}
+
+interface LoginCompletion {
+  readonly identity: VerifiedIdentity;
+  readonly returnTo: string;
+  readonly invitation?: InvitationProof;
+  readonly verifiedAccountLabel?: string;
+}
 
 type PendingLogin = Readonly<{
   browserBinding: string;
@@ -28,15 +54,15 @@ type PendingLogin = Readonly<{
  * @security コード・外部トークン・秘密を結果やエラーに転記しない。
  */
 export async function createLogin(
-  profile: LoginProviderProfile,
+  profile: ConfiguredLoginProvider,
   input: {
-    clientId: string;
-    clientSecret: string;
     callback: URL;
     chooseAccount?: true;
+    accountLabel?: true;
   },
-) {
+): Promise<LoginFlow> {
   const callback = new URL(input.callback.href);
+  const { issuer, clientId, clientSecret } = profile.discovery;
   const loopback =
     callback.protocol === "http:" && callback.hostname === "127.0.0.1";
   if (
@@ -45,34 +71,45 @@ export async function createLogin(
     callback.password ||
     callback.search ||
     callback.hash ||
-    !input.clientId ||
-    !input.clientSecret
+    issuer.protocol !== "https:" ||
+    issuer.username ||
+    issuer.password ||
+    issuer.search ||
+    issuer.hash ||
+    issuer.pathname.includes("/.well-known/") ||
+    !clientId ||
+    !clientSecret
   )
-    throw new Error(profile.configurationError);
+    throw loginFailure("login_configuration_invalid");
 
   let configuration: oidc.Configuration;
   try {
     configuration = await oidc.discovery(
-      new URL(profile.discoveryUrl),
-      input.clientId,
-      input.clientSecret,
+      issuer,
+      clientId,
+      clientSecret,
       undefined,
       { execute: [oidc.enableNonRepudiationChecks], timeout: 5 },
     );
   } catch {
-    throw new Error(profile.unavailableError);
+    throw loginFailure("login_provider_unavailable");
   }
+  if (!profile.validateDiscoveryIssuer(configuration.serverMetadata().issuer))
+    throw loginFailure("login_provider_unavailable");
   const pending = new Map<string, PendingLogin>();
 
   return Object.freeze({
-    async start(returnTo = "/", invitationDigest?: string) {
+    async start(returnTo: string, invitationDigest?: string) {
       const state = oidc.randomState();
       const nonce = oidc.randomNonce();
       const verifier = oidc.randomPKCECodeVerifier();
       const browserBinding = oidc.randomState();
       const location = oidc.buildAuthorizationUrl(configuration, {
         redirect_uri: callback.href,
-        scope: invitationDigest ? profile.invitationScope : "openid",
+        scope:
+          invitationDigest || input.accountLabel
+            ? profile.invitationScope
+            : "openid",
         code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
         code_challenge_method: "S256",
         state,
@@ -140,15 +177,16 @@ export async function createLogin(
           !claims ||
           typeof claims.iss !== "string" ||
           !profile.acceptsIssuer(claims.iss) ||
-          profile.acceptsTenant?.(claims) === false ||
+          !profile.acceptsTenant(claims) ||
           typeof claims.sub !== "string" ||
           !claims.sub ||
           claims.sub.length > 255
         )
           return null;
-        const email = login.invitationDigest
-          ? profile.readVerifiedEmail(claims)
-          : null;
+        const email =
+          login.invitationDigest || input.accountLabel
+            ? profile.readVerifiedEmail(claims)
+            : null;
         const invitation = login.invitationDigest
           ? email !== null
             ? {
@@ -163,6 +201,7 @@ export async function createLogin(
           identity: { issuer: claims.iss, subject: claims.sub },
           returnTo: login.returnTo,
           ...(invitation ? { invitation } : {}),
+          ...(input.accountLabel && email && { verifiedAccountLabel: email }),
         });
       } catch {
         return null;

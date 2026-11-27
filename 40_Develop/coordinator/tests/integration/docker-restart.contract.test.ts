@@ -41,6 +41,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   );
   assert.deepEqual(packageJson.exports, {
     "./cli": "./bin/coordinator.ts",
+    "./objective-child": "./src/objective-child.ts",
     ".": "./src/index.ts",
   });
   const hostFacade = fs.readFileSync(path.resolve("src/index.ts"), "utf8");

@@ -110,3 +110,61 @@ export function isAccessRole(value: unknown): value is AccessRole {
     value === "developer" || value === "manager" || value === "administrator"
   );
 }
+
+const accessRoles = ["developer", "manager", "administrator"] as const;
+
+/** 現在観測されたロールの管理画面向け表示許可。実操作は別に再認可する。 */
+export function describeManagementPermissions(role: AccessRole) {
+  return {
+    openSession:
+      evaluateManagementPermission(role, {
+        operation: "openManagementSession",
+      }) === "allowed",
+    registerRoles: accessRoles.filter(
+      (plannedRole) =>
+        evaluateManagementPermission(role, {
+          operation: "registerUser",
+          plannedRole,
+        }) === "allowed",
+    ),
+    registerRepository:
+      evaluateManagementPermission(role, {
+        operation: "registerRepository",
+      }) === "allowed",
+    unregisterRepository:
+      evaluateManagementPermission(role, {
+        operation: "unregisterRepository",
+      }) === "allowed",
+  };
+}
+
+export function canRenewUserInvitation(
+  role: AccessRole,
+  hasAccountLinks: boolean,
+) {
+  return role === "administrator" && !hasAccountLinks;
+}
+
+export function describeUserManagementPermissions(
+  role: AccessRole,
+  targetRole: AccessRole,
+  hasAccountLinks: boolean,
+) {
+  return {
+    rename:
+      evaluateManagementPermission(role, {
+        operation: "updateUserName",
+        targetRole,
+      }) === "allowed",
+    changeRoles: accessRoles.filter(
+      (nextRole) =>
+        nextRole !== targetRole &&
+        evaluateManagementPermission(role, {
+          operation: "updateUserRole",
+          currentRole: targetRole,
+          nextRole,
+        }) === "allowed",
+    ),
+    renewInvitation: canRenewUserInvitation(role, hasAccountLinks),
+  };
+}

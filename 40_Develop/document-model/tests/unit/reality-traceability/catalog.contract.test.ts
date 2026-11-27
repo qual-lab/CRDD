@@ -10,6 +10,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseRealityTestCatalog } from "../../../src/index.ts";
+import { extractRealitySymbolAnnotations } from "../../../src/reality-traceability/annotations.ts";
+
+test("注釈は言語別の構文に依存せず、行全体の宣言だけを読む", () => {
+  const lines = [
+    "  // @crdd ARCH-000001",
+    "# @crdd ARCH-000002",
+    "-- @crdd ARCH-000003",
+    "/* @crdd QA-000004 */",
+    "<!-- @crdd QA-000005 -->",
+    "; @crdd QA-000006",
+    'const text = "// @crdd QA-000091";',
+    '"// @crdd QA-000092',
+    "'# @crdd QA-000093",
+    "\x60# @crdd QA-000094",
+    "value // @crdd QA-000095",
+    "///// @crdd QA-000096",
+    "// @crdd QA-000097 trailing text",
+    " @crdd QA-000098",
+  ];
+  const result = extractRealitySymbolAnnotations(lines.join("\r\n"));
+  assert.deepEqual(
+    [...result.archIds],
+    ["ARCH-000001", "ARCH-000002", "ARCH-000003"],
+  );
+  assert.deepEqual([...result.qaIds], ["QA-000004", "QA-000005", "QA-000006"]);
+});
 
 /**
  * 限定検査の受理集合と全走査の拒否順を確認する。

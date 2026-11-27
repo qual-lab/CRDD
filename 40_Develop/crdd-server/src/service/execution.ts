@@ -6,7 +6,20 @@
  * @trace ARCH-000013
  * @boundary 通信方式に依存しない実行・定義受付とCoordinator・Execution Model・AM。
  */
+
+import { randomUUID } from "node:crypto";
+import { statSync } from "node:fs";
+import { setTimeout } from "node:timers/promises";
+import { types } from "node:util";
 import type { AuthorizedRepository } from "@qual-lab/crdd-access-management";
+import {
+  type FilesystemStoreRoot,
+  onAccessStatePublication,
+} from "@qual-lab/crdd-access-management";
+import {
+  inspectAiSelectionChoice,
+  readRepositoryManifest,
+} from "@qual-lab/crdd-configuration-model";
 import type {
   ExecutionActivityObservation,
   ExecutionActivityRequest,
@@ -14,27 +27,14 @@ import type {
   SingleTaskCommand,
   WorkspaceResult,
 } from "@qual-lab/crdd-coordinator";
-import type { RepositoryProjectContext } from "@qual-lab/crdd-document-model";
-import {
-  inspectAiSelectionChoice,
-  readRepositoryManifest,
-} from "@qual-lab/crdd-configuration-model";
-
-import { randomUUID } from "node:crypto";
-import { statSync } from "node:fs";
-import { types } from "node:util";
-import {
-  onAccessStatePublication,
-  type FilesystemStoreRoot,
-} from "@qual-lab/crdd-access-management";
 import {
   createLocalPrincipalId,
   createObjective,
   createTask,
   deleteObjective,
   deleteTask,
-  ExecutionStorageBlockedError,
   type ExecutionModelAccess,
+  ExecutionStorageBlockedError,
   initializeExecutionState,
   isPrincipalId,
   queryObjectives,
@@ -46,17 +46,19 @@ import {
 } from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
+  type Repository,
   readGitUser,
   readRepositoryRevision,
   registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
-  type Repository,
 } from "@qual-lab/crdd-version-control";
 import {
-  type HostedAccessSession,
-  openHostedExecutionAccess,
-  resolveHostedDevelopmentAccess,
+  type GitHostLinkedAccessSession,
+  type GitHostLinkedExecutionAccess,
+  openGitHostLinkedExecutionAccess,
+  resolveGitHostLinkedDevelopmentAccess,
 } from "./access.ts";
+import { RESOURCE_ID, UUID } from "./identity.ts";
 
 /** サーバーが許可した定義操作と、その初回保存の準備。 @trace ARCH-000012 */
 export type DefinitionAccess = ExecutionModelAccess &
@@ -137,19 +139,20 @@ export function resolveLocalDefinitionAccess(
 }
 
 /** 外部権限の照会は保存ロックの前に完了する。 @trace ARCH-000012 */
-export async function resolveHostedDefinitionAccess(
+export async function resolveGitHostLinkedDefinitionAccess(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   repositoryId: string,
   write: boolean,
   signal: AbortSignal,
 ): Promise<DefinitionAccess | null> {
-  const access = await resolveHostedDevelopmentAccess(
+  const access = await resolveGitHostLinkedDevelopmentAccess(
     root,
     session,
     repositoryId,
     write,
     signal,
+    { reuseOriginConfiguration: true },
   );
   if (!access || signal.aborted) return null;
   const repository = getRepository(access.ownerRoot);
@@ -193,7 +196,7 @@ export const definitionWriteFields = {
   "task.delete": ["expected", "taskId", "expectedDefinitionHash"],
 } as const;
 
-export type ExecutionDefinitionOperation =
+type ExecutionDefinitionOperation =
   | keyof typeof definitionReadFields
   | keyof typeof definitionWriteFields;
 
@@ -419,14 +422,13 @@ const requiredObjectiveFields = [
 export function objectiveRequestSchema(exclude: readonly string[] = []) {
   const id = Object.freeze({
     type: "string",
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+    pattern: RESOURCE_ID.source,
   });
   const rev = Object.freeze({ type: "string", pattern: "^[0-9a-f]{40,64}$" });
-  const list = (maximum: number) =>
+  const list = () =>
     Object.freeze({
       type: "array",
       minItems: 1,
-      maxItems: maximum,
       items: Object.freeze({ type: "string" }),
     });
   const properties = {
@@ -435,22 +437,20 @@ export function objectiveRequestSchema(exclude: readonly string[] = []) {
       additionalProperties: false,
       required: ["milestoneAcceptanceCriteria", "objectives", "tasks"],
       properties: {
-        milestoneAcceptanceCriteria: list(128),
+        milestoneAcceptanceCriteria: list(),
         objectives: {
           type: "array",
           minItems: 1,
-          maxItems: 128,
           items: {
             type: "object",
             additionalProperties: false,
             required: ["id", "acceptanceCriteria"],
-            properties: { id, acceptanceCriteria: list(128) },
+            properties: { id, acceptanceCriteria: list() },
           },
         },
         tasks: {
           type: "array",
           minItems: 1,
-          maxItems: 1024,
           items: {
             type: "object",
             additionalProperties: false,
@@ -464,9 +464,9 @@ export function objectiveRequestSchema(exclude: readonly string[] = []) {
             properties: {
               id,
               objectiveId: id,
-              dependencies: { ...list(128), minItems: 0 },
-              allowedPaths: list(128),
-              conflictKeys: { ...list(128), minItems: 0 },
+              dependencies: { ...list(), minItems: 0 },
+              allowedPaths: list(),
+              conflictKeys: { ...list(), minItems: 0 },
             },
           },
         },
@@ -475,16 +475,15 @@ export function objectiveRequestSchema(exclude: readonly string[] = []) {
     taskInputs: {
       type: "array",
       minItems: 1,
-      maxItems: 1024,
       items: {
         type: "object",
         additionalProperties: false,
         required: ["taskId", "objective", "acceptanceCriteria", "readPaths"],
         properties: {
           taskId: id,
-          objective: { type: "string", minLength: 1, maxLength: 16_384 },
-          acceptanceCriteria: list(128),
-          readPaths: list(128),
+          objective: { type: "string", minLength: 1 },
+          acceptanceCriteria: list(),
+          readPaths: list(),
         },
       },
     },
@@ -492,10 +491,10 @@ export function objectiveRequestSchema(exclude: readonly string[] = []) {
     projectId: id,
     milestoneId: id,
     repositoryRevision: rev,
-    objective: Object.freeze({ type: "string", maxLength: 16_384 }),
-    acceptanceCriteria: list(128),
-    allowedPaths: list(128),
-    readPaths: list(128),
+    objective: Object.freeze({ type: "string" }),
+    acceptanceCriteria: list(),
+    allowedPaths: list(),
+    readPaths: list(),
     maximumConcurrency: Object.freeze({
       type: "integer",
       minimum: 1,
@@ -534,7 +533,7 @@ export function objectiveRequestSchema(exclude: readonly string[] = []) {
     }),
     workspaceId: Object.freeze({
       type: "string",
-      pattern: "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+      pattern: UUID.source,
     }),
   };
   return {
@@ -568,7 +567,7 @@ export function decisionRequestSchema(
   action: DecisionAction,
   exclude: readonly string[] = [],
 ) {
-  const id = { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" };
+  const id = { type: "string", pattern: RESOURCE_ID.source };
   const decisionText = {
     type: "string",
     minLength: 1,
@@ -622,19 +621,15 @@ export function decisionRequestSchema(
   };
 }
 
-export type ExecutionWriteAction = "start" | "resume" | DecisionAction;
-
-const executionIdentifier = "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$";
-const objectiveLaunchIdentifier =
-  "^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$";
+type ExecutionWriteAction = "start" | "resume" | DecisionAction;
 
 /** 取消要求を特定の起動に結び付ける。 @trace ARCH-000012 */
 export function objectiveCancellationSchema(exclude: readonly string[] = []) {
   const properties = Object.fromEntries(
     Object.entries({
-      requestId: { type: "string", pattern: executionIdentifier },
-      projectId: { type: "string", pattern: executionIdentifier },
-      launchId: { type: "string", pattern: objectiveLaunchIdentifier },
+      requestId: { type: "string", pattern: RESOURCE_ID.source },
+      projectId: { type: "string", pattern: RESOURCE_ID.source },
+      launchId: { type: "string", pattern: UUID.source },
     }).filter(([key]) => !exclude.includes(key)),
   );
   return {
@@ -650,7 +645,7 @@ type ActiveObjectiveTarget = Readonly<{
   repositoryId: string | null;
   ownerRoot: string;
   bindingId?: string | undefined;
-  hostedBinding?: string | undefined;
+  gitHostLinkedBinding?: string | undefined;
   principalId: string;
   projectId: string;
   requestId: string;
@@ -676,7 +671,7 @@ function sameObjectiveTarget(
     a.repositoryId === b.repositoryId &&
     a.ownerRoot === b.ownerRoot &&
     a.bindingId === b.bindingId &&
-    a.hostedBinding === b.hostedBinding &&
+    a.gitHostLinkedBinding === b.gitHostLinkedBinding &&
     a.principalId === b.principalId &&
     a.projectId === b.projectId &&
     a.requestId === b.requestId
@@ -684,7 +679,22 @@ function sameObjectiveTarget(
 }
 
 /** 起動中の子だけを追跡する。永続状態や実行結果は所有しない。 @trace ARCH-000012 */
-export function createObjectiveRuns() {
+export interface ObjectiveRuns {
+  attach(target: ActiveObjectiveTarget): Readonly<{
+    signal: AbortSignal;
+    close(): void;
+  }> | null;
+  read(target: ActiveObjectiveTarget): string | null;
+  cancel(
+    launchId: string,
+    target: ActiveObjectiveTarget,
+    signal: AbortSignal,
+  ): boolean;
+  stopAll(): void;
+}
+
+export function createObjectiveRuns(): ObjectiveRuns {
+  let closing = false;
   const active = new Map<
     string,
     Readonly<{
@@ -697,6 +707,7 @@ export function createObjectiveRuns() {
     attach(target: ActiveObjectiveTarget) {
       const identity = objectiveDirectoryIdentity(target.ownerRoot);
       if (
+        closing ||
         !identity ||
         [...active.values()].some(({ target: current }) =>
           sameObjectiveTarget(current, target),
@@ -737,10 +748,12 @@ export function createObjectiveRuns() {
       entry.cancellation.abort();
       return true;
     },
+    stopAll() {
+      closing = true;
+      for (const entry of active.values()) entry.cancellation.abort();
+    },
   };
 }
-
-export type ObjectiveRuns = ReturnType<typeof createObjectiveRuns>;
 
 /** 起動Repositoryまたは共有の認証資格から現在対象を確定する。 @trace ARCH-000012 */
 export type CoordinatorExecutionConfiguration =
@@ -754,36 +767,37 @@ export type CoordinatorExecutionConfiguration =
   | Readonly<{
       scope: "shared";
       objectiveRuns?: ObjectiveRuns;
-      observeClient?: NonNullable<HostedAccessSession["observeClient"]>;
-      credentials: { root: FilesystemStoreRoot; hosted: HostedAccessSession };
+      observeClient?: NonNullable<GitHostLinkedAccessSession["observeClient"]>;
+      credentials: {
+        root: FilesystemStoreRoot;
+        hosted: GitHostLinkedAccessSession;
+      };
     }>;
 
 type CoordinatorModule = typeof import("@qual-lab/crdd-coordinator");
 const executionAccessCheckIntervalMs = 15_000;
+// 監視間隔にGitホストの応答待ちと小さな実行遅延の余地を含める。
+const executionAccessObservationLifetimeMs = 25_000;
 
 type ExecutionTarget = Readonly<{
   ownerRoot: string;
   bindingId?: string | undefined;
-  hostedBinding?: string | undefined;
+  gitHostLinkedBinding?: string | undefined;
   principalId: string;
   authorize?: () => boolean;
   authorizeAdmission?: () => boolean;
   watch?: Readonly<{
     accessRoot: FilesystemStoreRoot;
     revocationSignal?: AbortSignal | undefined;
-    observe: NonNullable<
-      Awaited<ReturnType<typeof openHostedExecutionAccess>>
-    >["observe"];
+    observe: GitHostLinkedExecutionAccess["observe"];
   }>;
-  refresh?: NonNullable<
-    Awaited<ReturnType<typeof openHostedExecutionAccess>>
-  >["refresh"];
+  refresh?: GitHostLinkedExecutionAccess["refresh"];
 }>;
 
 /** 短い照会・判断を本人のGitホスト権限へ結び付ける。資格はCoordinatorへ渡さない。 @trace ARCH-000012 */
-async function resolveHostedExecutionTarget(
+async function resolveGitHostLinkedExecutionTarget(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   repositoryId: string,
   projectId: string,
   write: boolean,
@@ -791,7 +805,7 @@ async function resolveHostedExecutionTarget(
 ): Promise<ExecutionTarget | null> {
   const current = () => !signal.aborted && (session.isCurrent?.() ?? true);
   if (!current()) return null;
-  const target = await resolveHostedDevelopmentAccess(
+  const target = await resolveGitHostLinkedDevelopmentAccess(
     root,
     session,
     repositoryId,
@@ -803,7 +817,10 @@ async function resolveHostedExecutionTarget(
     ownerRoot: target.ownerRoot,
     bindingId: target.bindingId,
     principalId: session.principal.userId,
-    hostedBinding: "hostedBinding" in target ? target.hostedBinding : undefined,
+    gitHostLinkedBinding:
+      "gitHostLinkedBinding" in target
+        ? target.gitHostLinkedBinding
+        : undefined,
     authorize: () => current() && target.authorize() && current(),
   };
 }
@@ -906,10 +923,7 @@ export async function executeCoordinatorOperation(
         return { kind: "invalid" } as const;
       const target = captured as Readonly<Record<string, unknown>>;
       const { repositoryId: requested, ...input } = target;
-      if (
-        typeof requested !== "string" ||
-        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(requested)
-      )
+      if (typeof requested !== "string" || !RESOURCE_ID.test(requested))
         return { kind: "invalid" } as const;
       repositoryId = requested;
       captured = Object.freeze(input);
@@ -967,7 +981,7 @@ export async function executeCoordinatorOperation(
     "scope" in configuration &&
     configuration.scope === "shared" &&
     repositoryId !== null
-      ? resolveHostedExecutionTarget(
+      ? resolveGitHostLinkedExecutionTarget(
           configuration.credentials.root,
           configuration.credentials.hosted,
           repositoryId,
@@ -977,8 +991,7 @@ export async function executeCoordinatorOperation(
         )
       : null;
   const id = (value: unknown): value is string =>
-    typeof value === "string" &&
-    new RegExp(executionIdentifier, "u").test(value);
+    typeof value === "string" && RESOURCE_ID.test(value);
   const runIdentity = (
     target: ExecutionTarget,
     projectId: string,
@@ -988,7 +1001,7 @@ export async function executeCoordinatorOperation(
     repositoryId,
     ownerRoot: target.ownerRoot,
     bindingId: target.bindingId,
-    hostedBinding: target.hostedBinding,
+    gitHostLinkedBinding: target.gitHostLinkedBinding,
     principalId: target.principalId,
     projectId,
     requestId,
@@ -1009,7 +1022,7 @@ export async function executeCoordinatorOperation(
       !(
         "launchId" in captured &&
         typeof captured.launchId === "string" &&
-        new RegExp(objectiveLaunchIdentifier, "u").test(captured.launchId)
+        UUID.test(captured.launchId)
       )
     )
       return { kind: "invalid" } as const;
@@ -1045,14 +1058,9 @@ export async function executeCoordinatorOperation(
     return { kind: signal.aborted ? "cancelled" : "access_denied" } as const;
   }
   if (operation === "objective" && scope !== null) {
-    // 子を起動する前は配送先だけを確定する。計画の検査はCoordinatorだけが行う。
-    if (
-      !captured ||
-      typeof captured !== "object" ||
-      !("projectId" in captured) ||
-      typeof captured.projectId !== "string"
-    )
-      return { kind: "invalid" } as const;
+    // 対象選択と外部照会の前に、Coordinatorの正式受付で計画を一度だけ確定する。
+    const request = inspectCoordinatorObjectiveRequest(captured);
+    if (!request) return { kind: "invalid" } as const;
     let target: ExecutionTarget | null;
     let closeTarget: (() => void) | undefined;
     try {
@@ -1062,18 +1070,18 @@ export async function executeCoordinatorOperation(
         repositoryId !== null
       ) {
         const { root, hosted } = configuration.credentials;
-        const admission = await openHostedExecutionAccess(
+        const admission = await openGitHostLinkedExecutionAccess(
           root,
           hosted,
           repositoryId,
-          { projectId: captured.projectId, permission: "write" },
+          { projectId: request.projectId, permission: "write" },
           signal,
         );
         closeTarget = admission?.close;
         target = admission && {
           ownerRoot: admission.ownerRoot,
           bindingId: admission.bindingId,
-          hostedBinding: admission.hostedBinding,
+          gitHostLinkedBinding: admission.gitHostLinkedBinding,
           principalId: admission.principalId,
           authorize: () => admission.observe() === "current",
           authorizeAdmission: admission.authorizedAtAdmission,
@@ -1101,21 +1109,25 @@ export async function executeCoordinatorOperation(
       if (signal.aborted) return { kind: "cancelled" } as const;
       if (!target) return { kind: "access_denied" } as const;
       const { authorize, authorizeAdmission, ownerRoot, principalId } = target;
-      const requestId =
-        "requestId" in captured ? captured.requestId : undefined;
-      const active =
-        objectiveRuns && id(requestId)
-          ? objectiveRuns.attach(
-              runIdentity(target, captured.projectId, requestId),
-            )
-          : undefined;
+      const active = objectiveRuns?.attach(
+        runIdentity(target, request.projectId, request.requestId),
+      );
       if (active === null) return { kind: "unavailable" } as const;
       const reception: {
         status: "pending" | "access_denied" | "cancelled" | "accepted";
         workspaceId: string | null;
       } = { status: "pending", workspaceId: null };
       let effectAuthorized = false;
+      let firstTaskAuthorized = false;
       let publicationBlocked = false;
+      const sharedTarget = target.watch;
+      const admission = sharedTarget ? new AbortController() : null;
+      const disconnect = () => admission?.abort();
+      if (admission) {
+        signal.addEventListener("abort", disconnect, { once: true });
+        if (signal.aborted) disconnect();
+      }
+      const executionSignal = admission?.signal ?? signal;
       const refusal = (reason: "cancelled" | "access_denied") => {
         if (effectAuthorized) publicationBlocked = true;
         else reception.status = reason;
@@ -1124,9 +1136,12 @@ export async function executeCoordinatorOperation(
       const canGrant = () => {
         if (publicationBlocked) return false;
         if (active?.signal.aborted) return false;
-        if (signal.aborted) return refusal("cancelled");
+        if (executionSignal.aborted) return refusal("cancelled");
         try {
-          if (!effectAuthorized && authorizeAdmission?.() === false)
+          if (
+            !(sharedTarget ? firstTaskAuthorized : effectAuthorized) &&
+            authorizeAdmission?.() === false
+          )
             return refusal("access_denied");
           if (!authorize || authorize()) return true;
         } catch {
@@ -1137,11 +1152,10 @@ export async function executeCoordinatorOperation(
       let result: unknown;
       let unsubscribe: (() => void) | undefined;
       let accessTimer: ReturnType<typeof setInterval> | undefined;
-      const sharedTarget = target.watch;
       const revocation = sharedTarget ? new AbortController() : null;
       const monitoring = new AbortController();
       const monitorSignal = AbortSignal.any([
-        signal,
+        executionSignal,
         monitoring.signal,
         ...(revocation ? [revocation.signal] : []),
         ...(active ? [active.signal] : []),
@@ -1166,7 +1180,7 @@ export async function executeCoordinatorOperation(
           revocation?.abort();
         }
       };
-      const grantEffect = () => {
+      const grantEffect = (purpose?: "task") => {
         if (sharedTarget && revocation && !unsubscribe) {
           const { accessRoot, observe, revocationSignal } = sharedTarget;
           const recheck = (changesOnly: boolean) => {
@@ -1205,28 +1219,33 @@ export async function executeCoordinatorOperation(
           ).unref();
         }
         effectAuthorized = true;
+        // 初回のTask許可後だけ、受付接続から実行を分離する。
+        if (sharedTarget && purpose === "task" && !firstTaskAuthorized) {
+          firstTaskAuthorized = true;
+          signal.removeEventListener("abort", disconnect);
+        }
         return true;
       };
       try {
         const { runObjectiveInChild } = await import("./execution-child.ts");
         result = await runObjectiveInChild(
-          captured,
+          request,
           AbortSignal.any([
-            signal,
+            executionSignal,
             ...(revocation ? [revocation.signal] : []),
             ...(active ? [active.signal] : []),
           ]),
-          (request) => {
+          (observedTarget) => {
             if (!canGrant()) return null;
             reception.status = "accepted";
-            reception.workspaceId = request.workspaceId ?? null;
+            reception.workspaceId = observedTarget.workspaceId ?? null;
             return {
               directory: ownerRoot,
               principalId,
               ...(refresh && { confirmBeforeTask: true as const }),
             };
           },
-          () => {
+          (purpose) => {
             if (reception.status !== "accepted" || !canGrant()) return false;
             const checking = checkExternal();
             return checking
@@ -1235,22 +1254,23 @@ export async function executeCoordinatorOperation(
                     if (active?.signal.aborted) return false;
                     if (monitorSignal.aborted)
                       return refusal(
-                        signal.aborted ? "cancelled" : "access_denied",
+                        executionSignal.aborted ? "cancelled" : "access_denied",
                       );
                     if (current !== "current") {
                       if (effectAuthorized) stopOnRevocation(current);
                       return refusal("access_denied");
                     }
-                    return canGrant() && grantEffect();
+                    return canGrant() && grantEffect(purpose);
                   },
                   () => refusal("access_denied"),
                 )
-              : grantEffect();
+              : grantEffect(purpose);
           },
         );
       } catch {
         // 発行済みEffectはここで不存在とみなさない。
       } finally {
+        if (admission) signal.removeEventListener("abort", disconnect);
         active?.close();
         clearInterval(accessTimer);
         unsubscribe?.();
@@ -1258,14 +1278,6 @@ export async function executeCoordinatorOperation(
         monitoring.abort();
         await inFlight?.catch(() => undefined);
       }
-      if (
-        reception.status === "pending" &&
-        result &&
-        typeof result === "object" &&
-        "reason" in result &&
-        result.reason === "coordinator_objective_request_invalid"
-      )
-        return { kind: "invalid" } as const;
       if (reception.status === "pending" && signal.aborted)
         return { kind: "cancelled" } as const;
       if (
@@ -1275,6 +1287,7 @@ export async function executeCoordinatorOperation(
         return { kind: reception.status } as const;
       try {
         if (
+          signal.aborted ||
           publicationBlocked ||
           (refresh && (await refresh(signal)) !== "current") ||
           (authorize && !authorize())
@@ -1285,7 +1298,6 @@ export async function executeCoordinatorOperation(
       }
       try {
         if (reception.status === "accepted") {
-          const request = captured as Record<string, unknown>;
           const value = inspectCoordinatorObjectiveResult(
             result,
             reception.workspaceId,
@@ -1483,6 +1495,8 @@ export async function readAuthorizedExecutionActivity(
     },
     signal,
   );
+  // 同期読取り中に届いた切断通知を処理する機会を置いてから、公開可否を確定する。
+  await setTimeout(0);
   if (
     signal.aborted ||
     repositories.some(
@@ -1503,7 +1517,10 @@ export async function readRepositoryExecutionActivity(
     | { scope: "local"; repositoryRoot: string }
     | {
         scope: "shared";
-        credentials: { root: FilesystemStoreRoot; hosted: HostedAccessSession };
+        credentials: {
+          root: FilesystemStoreRoot;
+          hosted: GitHostLinkedAccessSession;
+        };
       },
   signal: AbortSignal,
   expectedProjectId?: string,
@@ -1530,7 +1547,7 @@ export async function readRepositoryExecutionActivity(
       };
     }
     const credentials = configuration.credentials;
-    return resolveHostedDevelopmentAccess(
+    return resolveGitHostLinkedDevelopmentAccess(
       credentials.root,
       credentials.hosted,
       repositoryId,
@@ -1563,95 +1580,15 @@ export async function readRepositoryExecutionActivity(
     "@qual-lab/crdd-coordinator"
   );
   const checked = parseExecutionActivityObservation(observation);
-  if (!checked || checked.projectId !== projectId || !authorize())
+  if (
+    !checked ||
+    checked.projectId !== projectId ||
+    checked.sources.length !== 1 ||
+    checked.sources.some((source) => source.repositoryId !== repositoryId) ||
+    !authorize()
+  )
     throw new Error("execution_activity_unavailable");
   return checked;
-}
-
-/**
- * Runtime Activityの読取りApplication Port。
- *
- * @responsibility Project IDを現在のRuntime観測結果へ変換するConsumer境界を固定する。
- * @trace ARCH-000004
- * @trace ARCH-000012
- * @shape observe操作だけを持つ読取り専用Portを表す。
- * @invariant WorkbenchへRuntime書込み、判断返却またはRecovery Authorityを公開しない。
- * @boundary WorkbenchとRepository／CROS Coordinator Adapterの型境界。
- * @security Project ID以外の任意Path、Credentialまたは内部Runtime引数を受け取らない。
- * @compatibility 書込み操作は本Portへ追加せず、別Authority境界で設計する。
- */
-export type WorkbenchActivityReader = Readonly<{
-  observe: (
-    projectId: string,
-    page?: WorkbenchExecutionActivityPageRequest,
-  ) => Promise<WorkbenchExecutionActivityObservation>;
-}>;
-
-const DEFAULT_EVENT_LIMIT = 20;
-
-/**
- * 起動時のRepository Identityへ固定した活動Readerを構築する。
- *
- * @responsibility 現在状態と履歴の観測・ページングを既存Coordinatorへ委譲する。
- * @trace ARCH-000004
- * @trace ARCH-000007
- * @trace ARCH-000012
- * @input 検証対象Rootと、Domainが確定したProject／Repository ID。
- * @returns 固定Projectだけを観測する読取り専用Reader。
- * @precondition Identityは起動時に取得したRepository Contextの値である。
- * @postcondition 現在状態・履歴・Continuationを同じOwnerの契約で返す。
- * @effect 現在Revision、Runtime状態と履歴を読む。初期化や保存はしない。
- * @failure RootまたはIdentity不成立はunknown。不正Cursorや上限はOwnerが拒否する。
- * @invariant 要求Projectの自己申告でRootの所属を変更しない。
- * @boundary Workbench表示とCoordinator活動Readerの直接境界。
- * @security 資格・Role・任意Pathを要求へ追加せず、Rootを表示しない。
- * @concurrency Identityの二値をコピーし、共有Cacheを持たない。
- */
-export function createRepositoryWorkbenchActivityReader(
-  repositoryRoot: string,
-  identity: Pick<RepositoryProjectContext, "projectId" | "repositoryId">,
-): WorkbenchActivityReader {
-  const fixedIdentity = Object.freeze({
-    projectId: identity.projectId,
-    repositoryId: identity.repositoryId,
-  });
-  const validIdentity =
-    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(fixedIdentity.projectId) &&
-    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(fixedIdentity.repositoryId);
-  const verification = getRepository(repositoryRoot);
-  return Object.freeze({
-    observe: async (projectId, page = {}) => {
-      if (
-        verification.status !== "completed" ||
-        !validIdentity ||
-        projectId !== fixedIdentity.projectId
-      )
-        return Object.freeze({
-          state: "unknown" as const,
-          reason: "repository_activity_identity_unverified",
-          projection: null,
-          eventState: "unknown" as const,
-          eventReason: "observation_failed",
-          events: Object.freeze([]),
-          eventContinuation: null,
-        });
-      const { queryActivity } = await import("@qual-lab/crdd-coordinator");
-      const observation = await queryActivity({
-        projectId: fixedIdentity.projectId,
-        repositories: [
-          {
-            ...fixedIdentity,
-            root: verification.capability,
-          },
-        ],
-        limit: page.limit ?? DEFAULT_EVENT_LIMIT,
-        ...(page.cursor === undefined ? {} : { cursor: page.cursor }),
-      });
-      if (observation.projectId !== fixedIdentity.projectId)
-        throw new Error("workbench_runtime_activity_project_mismatch");
-      return projectExecutionActivityForWorkbench(observation);
-    },
-  });
 }
 
 /** Workbenchが受け付けるAI依頼の用途区分。 */
@@ -1693,6 +1630,11 @@ export type AiSession = {
   canWrite: boolean;
 };
 
+export type ObservedAiSelection = Readonly<{
+  snapshot: AiRequestSnapshot;
+  canPublish: () => boolean;
+}>;
+
 export type AiSessionOperation =
   | "read"
   | "view"
@@ -1700,8 +1642,30 @@ export type AiSessionOperation =
   | "cancel"
   | AiRequestMode;
 
+type RetirableAiOwner = {
+  tasks: Pick<AiRequests, "close">;
+  busy: number;
+  lastUsed: number;
+  retiring?: Promise<void>;
+};
+
+/** 容量の整理では、進行中の仕事や終了が確認できない所有者を外さない。 */
+export async function retireIdleAiOwner<T extends RetirableAiOwner>(
+  owners: Map<string, T>,
+) {
+  const oldest = [...owners]
+    .filter(([, owner]) => owner.busy === 0 && !owner.retiring)
+    .sort((left, right) => left[1].lastUsed - right[1].lastUsed)[0];
+  if (!oldest) return false;
+  const [key, owner] = oldest;
+  owner.retiring = Promise.resolve().then(() => owner.tasks.close?.());
+  await owner.retiring;
+  if (owners.get(key) === owner) owners.delete(key);
+  return true;
+}
+
 /** OAuthの要求資格と、開始後も存続する同一本人・対象の実行監視を分離する。 */
-export function createHostedAiSessions(
+export function createGitHostLinkedAiSessions(
   factory: (
     repository: Repository,
     projectId: string,
@@ -1709,19 +1673,43 @@ export function createHostedAiSessions(
     authorize: () => boolean,
   ) => AiRequests,
 ) {
-  const owners = new Map<string, { tasks: AiRequests; opened: boolean }>();
+  type Publication = { denied: boolean };
+  type AccessObservation = {
+    host: string;
+    reference: string;
+    observedAt: number | null;
+    currentTarget: () => boolean;
+    runtimeSignal: AbortSignal;
+    publication: Publication;
+  };
+  type Owner = {
+    tasks: AiRequests;
+    opened: boolean;
+    busy: number;
+    lastUsed: number;
+    retiring?: Promise<void>;
+    observations: Map<string, AccessObservation>;
+  };
+  const owners = new Map<string, Owner>();
+  const retain = (owner: Owner) => {
+    owner.busy++;
+    return () => {
+      owner.busy--;
+      owner.lastUsed = Date.now();
+    };
+  };
   const selections = new WeakMap<
     object,
-    Map<string, { owner: string; requestId: string }>
+    Map<string, { owner: string; requestId: string; publication?: Publication }>
   >();
   const running = new Set<Promise<void>>();
   let closing = false;
   const ownerKey = (
-    session: HostedAccessSession,
+    session: GitHostLinkedAccessSession,
     repositoryId: string,
     target: {
       bindingId: string;
-      hostedBinding: string;
+      gitHostLinkedBinding: string;
       ownerRoot: string;
       projectId: string;
     },
@@ -1731,25 +1719,76 @@ export function createHostedAiSessions(
       session.principal.bindingId,
       repositoryId,
       target.bindingId,
-      target.hostedBinding,
+      target.gitHostLinkedBinding,
       target.ownerRoot,
       target.projectId,
     ]);
   async function open(
     root: FilesystemStoreRoot,
-    session: HostedAccessSession,
+    session: GitHostLinkedAccessSession,
     repositoryId: string,
     operation: AiSessionOperation,
     signal: AbortSignal,
+    observedRequestId?: string,
   ): Promise<AiSession | null> {
     const browser = session.browserSessionKey;
     if (!browser || closing || signal.aborted) return null;
     if (operation === "view" && !selections.get(browser)?.has(repositoryId))
       return null;
+    if (operation === "view" || operation === "read") {
+      const selection = selections.get(browser)?.get(repositoryId);
+      const requestId =
+        operation === "view" ? selection?.requestId : observedRequestId;
+      const entry =
+        selection && requestId === selection.requestId
+          ? owners.get(selection.owner)
+          : undefined;
+      const observation = requestId
+        ? entry?.observations.get(requestId)
+        : undefined;
+      // 次の照会より先に実行が終了しても、選択に確定した拒否を残す。
+      if (selection?.requestId === requestId && selection?.publication?.denied)
+        return null;
+      if (entry && requestId && observation) {
+        const fresh = () =>
+          !closing &&
+          !entry.retiring &&
+          !signal.aborted &&
+          !observation.publication.denied &&
+          !observation.runtimeSignal.aborted &&
+          observation.observedAt !== null &&
+          performance.now() - observation.observedAt <
+            executionAccessObservationLifetimeMs &&
+          selections.get(browser)?.get(repositoryId) === selection &&
+          entry.observations.get(requestId) === observation &&
+          session.isCurrent?.() !== false &&
+          session.readHostReference?.(observation.host) ===
+            observation.reference;
+        if (!fresh()) return null;
+        return {
+          owner: {
+            ...entry.tasks,
+            async observe(id, requestSignal) {
+              if (id !== requestId || !fresh())
+                throw new Error("workbench_ai_access_unavailable");
+              const release = retain(entry);
+              try {
+                return await entry.tasks.observe(id, requestSignal);
+              } finally {
+                release();
+              }
+            },
+          },
+          currentId: requestId,
+          canWrite: false,
+          authorize: () => fresh() && observation.currentTarget() && fresh(),
+        };
+      }
+    }
     const start =
       operation === "workspace_edit" || operation === "read_only_advice";
     const admission = start
-      ? await openHostedExecutionAccess(
+      ? await openGitHostLinkedExecutionAccess(
           root,
           session,
           repositoryId,
@@ -1762,7 +1801,7 @@ export function createHostedAiSessions(
       : null;
     const access = start
       ? null
-      : await resolveHostedDevelopmentAccess(
+      : await resolveGitHostLinkedDevelopmentAccess(
           root,
           session,
           repositoryId,
@@ -1772,20 +1811,29 @@ export function createHostedAiSessions(
     let ownedAdmission = admission;
     try {
       const target = admission ?? access;
-      const authorize = () =>
+      const authorizeTarget = () =>
         !closing &&
         !signal.aborted &&
         (admission
           ? admission.authorizeRequest()
           : access?.authorize() === true);
-      if (!target || !authorize()) return null;
+      if (!target || !authorizeTarget()) return null;
       const key = ownerKey(session, repositoryId, target);
       let owner = owners.get(key);
       if (!owner) {
-        if (operation === "read" || operation === "view" || owners.size >= 100)
-          return null;
+        if (operation === "view") return null;
+        while (!owner && owners.size >= 100) {
+          const attempted = await retireIdleAiOwner(owners).catch(() => true);
+          if (!authorizeTarget()) return null;
+          owner = owners.get(key);
+          if (!attempted) break;
+        }
+      }
+      if (!owner) {
+        if (owners.size >= 100) return null;
         const repository = getRepository(target.ownerRoot);
-        if (repository.status !== "completed" || !authorize()) return null;
+        if (repository.status !== "completed" || !authorizeTarget())
+          return null;
         const { observeBinding } = target;
         owner = {
           tasks: factory(
@@ -1795,12 +1843,35 @@ export function createHostedAiSessions(
             () => !closing && observeBinding() === "current",
           ),
           opened: false,
+          busy: 0,
+          lastUsed: Date.now(),
+          observations: new Map(),
         };
         owners.set(key, owner);
       }
       const entry = owner;
-      if ((operation === "read" || operation === "view") && !entry.opened)
+      if (entry.retiring || (operation === "view" && !entry.opened))
         return null;
+      const mustUseExecutionObservation = () => {
+        if (operation !== "read" && operation !== "view") return false;
+        const selected = selections.get(browser)?.get(repositoryId);
+        if (
+          !selected ||
+          selected.owner !== key ||
+          (operation === "read" && selected.requestId !== observedRequestId)
+        )
+          return false;
+        return (
+          selected.publication?.denied === true ||
+          entry.observations.has(selected.requestId)
+        );
+      };
+      // 過去の依頼として受け付けた後に同じ依頼が選択されたら、監視側の判断を優先する。
+      const authorize = () =>
+        !entry.retiring &&
+        owners.get(key) === entry &&
+        !mustUseExecutionObservation() &&
+        authorizeTarget();
       const taskOwner = entry.tasks;
       if (admission && !taskOwner.join) return null;
       if (!selections.get(browser)) selections.set(browser, new Map());
@@ -1808,20 +1879,40 @@ export function createHostedAiSessions(
       if (!selection) return null;
       if (admission) ownedAdmission = null;
       const releaseUnused = () => admission?.close?.();
+      let startedPublication: Publication | undefined;
       if (admission)
         signal.addEventListener("abort", releaseUnused, { once: true });
       return {
         owner: {
           ...taskOwner,
           async observe(requestId, requestSignal) {
-            const result = await taskOwner.observe(requestId, requestSignal);
-            if (
-              authorize() &&
-              result.requestId === requestId &&
-              result.mode !== null
-            )
-              entry.opened = true;
-            return result;
+            if (!authorize())
+              throw new Error("workbench_ai_access_unavailable");
+            const release = retain(entry);
+            try {
+              const result = await taskOwner.observe(requestId, requestSignal);
+              if (
+                operation !== "read" &&
+                operation !== "view" &&
+                authorize() &&
+                result.requestId === requestId &&
+                result.mode !== null
+              )
+                entry.opened = true;
+              return result;
+            } finally {
+              release();
+            }
+          },
+          async cancel(requestId, requestSignal) {
+            if (!authorize())
+              throw new Error("workbench_ai_access_unavailable");
+            const release = retain(entry);
+            try {
+              return await taskOwner.cancel(requestId, requestSignal);
+            } finally {
+              release();
+            }
           },
           async start(command, requestSignal) {
             signal.removeEventListener("abort", releaseUnused);
@@ -1841,20 +1932,37 @@ export function createHostedAiSessions(
             const stop = new AbortController();
             const done = new AbortController();
             const runtimeSignal = AbortSignal.any([stop.signal, done.signal]);
+            const reference = session.readHostReference?.(admission.host);
+            const observation: AccessObservation | undefined = reference
+              ? {
+                  host: admission.host,
+                  reference,
+                  observedAt: performance.now(),
+                  currentTarget: admission.observeTarget,
+                  runtimeSignal,
+                  publication: { denied: false },
+                }
+              : undefined;
             let refresh: Promise<void> | undefined;
             const discard = () => stop.abort();
             requestSignal?.addEventListener("abort", discard, { once: true });
             if (requestSignal?.aborted) discard();
+            const revoke = () => {
+              if (observation) observation.publication.denied = true;
+              discard();
+            };
             const stopIfRevoked = (status: string) => {
-              if (status === "revoked" || status === "target_changed")
-                discard();
+              if (status === "revoked" || status === "target_changed") revoke();
             };
             const revalidate = () => {
-              stopIfRevoked(admission.observe());
+              const status = admission.observe();
+              if (observation && status !== "current")
+                observation.observedAt = null;
+              stopIfRevoked(status);
               return undefined;
             };
             const unsubscribe = onAccessStatePublication(root, revalidate);
-            admission.revocationSignal?.addEventListener("abort", discard, {
+            admission.revocationSignal?.addEventListener("abort", revoke, {
               once: true,
             });
             const timer = setInterval(() => {
@@ -1865,9 +1973,16 @@ export function createHostedAiSessions(
                 .refresh(runtimeSignal)
                 .then(
                   (status) => {
-                    if (!runtimeSignal.aborted) stopIfRevoked(status);
+                    if (!runtimeSignal.aborted) {
+                      if (observation)
+                        observation.observedAt =
+                          status === "current" ? performance.now() : null;
+                      stopIfRevoked(status);
+                    }
                   },
-                  () => {},
+                  () => {
+                    if (observation) observation.observedAt = null;
+                  },
                 )
                 .finally(() => {
                   refresh = undefined;
@@ -1877,10 +1992,13 @@ export function createHostedAiSessions(
               clearInterval(timer);
               unsubscribe();
               done.abort();
-              admission.revocationSignal?.removeEventListener("abort", discard);
+              if (entry.observations.get(command.requestId) === observation)
+                entry.observations.delete(command.requestId);
+              admission.revocationSignal?.removeEventListener("abort", revoke);
               await refresh;
               admission.close?.();
             };
+            const release = retain(entry);
             let transferred = false;
             try {
               if (!authorize())
@@ -1904,9 +2022,13 @@ export function createHostedAiSessions(
                 result.requestId === command.requestId &&
                 result.reason === null
               ) {
+                if (observation)
+                  entry.observations.set(command.requestId, observation);
+                startedPublication = observation?.publication;
                 const settled = taskOwner
                   .join(command.requestId)
-                  .then(close, close);
+                  .then(close, close)
+                  .finally(release);
                 running.add(settled);
                 void settled.then(
                   () => running.delete(settled),
@@ -1917,7 +2039,12 @@ export function createHostedAiSessions(
               return result;
             } finally {
               requestSignal?.removeEventListener("abort", discard);
-              if (!transferred) await close();
+              if (!transferred)
+                try {
+                  await close();
+                } finally {
+                  release();
+                }
             }
           },
         },
@@ -1927,7 +2054,22 @@ export function createHostedAiSessions(
         },
         set currentId(id) {
           if (id === null) selection.delete(repositoryId);
-          else selection.set(repositoryId, { owner: key, requestId: id });
+          else {
+            const selected = selection.get(repositoryId);
+            if (
+              !startedPublication &&
+              selected?.owner === key &&
+              selected.requestId === id
+            )
+              return;
+            const publication =
+              entry.observations.get(id)?.publication ?? startedPublication;
+            selection.set(repositoryId, {
+              owner: key,
+              requestId: id,
+              ...(publication ? { publication } : {}),
+            });
+          }
         },
         authorize,
         canWrite: access?.canWrite ?? operation === "workspace_edit",
@@ -1939,10 +2081,10 @@ export function createHostedAiSessions(
   return {
     open,
     async observeSelected(
-      session: HostedAccessSession,
+      session: GitHostLinkedAccessSession,
       target: AuthorizedRepository,
       signal: AbortSignal,
-    ) {
+    ): Promise<ObservedAiSelection | null> {
       const browser = session.browserSessionKey;
       if (
         !browser ||
@@ -1953,28 +2095,51 @@ export function createHostedAiSessions(
         return null;
       const selection = selections.get(browser);
       const selected = selection?.get(target.repositoryId);
-      if (!selected) return null;
+      if (!selected || selected.publication?.denied) return null;
       const key = ownerKey(session, target.repositoryId, {
         bindingId: target.bindingId,
-        hostedBinding: JSON.stringify(target.hostedRepository),
+        gitHostLinkedBinding: JSON.stringify(target.hostedRepository),
         ownerRoot: target.root,
         projectId: target.manifest.projectId,
       });
       const owner = selected.owner === key ? owners.get(key) : undefined;
-      if (!owner?.opened) return null;
-      const result = await owner.tasks.observe(selected.requestId, signal);
-      return !closing &&
-        !signal.aborted &&
-        session.isCurrent?.() !== false &&
-        result.requestId === selected.requestId &&
-        selection?.get(target.repositoryId) === selected
-        ? result
-        : null;
+      if (!owner?.opened || owner.retiring) return null;
+      const observation = owner.observations.get(selected.requestId);
+      const available = () =>
+        !selected.publication?.denied &&
+        owner.observations.get(selected.requestId) === observation &&
+        (!observation ||
+          (!observation.publication.denied &&
+            !observation.runtimeSignal.aborted &&
+            observation.observedAt !== null &&
+            performance.now() - observation.observedAt <
+              executionAccessObservationLifetimeMs &&
+            session.readHostReference?.(observation.host) ===
+              observation.reference));
+      if (!available()) return null;
+      const release = retain(owner);
+      const result = await owner.tasks
+        .observe(selected.requestId, signal)
+        .finally(release);
+      if (result.requestId !== selected.requestId) return null;
+      return {
+        snapshot: result,
+        canPublish: () =>
+          !closing &&
+          !signal.aborted &&
+          !owner.retiring &&
+          owners.get(key) === owner &&
+          available() &&
+          session.isCurrent?.() !== false &&
+          selection?.get(target.repositoryId) === selected,
+      };
     },
     async close() {
       closing = true;
       const results = await Promise.allSettled(
-        [...owners.values()].map(({ tasks }) => tasks.close?.()),
+        [...owners.values()].map(
+          ({ tasks, retiring }) => retiring ?? tasks.close?.(),
+        ),
       );
       owners.clear();
       const monitors = await Promise.allSettled(running);
@@ -2002,7 +2167,7 @@ export function prepareAiRequestStart(
     allowedPaths: string;
     workspaceId: string | null;
   }>,
-  connection: "local" | "shared",
+  requestScope: "local" | "shared",
 ): AiRequestCommand {
   const choice =
     input.explicitChoice === undefined
@@ -2013,7 +2178,7 @@ export function prepareAiRequestStart(
   const { mode } = input;
   if (mode !== "read_only_advice" && mode !== "workspace_edit")
     throw new Error("workbench_ai_request_mode_invalid");
-  const local = connection === "local";
+  const local = requestScope === "local";
   const prompt = local ? input.prompt.trim() : input.prompt;
   const allowedPaths = input.allowedPaths
     .split(/\r?\n/u)
@@ -2055,152 +2220,6 @@ export function prepareAiRequestStart(
   };
   return local ? Object.freeze(command) : command;
 }
-/**
- * 検査済み活動Ownerの観測を画面専用値へ投影する。
- * @responsibility 出所を画面契約へ暗黙転記せず、表示語彙へ変換する。
- * @trace ARCH-000004
- * @trace ARCH-000007
- * @trace ARCH-000012
- * @input Coordinatorの検査済み活動観測。
- * @returns 現行Workbench表示Propertyだけを持つ新Object。
- * @precondition 利用側が既存OwnerのSchemaと要求Projectの一致を確認済み。通信経路の有無を認可証明にしない。
- * @postcondition 現在状態・履歴・Continuationの意味を保持する。
- * @effect N/A: 純粋な値変換だけを行う。
- * @failure N/A: 検査済み入力だけを受ける。
- * @invariant Root・出所Repository・管理情報を画面契約へ追加しない。
- * @boundary 活動Ownerの搬送契約からWorkbench表示契約。
- * @security 非秘密の表示項目だけを明示投影する。
- * @concurrency N/A: 共有状態を持たない。
- */
-export function projectExecutionActivityForWorkbench(
-  observation: ExecutionActivityObservation,
-): WorkbenchExecutionActivityObservation {
-  return Object.freeze({
-    state: observation.state,
-    reason: observation.reason,
-    projection: observation.projection,
-    eventState: observation.eventState,
-    eventReason:
-      observation.eventState === "observed"
-        ? "execution_events_observed"
-        : "observation_failed",
-    events: Object.freeze(
-      observation.events.map((event) =>
-        Object.freeze({
-          eventId: event.eventId,
-          occurredAt: event.occurredAt,
-          objectiveId: event.objectiveId,
-          taskId: event.taskId,
-          attemptId: event.attemptId,
-          status: event.status,
-          reason: event.reason,
-          cleanupConfirmed: event.cleanupConfirmed,
-          manualRecoveryRequired: event.manualRecoveryRequired,
-        }),
-      ),
-    ),
-    eventContinuation: observation.eventContinuation,
-    singleTasks: observation.singleTasks ?? [],
-    graphs: observation.graphs ?? [],
-  });
-}
-
-/**
- * Workbenchが表示するCoordinator現在投影の値契約。
- *
- * @responsibility 実行状況画面に必要なMilestone、Objective／Task、判断、Recoveryおよび次処置を閉じる。
- * @trace ARCH-000004
- * @trace ARCH-000012
- * @shape Coordinator公開投影の表示Propertyだけを表す。
- * @invariant Runtime正本、Authorityまたは状態遷移操作を所有しない。
- * @boundary Coordinator State Query AdapterとWorkbench表示の型境界。
- * @security 非開示Task本文、Credential、Host PathおよびRecovery Authorityを含まない。
- * @compatibility Coordinator公開契約変更時はAdapterと表示試験を再評価する。
- */
-export type WorkbenchExecutionActivityProjection = Readonly<{
-  projectId: string;
-  milestoneId: string;
-  generation: number;
-  milestoneState: string;
-  objectiveCounts: Readonly<Record<string, number>>;
-  taskCounts: Readonly<Record<string, number>>;
-  objectiveTaskSummaries: readonly Readonly<{
-    objectiveId: string;
-    objectiveState: string;
-    taskCounts: Readonly<Record<string, number>>;
-  }>[];
-  workProgress: string;
-  qualityState: string;
-  humanDecisionRequired: boolean;
-  recoveryRequired: boolean;
-  nextAction: string;
-}>;
-
-/**
- * Workbenchへ公開する一つの実行Event要約。
- *
- * @responsibility Execution Intelligence Eventから実行履歴画面に必要な非秘密情報だけを固定する。
- * @trace ARCH-000007
- * @trace ARCH-000012
- * @shape Event、Objective、Task、Attempt、時刻、結果および回復要否を表す。
- * @invariant Event Storeの正本値を変更せず、Recovery Authorityまたは生Provider出力を含まない。
- * @boundary Execution Intelligence EventとWorkbench表示の型境界。
- * @security Credential、Prompt、Response、Host PathおよびRecovery Authorityを含まない。
- * @compatibility Event契約変更時は投影と継続読込試験を再評価する。
- */
-export type WorkbenchExecutionEventProjection = Readonly<{
-  eventId: string;
-  occurredAt: string;
-  objectiveId: string;
-  taskId: string;
-  attemptId: string;
-  status: "completed" | "blocked" | "cancelled" | "unknown";
-  reason: string;
-  cleanupConfirmed: boolean;
-  manualRecoveryRequired: boolean;
-}>;
-
-/**
- * Runtime Eventページ要求。
- *
- * @responsibility Eventの取得上限と継続位置を一回の観測へ結合する。
- * @trace ARCH-000007
- * @trace ARCH-000012
- * @shape cursorとlimitを表す。
- * @invariant limitは1件以上50件以下である。
- * @boundary Browser QueryとExecution Event投影の型境界。
- * @security CursorへRepository Pathまたは秘密値を含めない。
- * @compatibility Cursorは同じ並び順の後続取得にだけ使用する。
- */
-export type WorkbenchExecutionActivityPageRequest = Readonly<{
-  cursor?: string;
-  limit?: number;
-}>;
-
-/**
- * Runtime Activity一回分の観測結果を表す値契約。
- *
- * @responsibility observed、absent、unknownと理由・投影の相関をWorkbenchへ搬送する。
- * @trace ARCH-000004
- * @trace ARCH-000012
- * @shape state、reasonおよびprojectionを表す。
- * @invariant observedだけが非null projectionを持つ想定であり、表示側でも不整合を成功へ畳まない。
- * @boundary Runtime Activity Application PortとBrowser表示の型境界。
- * @security reasonに秘密値、Host Pathまたは非開示Identityを含めない。
- * @compatibility 状態追加時は未接続を含む全表示分岐を再評価する。
- */
-export type WorkbenchExecutionActivityObservation = Readonly<{
-  singleTasks?: ExecutionActivityObservation["singleTasks"];
-  graphs?: ExecutionActivityObservation["graphs"];
-  state: "observed" | "absent" | "unknown";
-  reason: string;
-  projection: WorkbenchExecutionActivityProjection | null;
-  eventState: "observed" | "unknown";
-  eventReason: string;
-  events: readonly WorkbenchExecutionEventProjection[];
-  eventContinuation: string | null;
-}>;
-
 /**
  * AI結果の一項目と、その意味を支える正本参照。
  *

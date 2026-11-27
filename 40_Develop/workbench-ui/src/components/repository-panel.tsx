@@ -6,7 +6,14 @@
  * @boundary 非秘密の表示ModelとBrowser DOM。
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
-import type { ReactElement } from "react";
+import type { RepositoryFilesResponse } from "@qual-lab/crdd-server";
+import { type ReactElement, useEffect, useState } from "react";
+import { useLocation } from "react-router";
+import {
+  readRepositoryFileSelection,
+  readRepositoryFiles,
+  repositoryFilesLocation,
+} from "../api/repository.ts";
 import type { MainViewResponse } from "../api/response.ts";
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 
@@ -27,9 +34,13 @@ import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
  */
 export function Repository({
   model,
+  refresh,
 }: {
   model: MainViewResponse;
+  refresh: number;
 }): ReactElement {
+  const { search } = useLocation();
+  const selectedFiles = readRepositoryFileSelection(search);
   const repository = model.projectData.repository;
   const repositoryId =
     model.selectedRepositoryId ?? model.projectData.context.repositoryId;
@@ -53,8 +64,6 @@ export function Repository({
   ] as const;
   const count = groups.reduce((sum, [, , paths]) => sum + paths.length, 0);
   const target = repository.publicationTarget;
-  const tree = model.worktree.tree;
-  const diff = model.worktree.diff;
   return (
     <WorkbenchPanel
       id="repository"
@@ -62,90 +71,15 @@ export function Repository({
       title="作業ツリー"
       status={`${count} changes`}
     >
-      <section className="repository-browser">
-        <h3>Repository Tree／Diff</h3>
-        {model.worktree.state === "unknown" || tree === null ? (
-          <EmptyState>
-            TreeまたはDiffを完全に観測できません。空Repositoryとして扱いません。
-          </EmptyState>
-        ) : (
-          <>
-            <nav className="repository-breadcrumb">
-              {tree.directory.length === 0 ? (
-                <strong>Repository root</strong>
-              ) : (
-                <>
-                  <a
-                    href={`/?treeDirectory=${encodeURIComponent(tree.directory.includes("/") ? tree.directory.slice(0, tree.directory.lastIndexOf("/")) : "")}#repository`}
-                  >
-                    ← Repository root
-                  </a>
-                  <strong>{tree.directory}</strong>
-                </>
-              )}
-            </nav>
-            {tree.entries.length === 0 ? (
-              <EmptyState>このDirectoryの表示対象は0件です。</EmptyState>
-            ) : (
-              <ul className="repository-tree">
-                {tree.entries.map((entry) => (
-                  <li key={entry.path}>
-                    <a
-                      href={
-                        entry.kind === "directory"
-                          ? `/?treeDirectory=${encodeURIComponent(entry.path)}#repository`
-                          : `/?treeDirectory=${encodeURIComponent(tree.directory)}&diffPath=${encodeURIComponent(entry.path)}#repository`
-                      }
-                    >
-                      <span aria-hidden="true">
-                        {entry.kind === "directory" ? "▸" : "·"}
-                      </span>
-                      <code>{entry.name}</code>
-                    </a>
-                    <small>
-                      {[
-                        entry.prepared ? "staged" : "",
-                        entry.working ? "working" : "",
-                        entry.unregistered ? "untracked" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" / ") || "unchanged"}
-                    </small>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {tree.nextCursor === null ? null : (
-              <a
-                className="page-link"
-                href={`/?treeDirectory=${encodeURIComponent(tree.directory)}&treeCursor=${encodeURIComponent(tree.nextCursor)}#repository`}
-              >
-                次のEntry
-              </a>
-            )}
-            {diff === null ? (
-              <EmptyState>
-                Fileを選択するとPrepared／Working差分を表示します。
-              </EmptyState>
-            ) : (
-              <section className="repository-diff">
-                <h4>
-                  <code>{diff.path}</code>
-                </h4>
-                {diff.unregistered ? (
-                  <EmptyState>
-                    未追跡Fileの内容は自動読取りしません。Stage後にPrepared差分として確認してください。
-                  </EmptyState>
-                ) : null}
-                <h5>Prepared</h5>
-                <pre>{diff.preparedPatch || "差分なし"}</pre>
-                <h5>Working</h5>
-                <pre>{diff.workingPatch || "差分なし"}</pre>
-              </section>
-            )}
-          </>
-        )}
-      </section>
+      <RepositoryFiles
+        repositoryId={repositoryId}
+        browserSession={model.workspaceAccess !== undefined}
+        search={search}
+        directory={selectedFiles.directory}
+        cursor={selectedFiles.cursor}
+        file={selectedFiles.diff}
+        refresh={refresh}
+      />
       {groups.map(([label, operation, paths]) => (
         <section className="repository-group" key={label}>
           <h3>
@@ -247,4 +181,182 @@ export function Repository({
       )}
     </WorkbenchPanel>
   );
+}
+
+function RepositoryFiles({
+  repositoryId,
+  browserSession,
+  search,
+  directory,
+  cursor,
+  file,
+  refresh,
+}: {
+  repositoryId: string;
+  browserSession: boolean;
+  search: string;
+  directory: string;
+  cursor: string;
+  file: string;
+  refresh: number;
+}) {
+  const treeResult = useRepositoryFiles(
+    "tree",
+    repositoryId,
+    directory,
+    cursor,
+    browserSession,
+    refresh,
+  );
+  const diffResult = useRepositoryFiles(
+    "diff",
+    repositoryId,
+    file,
+    "",
+    browserSession,
+    refresh,
+  );
+  const tree = treeResult?.tree;
+  const diff = diffResult?.diff;
+  const location = (directory: string, cursor = "", file = "") =>
+    repositoryFilesLocation(search, directory, cursor, file);
+  return (
+    <section className="repository-browser">
+      <h3>Repository Tree／Diff</h3>
+      {tree ? (
+        <>
+          <nav className="repository-breadcrumb">
+            {tree.directory ? (
+              <>
+                <a
+                  href={location(
+                    tree.directory.slice(
+                      0,
+                      Math.max(0, tree.directory.lastIndexOf("/")),
+                    ),
+                  )}
+                >
+                  ← 親フォルダ
+                </a>
+                <strong>{tree.directory}</strong>
+              </>
+            ) : (
+              <strong>Repository root</strong>
+            )}
+          </nav>
+          {tree.entries.length === 0 ? (
+            <EmptyState>このフォルダの表示対象は0件です。</EmptyState>
+          ) : (
+            <ul className="repository-tree">
+              {tree.entries.map((entry) => (
+                <li key={entry.path}>
+                  <a
+                    href={
+                      entry.kind === "directory"
+                        ? location(entry.path)
+                        : location(directory, cursor, entry.path)
+                    }
+                  >
+                    <span aria-hidden="true">
+                      {entry.kind === "directory" ? "▸" : "·"}
+                    </span>
+                    <code>{entry.name}</code>
+                  </a>
+                  <small>
+                    {[
+                      entry.prepared ? "staged" : "",
+                      entry.working ? "working" : "",
+                      entry.unregistered ? "untracked" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" / ") || "unchanged"}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+          {tree.nextCursor !== null && (
+            <a
+              className="page-link"
+              href={location(directory, tree.nextCursor)}
+            >
+              次の項目
+            </a>
+          )}
+        </>
+      ) : (
+        <EmptyState>
+          {treeResult === null
+            ? "作業ツリーを観測できません。空として扱いません。"
+            : "作業ツリーを取得中です。"}
+        </EmptyState>
+      )}
+      {!file ? (
+        <EmptyState>
+          ファイルを選ぶとステージ済みと作業中の差分を表示します。
+        </EmptyState>
+      ) : diff ? (
+        <section className="repository-diff">
+          <h4>
+            <code>{diff.path}</code>
+          </h4>
+          {diff.unregistered && (
+            <EmptyState>
+              未追跡ファイルの本文は表示しません。ステージしてから差分を確認してください。
+            </EmptyState>
+          )}
+          <h5>Prepared</h5>
+          <pre>{diff.preparedPatch || "差分なし"}</pre>
+          <h5>Working</h5>
+          <pre>{diff.workingPatch || "差分なし"}</pre>
+        </section>
+      ) : (
+        <EmptyState>
+          {diffResult === null
+            ? "差分を観測できません。"
+            : "差分を取得中です。"}
+        </EmptyState>
+      )}
+    </section>
+  );
+}
+
+function useRepositoryFiles<K extends RepositoryFilesResponse["kind"]>(
+  kind: K,
+  repositoryId: string,
+  target: string,
+  cursor: string,
+  browserSession: boolean,
+  refresh: number,
+) {
+  type Result = Extract<RepositoryFilesResponse, { kind: K }>;
+  const scope = JSON.stringify([
+    kind,
+    repositoryId,
+    target,
+    cursor,
+    browserSession,
+    refresh,
+  ]);
+  const [observed, setObserved] = useState<{
+    scope: string;
+    result: Result | null;
+  }>();
+  useEffect(() => {
+    if (kind === "diff" && !target) return;
+    const pending = new AbortController();
+    const publish = (result: Result | null) => {
+      if (!pending.signal.aborted) setObserved({ scope, result });
+    };
+    void readRepositoryFiles(
+      kind,
+      repositoryId,
+      target,
+      cursor,
+      pending.signal,
+      browserSession,
+    ).then(publish, () => publish(null));
+    return () => pending.abort();
+  }, [kind, repositoryId, target, cursor, browserSession, scope]);
+  return observed?.scope === scope ? observed.result : undefined;
 }

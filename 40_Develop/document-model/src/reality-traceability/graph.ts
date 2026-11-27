@@ -188,7 +188,7 @@ export function createRealitySymbolGraph(
         knownQaIds.has(qaId),
       );
       if (symbol.kind === "test-suite" || symbol.kind === "test-case") {
-        const testPath = `40_Develop/${loadedManifest.manifest.subsystem}/${symbol.path}`;
+        const testPath = `${loadedManifest.subsystemRoot}/${symbol.path}`;
         const registeredTest = registeredTestsByPath.get(testPath);
         if (!registeredTest)
           issues.push(

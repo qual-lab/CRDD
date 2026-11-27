@@ -7,7 +7,7 @@
 
 import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import {
-  acceptsAccessPrincipal,
+  isUnexpiredAccountPrincipal,
   resolveAccessPrincipal,
 } from "../authorization/principal.ts";
 import type {
@@ -29,7 +29,7 @@ import { deriveRepositoryBindingId } from "./binding.ts";
 import type {
   AuthorizedRepository,
   GitHostLinkedRepository,
-  HostedAccessCandidate,
+  GitHostLinkedAccessCandidate,
   RepositoryAccessCollectionResult,
 } from "./types.ts";
 
@@ -59,27 +59,28 @@ function sameHostReference(
 }
 
 /** 確認済みの本人に対し、外部権限を照会する登録の識別子だけを取得する。 */
-export function readHostedAccessCandidates(
+export function readGitHostLinkedAccessCandidates(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
 ) {
-  if (!acceptsAccessPrincipal(principal)) return { status: "revoked" } as const;
-  return readHostedCandidates(root, (state) =>
+  if (!isUnexpiredAccountPrincipal(principal))
+    return { status: "revoked" } as const;
+  return readGitHostLinkedCandidates(root, (state) =>
     resolveAccessPrincipal(principal, state),
   );
 }
 
 /** 開始済み実行の元の紐付けと登録を観測する。新規要求の認証・本文公開には使わない。 */
-export function observeHostedExecutionBinding(
+export function observeGitHostLinkedExecutionBinding(
   root: FilesystemStoreRoot,
   binding: Readonly<{ userId: string; bindingId: string }>,
 ) {
-  return readHostedCandidates(root, (state) =>
+  return readGitHostLinkedCandidates(root, (state) =>
     resolveAccountBinding(state, binding),
   );
 }
 
-function readHostedCandidates(
+function readGitHostLinkedCandidates(
   root: FilesystemStoreRoot,
   identify: (state: AccessManagementState) => AccessActor | null,
 ) {
@@ -89,7 +90,7 @@ function readHostedCandidates(
     | {
         status: "current";
         managementRevision: number;
-        candidates: readonly HostedAccessCandidate[];
+        candidates: readonly GitHostLinkedAccessCandidate[];
       }
   >(root, () => {
     const { state } = readCurrent(root);
@@ -104,16 +105,12 @@ function readHostedCandidates(
     const actor = identify(state);
     if (!actor || state.initialization.stage !== "completed")
       return { ...metadata, value: revoked };
-    const candidates: HostedAccessCandidate[] = [];
-    for (const entry of state.registeredRepositories) {
-      if (entry.hostedRepository) {
-        candidates.push({
-          repositoryId: entry.repositoryId,
-          bindingId: entry.bindingId,
-          hostedRepository: copyHostReference(entry.hostedRepository),
-        });
-      }
-    }
+    const candidates: GitHostLinkedAccessCandidate[] =
+      state.registeredRepositories.map((entry) => ({
+        repositoryId: entry.repositoryId,
+        bindingId: entry.bindingId,
+        hostedRepository: copyHostReference(entry.hostedRepository),
+      }));
     return {
       ...metadata,
       value: {
@@ -128,25 +125,25 @@ function readHostedCandidates(
     : { status: "unavailable" as const };
 }
 
-type CheckedHostedAccess = Readonly<{
+type CheckedGitHostLinkedAccess = Readonly<{
   managementRevision: number;
-  candidates: readonly HostedAccessCandidate[];
+  candidates: readonly GitHostLinkedAccessCandidate[];
   allowUnrelatedRevision?: true;
 }>;
 
 /** Gitの接続先を先に検査するため、現在許可された登録のパスだけを返す。 */
-export function resolveHostedAccessDirectories(
+export function resolveGitHostLinkedAccessDirectories(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
-  checked: CheckedHostedAccess,
+  checked: CheckedGitHostLinkedAccess,
 ) {
-  if (!acceptsAccessPrincipal(principal)) return null;
+  if (!isUnexpiredAccountPrincipal(principal)) return null;
   const result = locked(root, () => {
     const { state } = readCurrent(root);
     const actor = resolveAccessPrincipal(principal, state);
-    if (!actor || !isCurrentHostedCheck(root, state, checked))
+    if (!actor || !isCurrentGitHostLinkedCheck(root, state, checked))
       throw new Error("hosted_repository_access_unavailable");
-    const selected = selectHostedRegistrations(state, checked);
+    const selected = selectGitHostLinkedRegistrations(state, checked);
     if (selected.length !== checked.candidates.length)
       throw new Error("hosted_repository_access_unavailable");
     return {
@@ -164,10 +161,10 @@ export function resolveHostedAccessDirectories(
 }
 
 /** 外部照会済みの対象だけを、保存ロック内で再照合して本文の利用側へ渡す。 */
-export function resolveHostedAccessCollection(
+export function resolveGitHostLinkedAccessCollection(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
-  checked: CheckedHostedAccess,
+  checked: CheckedGitHostLinkedAccess,
 ): RepositoryAccessCollectionResult {
   return readRepositoryAccessCollection(root, principal, checked);
 }
@@ -190,18 +187,14 @@ function observeRegisteredRepository(
     bindingId: registration.bindingId,
     manifest,
     root,
-    ...(registration.hostedRepository
-      ? {
-          hostedRepository: copyHostReference(registration.hostedRepository),
-        }
-      : {}),
+    hostedRepository: copyHostReference(registration.hostedRepository),
   });
 }
 
-function isCurrentHostedCheck(
+function isCurrentGitHostLinkedCheck(
   root: FilesystemStoreRoot,
   state: AccessManagementState,
-  checked: CheckedHostedAccess,
+  checked: CheckedGitHostLinkedAccess,
 ) {
   return (
     state.initialization.stage === "completed" &&
@@ -213,9 +206,9 @@ function isCurrentHostedCheck(
   );
 }
 
-function selectHostedRegistrations(
+function selectGitHostLinkedRegistrations(
   state: AccessManagementState,
-  checked: CheckedHostedAccess,
+  checked: CheckedGitHostLinkedAccess,
 ) {
   const confirmed = new Map(
     checked.candidates.map((entry) => [entry.repositoryId, entry]),
@@ -223,12 +216,13 @@ function selectHostedRegistrations(
   return state.registeredRepositories
     .filter((registration) => {
       const target = confirmed.get(registration.repositoryId);
-      const local = registration.hostedRepository;
       return Boolean(
         target &&
-          local &&
           registration.bindingId === target.bindingId &&
-          sameHostReference(local, target.hostedRepository),
+          sameHostReference(
+            registration.hostedRepository,
+            target.hostedRepository,
+          ),
       );
     })
     .sort((a, b) =>
@@ -243,9 +237,9 @@ function selectHostedRegistrations(
 function readRepositoryAccessCollection(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
-  checked: CheckedHostedAccess,
+  checked: CheckedGitHostLinkedAccess,
 ): RepositoryAccessCollectionResult {
-  if (!acceptsAccessPrincipal(principal))
+  if (!isUnexpiredAccountPrincipal(principal))
     return { status: "unavailable", reason: "repository_access_rejected" };
   const result = locked<{
     managementRevision: number;
@@ -257,7 +251,7 @@ function readRepositoryAccessCollection(
       if (
         !actor ||
         current.state.initialization.stage !== "completed" ||
-        !isCurrentHostedCheck(root, current.state, checked)
+        !isCurrentGitHostLinkedCheck(root, current.state, checked)
       )
         return {
           status: "unavailable",
@@ -266,7 +260,7 @@ function readRepositoryAccessCollection(
           revision: null,
           cleanupConfirmed: true,
         };
-      const selected = selectHostedRegistrations(current.state, checked);
+      const selected = selectGitHostLinkedRegistrations(current.state, checked);
       if (selected.length !== checked.candidates.length)
         return {
           status: "unavailable",
@@ -297,17 +291,7 @@ function readRepositoryAccessCollection(
             revision: current.state.revision,
             cleanupConfirmed: true,
           };
-        repositories.push(
-          Object.freeze({
-            repositoryId: access.repositoryId,
-            bindingId: access.bindingId,
-            manifest: access.manifest,
-            root: access.root,
-            ...(access.hostedRepository
-              ? { hostedRepository: access.hostedRepository }
-              : {}),
-          }),
-        );
+        repositories.push(access);
       }
       return {
         status: "completed",

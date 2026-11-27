@@ -11,9 +11,13 @@
 
 export { readCurrentAccess } from "./authorization/current.ts";
 export {
-  evaluateManagementPermission,
   readManagementState,
+  readManagementUsersForDisplay,
 } from "./authorization/management.ts";
+export {
+  describeManagementPermissions,
+  evaluateManagementPermission,
+} from "./permission/validation.ts";
 export type { AccountAccessPrincipal } from "./authorization/types.ts";
 export { initializeAdministratorFromHost } from "./initialization/execution.ts";
 export type { FilesystemStoreRoot } from "./initialization/root.ts";
@@ -33,20 +37,20 @@ export type {
   ManagementRequest,
 } from "./permission/types.ts";
 export {
-  checkHostedRepositoryRegistration,
+  checkGitHostLinkedRepositoryRegistration,
   registerRepository,
   unregisterRepository,
 } from "./repository/register.ts";
 export {
-  observeHostedExecutionBinding,
-  readHostedAccessCandidates,
-  resolveHostedAccessCollection,
-  resolveHostedAccessDirectories,
+  observeGitHostLinkedExecutionBinding,
+  readGitHostLinkedAccessCandidates,
+  resolveGitHostLinkedAccessCollection,
+  resolveGitHostLinkedAccessDirectories,
 } from "./repository/resolve.ts";
 export type {
   AuthorizedRepository,
   GitHostLinkedRepository,
-  HostedAccessCandidate,
+  GitHostLinkedAccessCandidate,
   RepositoryAccessCollectionResult,
 } from "./repository/types.ts";
 export { updateUserRole } from "./role/assign.ts";

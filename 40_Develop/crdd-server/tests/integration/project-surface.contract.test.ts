@@ -167,13 +167,7 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
     }
     relative = `${"segment/".repeat(80)}long.md`;
     assert.ok(relative.length > 512);
-    assert.equal(
-      readArtifactSelection(
-        new URLSearchParams({ route: "/owner-artifact", path: relative }),
-        false,
-      )?.identity,
-      relative,
-    );
+    assert.equal(readArtifactSelection("owner", relative).identity, relative);
     file = path.join(root, ...relative.split("/"));
     await mkdir(path.dirname(file), { recursive: true });
     const longBody = "# long path\ncomplete body\n";

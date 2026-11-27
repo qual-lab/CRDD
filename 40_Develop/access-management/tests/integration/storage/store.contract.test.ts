@@ -7,6 +7,7 @@
  * @trace RFD-IT-018
  * @trace RFD-IT-019
  * @trace RFD-IT-021
+ * @trace RFD-IT-024
  * @level IT
  * @scope access-management/state、直接保存境界
  * @boundary Node Filesystem、既存の保存Root・ロック、管理状態の保存と再入場。
@@ -20,17 +21,14 @@ import test from "node:test";
 import {
   onAccessStatePublication,
   readCurrentAccess,
-  readHostedAccessCandidates,
+  readGitHostLinkedAccessCandidates,
+  readHostInitializationState,
 } from "../../../src/index.ts";
 import { saveRepositoryRemoval } from "../../../src/repository/register.ts";
 import { saveUserRole } from "../../../src/role/assign.ts";
 import { locked } from "../../../src/storage/lock.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
-import {
-  readAccessManagementState,
-  readCurrent,
-  updateAccessManagementState,
-} from "../../../src/storage/store.ts";
+import { readCurrent } from "../../../src/storage/store.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
 import { saveUserName } from "../../../src/user/crud.ts";
 import type { UserRoleManagementResult } from "../../../src/user/types.ts";
@@ -42,9 +40,95 @@ import {
   managementFixture,
   prepare,
   saveUserRegistrationFixture,
-  seedRetiredInitialCredential,
   removeKnownStoppedTestLock,
 } from "./fixture.ts";
+
+function renameAdministrator(
+  f: ReturnType<typeof fixture>,
+  expectedRevision: number,
+  operationId: string = crypto.randomUUID(),
+  username = "更新後",
+) {
+  const actor = f.state.users[0];
+  const binding = actor?.accountLinks?.[0];
+  assert.ok(actor && binding);
+  return saveUserName(
+    f.root,
+    {
+      kind: "account",
+      userId: actor.userId,
+      bindingId: binding.bindingId,
+      expiresAt: Date.now() + 60_000,
+    },
+    expectedRevision,
+    operationId,
+    actor.userId,
+    username,
+  );
+}
+
+/** 公開入力では作れない保存候補だけを、通常の名前変更で候補検査へ渡す。 */
+function renameWithInvalidCandidate(
+  t: Parameters<typeof fixture>[0],
+  f: ReturnType<typeof fixture>,
+  candidate: AccessManagementState,
+  revision = f.state.revision,
+) {
+  const clone = structuredClone;
+  let injections = 0;
+  const injected = t.mock.method(
+    globalThis,
+    "structuredClone",
+    (value: unknown) => {
+      if (
+        value &&
+        typeof value === "object" &&
+        "contract" in value &&
+        value.contract === "crdd-access-management/state" &&
+        "revision" in value &&
+        value.revision === revision
+      ) {
+        injections++;
+        return { ...clone(candidate), revision };
+      }
+      return clone(value);
+    },
+  );
+  try {
+    const result = renameAdministrator(f, revision);
+    assert.equal(injections, 1);
+    assert.equal(result.status, "unavailable");
+    if (result.reason !== "management_operation_unavailable")
+      assert.fail("候補検査の拒否理由が欠落した");
+    assert.equal(result.primaryFailure, "state_store_candidate_failed");
+    assert.equal(result.publication, "not_attempted");
+    assert.equal(result.observedRevision, revision);
+    assert.equal(result.cleanupConfirmed, true);
+  } finally {
+    injected.mock.restore();
+  }
+}
+
+test("未知の保存項目と付随する保存材料は再入場で変更されない", (t) => {
+  const f = fixture(t);
+  const data = bytes({ ...f.state, unexpectedField: true });
+  const current = path.join(f.directory, "access-management.json");
+  const pending = path.join(f.directory, "access-management.pending.json");
+  const replace = path.join(f.directory, "access-management.replace.json");
+  fs.writeFileSync(current, data);
+  fs.writeFileSync(pending, "pending");
+  fs.writeFileSync(replace, "replace");
+  const before = fs.readdirSync(f.directory);
+  assert.equal(readHostInitializationState(f.root).status, "unknown");
+  assert.deepEqual(renameAdministrator(f, f.state.revision), {
+    status: "unavailable",
+    reason: "management_operation_rejected",
+  });
+  assert.deepEqual(fs.readFileSync(current), data);
+  assert.equal(fs.readFileSync(pending, "utf8"), "pending");
+  assert.equal(fs.readFileSync(replace, "utf8"), "replace");
+  assert.deepEqual(fs.readdirSync(f.directory), before);
+});
 
 test("管理状態を置換した後の通知は排他外で再観測でき、購読解除や他Rootへ漏れない", async (t) => {
   const f = hostedContentFixture(t);
@@ -121,7 +205,7 @@ test("管理状態を置換した後の通知は排他外で再観測でき、�
     await Promise.resolve();
     assert.deepEqual(observations, ["registration_removed"]);
     assert.equal(
-      readHostedAccessCandidates(f.root, f.principal).status,
+      readGitHostLinkedAccessCandidates(f.root, f.principal).status,
       "unavailable",
     );
   } finally {
@@ -213,7 +297,10 @@ test("通常のユーザー管理は現在認可で対象項目だけを保存�
         after.users.length === before.users.length + 1,
     );
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
-    assert.equal(JSON.stringify(result).includes(f.tokens.manager), false);
+    assert.equal(
+      JSON.stringify(result).includes(f.principals.manager.bindingId),
+      false,
+    );
   }
   const next = readCurrentAccess(f.root, f.principals.developer);
   assert.equal(next.status, "completed");
@@ -418,24 +505,6 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
     { status: "unavailable", reason: "management_operation_rejected" },
   );
   assert.deepEqual(fs.readFileSync(currentPath), bytes(revoked));
-  const initial = fixture(t);
-  const issued = seedRetiredInitialCredential(initial);
-  {
-    const initialPath = path.join(initial.directory, "access-management.json");
-    const saved = fs.readFileSync(initialPath);
-    assert.deepEqual(
-      saveUserRegistrationFixture(
-        initial.root,
-        issued.token as never,
-        3,
-        operationId,
-        "名前",
-        "developer",
-      ),
-      { status: "unavailable", reason: "management_operation_rejected" },
-    );
-    assert.deepEqual(fs.readFileSync(initialPath), saved);
-  }
 });
 
 /**
@@ -644,7 +713,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
   } finally {
     fs.renameSync = originalRename;
   }
-  assert.equal(readAccessManagementState(f.root).status, "completed");
+  assert.equal(readHostInitializationState(f.root).status, "existing");
   const originalRm = fs.rmSync;
   for (const suffix of [
     "access-management.pending.json",
@@ -687,49 +756,50 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
       fs.rmSync = originalRm;
     }
     if (suffix === "access-management.state.lock") {
-      assert.equal(readAccessManagementState(f.root).status, "unavailable");
+      assert.equal(readHostInitializationState(f.root).status, "unknown");
       removeKnownStoppedTestLock(f.directory, process.pid);
     }
-    assert.equal(readAccessManagementState(f.root).status, "completed");
+    assert.equal(readHostInitializationState(f.root).status, "existing");
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
   }
 });
 
 /**
  * 通常更新と改訂競合を確認する。
- * @responsibility 現在値とcallback、出版、清掃を実境界で照合する。
+ * @responsibility 正式な管理操作で現在値、出版、清掃を実境界で照合する。
  * @trace RFD-IT-021
  * @precondition 実Hostとは分離した自己生成試験領域と非秘密fixtureを使用する。
  * @stimulus 名前変更を保存し、旧期待改訂で再要求する。
  * @observation 状態byte・改訂・結果・材料不存在を別に確認する。
- * @oracle 一回だけ出版・読戻しし、競合時callback0・短命材料0。
+ * @oracle 一回だけ出版・読戻しし、競合時は現在byte不変・短命材料0。
  * @cleanup Repository-localな自己生成試験Rootを削除し不存在を確認する。
  * @boundary Node FilesystemとAM内部保存Ownerの直接境界。
  */
 test("通常保存・読戻し・改訂競合", (t) => {
   const f = fixture(t);
-  const result = updateAccessManagementState(f.root, 1, (current) => {
-    assert.equal(current.users[0]?.username, "模擬管理者");
-    current.revision++;
-    current.operationId = "00000000-0000-4000-8000-000000000004";
-    const user = current.users[0];
-    assert.ok(user);
-    user.username = "更新後";
-    return bytes(current);
-  });
+  assert.equal(readCurrent(f.root).state.users[0]?.username, "模擬管理者");
+  const result = renameAdministrator(
+    f,
+    1,
+    "00000000-0000-4000-8000-000000000004",
+  );
   assert.equal(result.status, "completed");
   assert.equal(result.publication, "confirmed");
-  const read = readAccessManagementState(f.root);
-  assert.equal(read.status, "completed");
-  if (read.status !== "completed") return;
-  assert.equal(read.value.users[0]?.username, "更新後");
-  let called = 0;
-  const conflict = updateAccessManagementState(f.root, 1, () => {
-    called++;
-    return Buffer.alloc(0);
-  });
+  assert.equal(readHostInitializationState(f.root).status, "existing");
+  assert.equal(readCurrent(f.root).state.users[0]?.username, "更新後");
+  const before = readCurrent(f.root).bytes;
+  const conflict = renameAdministrator(
+    f,
+    1,
+    undefined,
+    "競合で保存されない名前",
+  );
   assert.equal(conflict.status, "unavailable");
-  assert.equal(called, 0);
+  if (conflict.reason !== "management_operation_unavailable")
+    assert.fail("競合の分類が欠落した");
+  assert.equal(conflict.primaryFailure, "state_store_revision_conflict");
+  assert.equal(conflict.publication, "not_attempted");
+  assert.deepEqual(readCurrent(f.root).bytes, before);
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
 });
 
@@ -738,7 +808,7 @@ test("通常保存・読戻し・改訂競合", (t) => {
  * @responsibility 検査前の準備File作成を防ぐ。
  * @trace RFD-IT-021
  * @precondition 実Hostとは分離した自己生成試験領域と非秘密fixtureを使用する。
- * @stimulus 巨大な不正JSON bytes、改訂再利用、初回事実・資格・未解決交換・既存User IDの変更を返す。
+ * @stimulus 不正JSONは保存Schemaで拒否し、初回事実・本人紐付け・既存利用者を変えた候補を名前変更に注入する。
  * @observation 状態byte・改訂・結果・材料不存在を別に確認する。
  * @oracle current不変・pending/replace不存在。
  * @cleanup Repository-localな自己生成試験Rootを削除し不存在を確認する。
@@ -773,24 +843,20 @@ test("不正JSON・不正候補・対象外変更は出版しない", (t) => {
   const removedUser = structuredClone(account);
   removedUser.users[0] = structuredClone(administrator);
   removedUser.users.pop();
-  for (const protectedChange of [bad, account, removedUser]) {
+  const unlinked = structuredClone(account);
+  const unlinkedAdministrator = unlinked.users[0];
+  assert.ok(unlinkedAdministrator);
+  delete unlinkedAdministrator.accountLinks;
+  assert.equal(
+    parseAccessManagementState(Buffer.alloc(16_777_217)).status,
+    "invalid",
+  );
+  for (const protectedChange of [bad, account, removedUser, unlinked]) {
     assert.equal(
       parseAccessManagementState(bytes(protectedChange)).status,
       "parsed",
     );
-  }
-  for (const candidate of [
-    Buffer.alloc(16_777_217),
-    bytes(f.state),
-    bytes(bad),
-    bytes(account),
-    bytes(removedUser),
-  ]) {
-    assert.equal(
-      updateAccessManagementState(f.root, f.state.revision, () => candidate)
-        .status,
-      "unavailable",
-    );
+    renameWithInvalidCandidate(t, f, protectedChange);
     assert.ok(
       fs
         .readFileSync(path.join(f.directory, "access-management.json"))
@@ -819,23 +885,18 @@ test("退役した内容・公開範囲の変更と旧保存材料を採用し�
       "access-management.pending.json",
       "access-management.replace.json",
     ].map((name) => path.join(f.directory, name));
-    assert.equal(
-      updateAccessManagementState(f.root, base.revision, () => bytes(next))
-        .status,
-      "unavailable",
-    );
+    renameWithInvalidCandidate(t, f, next, base.revision);
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
     assert.deepEqual(readCurrent(f.root).bytes, bytes(base));
 
     prepare({ ...f, state: base }, next);
     const before = leaf.map((file) => fs.readFileSync(file));
-    let calls = 0;
-    const result = updateAccessManagementState(f.root, base.revision, () => {
-      calls++;
-      return bytes(next);
-    });
+    const result = renameAdministrator(f, base.revision);
     assert.equal(result.status, "unavailable");
-    assert.equal(calls, 0);
+    if (result.reason !== "management_operation_unavailable")
+      assert.fail("旧保存材料という判定が欠落した");
+    assert.equal(result.primaryFailure, "state_store_pending_failed");
+    assert.equal(result.publication, "not_attempted");
     assert.deepEqual(
       leaf.map((file) => fs.readFileSync(file)),
       before,
@@ -860,13 +921,11 @@ test("base一致は通常材料だけ整理して新更新しない", (t) => {
   next.revision = 2;
   next.operationId = "00000000-0000-4000-8000-000000000006";
   prepare(f, next);
-  let called = 0;
-  const result = updateAccessManagementState(f.root, 1, () => {
-    called++;
-    return bytes(next);
-  });
+  const result = renameAdministrator(f, 1);
   assert.equal(result.status, "unavailable");
-  assert.equal(called, 0);
+  if (result.reason !== "management_operation_unavailable")
+    assert.fail("先行清掃の理由が欠落した");
+  assert.equal(result.primaryFailure, "state_store_previous_pending_settled");
   assert.equal(result.publication, "not_attempted");
   assert.ok(
     fs
@@ -897,9 +956,7 @@ test("next一致は既知出版を保持して清掃する", (t) => {
     path.join(f.directory, "access-management.json"),
     bytes(next),
   );
-  const result = readAccessManagementState(f.root);
-  assert.equal(result.status, "completed");
-  assert.equal(result.publication, "confirmed");
+  assert.equal(readHostInitializationState(f.root).status, "existing");
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
   assert.ok(
     fs
@@ -922,15 +979,15 @@ for (const kind of ["credential", "initialization"] as const) {
       const snapshots = filenames.map((file) =>
         fs.readFileSync(path.join(f.directory, file)),
       );
-      const read = readAccessManagementState(f.root);
-      assert.equal(read.status, "unavailable");
-      assert.equal(read.publication, "not_attempted");
-      const update = updateAccessManagementState(
-        f.root,
+      assert.equal(readHostInitializationState(f.root).status, "unknown");
+      const update = renameAdministrator(
+        f,
         stage === "published" ? next.revision : f.state.revision,
-        () => assert.fail("retired_material_must_not_start_a_write"),
       );
       assert.equal(update.status, "unavailable");
+      if (update.reason !== "management_operation_unavailable")
+        assert.fail("退役材料の拒否理由が欠落した");
+      assert.equal(update.primaryFailure, "state_store_pending_failed");
       assert.equal(update.publication, "not_attempted");
       assert.deepEqual(fs.readdirSync(f.directory), filenames);
       assert.deepEqual(
@@ -959,14 +1016,12 @@ test("partial・孤立replace・current欠測を保持停止", (t) => {
   next.operationId = "00000000-0000-4000-8000-000000000008";
   const pending = path.join(f.directory, "access-management.pending.json");
   fs.writeFileSync(pending, "{");
-  let called = 0;
-  const partial = updateAccessManagementState(f.root, 1, () => {
-    called++;
-    return bytes(next);
-  });
+  const partial = renameAdministrator(f, 1);
   assert.equal(partial.status, "unavailable");
+  if (partial.reason !== "management_operation_unavailable")
+    assert.fail("不完全材料の拒否理由が欠落した");
+  assert.equal(partial.primaryFailure, "state_store_pending_failed");
   assert.equal(partial.publication, "not_attempted");
-  assert.equal(called, 0);
   assert.equal(fs.readFileSync(pending, "utf8"), "{");
   assert.ok(
     fs
@@ -981,12 +1036,12 @@ test("partial・孤立replace・current欠測を保持停止", (t) => {
   prepare(f, next);
   const replacement = path.join(f.directory, "access-management.replace.json");
   fs.writeFileSync(replacement, "{");
-  assert.equal(readAccessManagementState(f.root).status, "unavailable");
+  assert.equal(readHostInitializationState(f.root).status, "unknown");
   assert.equal(fs.readFileSync(replacement, "utf8"), "{");
   fs.rmSync(path.join(f.directory, "access-management.pending.json"));
-  assert.equal(readAccessManagementState(f.root).status, "unavailable");
+  assert.equal(readHostInitializationState(f.root).status, "unknown");
   fs.rmSync(path.join(f.directory, "access-management.json"));
-  assert.equal(readAccessManagementState(f.root).status, "unavailable");
+  assert.equal(readHostInitializationState(f.root).status, "unknown");
   assert.ok(fs.existsSync(replacement));
 });
 
@@ -1012,11 +1067,17 @@ test("rename失敗と出版後清掃失敗の事実を保持", (t) => {
   const next = structuredClone(f.state);
   next.revision = 2;
   next.operationId = "00000000-0000-4000-8000-000000000009";
+  const administrator = next.users[0];
+  assert.ok(administrator);
+  administrator.username = "更新後";
   fs.renameSync = () => {
     throw new Error("injected");
   };
-  const failed = updateAccessManagementState(f.root, 1, () => bytes(next));
+  const failed = renameAdministrator(f, 1, next.operationId);
   assert.equal(failed.status, "unavailable");
+  if (failed.reason !== "management_operation_unavailable")
+    assert.fail("置換失敗の理由が欠落した");
+  assert.equal(failed.primaryFailure, "state_store_publish_failed");
   assert.equal(failed.publication, "unconfirmed");
   assert.ok(
     fs
@@ -1024,23 +1085,26 @@ test("rename失敗と出版後清掃失敗の事実を保持", (t) => {
       .equals(bytes(f.state)),
   );
   fs.renameSync = originalRename;
-  assert.equal(readAccessManagementState(f.root).status, "completed");
+  assert.equal(readHostInitializationState(f.root).status, "existing");
   fs.rmSync = (target, options) => {
     if (String(target).endsWith("access-management.pending.json"))
       throw new Error("injected");
     return originalRemove(target, options);
   };
-  const cleanup = updateAccessManagementState(f.root, 1, () => bytes(next));
+  const cleanup = renameAdministrator(f, 1, next.operationId);
   assert.equal(cleanup.status, "unavailable");
+  if (cleanup.reason !== "management_operation_unavailable")
+    assert.fail("清掃失敗の理由が欠落した");
+  assert.equal(cleanup.primaryFailure, "state_store_cleanup_failed");
   assert.equal(cleanup.publication, "confirmed");
-  assert.equal(cleanup.revision, 2);
+  assert.equal(cleanup.observedRevision, 2);
   assert.ok(
     fs
       .readFileSync(path.join(f.directory, "access-management.json"))
       .equals(bytes(next)),
   );
   fs.rmSync = originalRemove;
-  assert.equal(readAccessManagementState(f.root).status, "completed");
+  assert.equal(readHostInitializationState(f.root).status, "existing");
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
 });
 
@@ -1062,12 +1126,14 @@ test("実子Process喪失後にbase/nextとLockを再観測する", (t) => {
       "../../../src/initialization/root.ts",
       import.meta.url,
     ).href;
-    const storeUrl = new URL("../../../src/storage/store.ts", import.meta.url)
-      .href;
+    const publicUrl = new URL("../../../src/index.ts", import.meta.url).href;
+    const actor = f.state.users[0];
+    const binding = actor?.accountLinks?.[0];
+    assert.ok(actor && binding);
     const script = `
       import fs from "node:fs";
       import { createFilesystemStoreRoot } from ${JSON.stringify(domainUrl)};
-      import { updateAccessManagementState } from ${JSON.stringify(storeUrl)};
+      import { updateUserName } from ${JSON.stringify(publicUrl)};
       let flushes = 0;
       const flush = fs.fsyncSync;
       fs.fsyncSync = fd => {
@@ -1078,11 +1144,12 @@ test("実子Process喪失後にbase/nextとLockを再観測する", (t) => {
       const rename = fs.renameSync;
       fs.renameSync = (a,b) => { rename(a,b); if (${JSON.stringify(phase)} === "renamed") process.exit(23); };
       const root = createFilesystemStoreRoot(${JSON.stringify(f.directory)});
-      updateAccessManagementState(root, 1, current => {
-        current.revision = 2;
-        current.operationId = "00000000-0000-4000-8000-000000000010";
-        return Buffer.from(JSON.stringify(current));
-      });
+      updateUserName(root, {
+        kind: "account",
+        userId: ${JSON.stringify(actor.userId)},
+        bindingId: ${JSON.stringify(binding.bindingId)},
+        expiresAt: Date.now() + 60_000,
+      }, 1, "00000000-0000-4000-8000-000000000010", ${JSON.stringify(actor.userId)}, "更新後");
     `;
     const child = spawnSync(process.execPath, ["--eval", script], {
       timeout: 10_000,
@@ -1093,24 +1160,25 @@ test("実子Process喪失後にbase/nextとLockを再観測する", (t) => {
     const retained = fs.readFileSync(
       path.join(f.directory, "access-management.state.lock"),
     );
-    assert.equal(readAccessManagementState(f.root).status, "unavailable");
+    assert.equal(readHostInitializationState(f.root).status, "unknown");
     assert.deepEqual(
       fs.readFileSync(path.join(f.directory, "access-management.state.lock")),
       retained,
     );
     assert.ok(child.pid);
     removeKnownStoppedTestLock(f.directory, child.pid);
-    const result = readAccessManagementState(f.root);
-    assert.equal(result.status, "completed");
-    if (result.status !== "completed") continue;
-    assert.equal(result.value.revision, phase === "renamed" ? 2 : 1);
+    assert.equal(readHostInitializationState(f.root).status, "existing");
+    assert.equal(
+      readCurrent(f.root).state.revision,
+      phase === "renamed" ? 2 : 1,
+    );
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
   }
 });
 
 /**
  * 主失敗と後続のLock解放不明を分ける。
- * @responsibility 候補拒否をcleanup結果で上書きせずexact回収参照を保持する。
+ * @responsibility AMの排他Ownerは元の保存拒否をcleanup結果で上書きせずexact回収参照を保持する。
  * @trace RFD-IT-021
  * @precondition 自己生成Rootと不正候補を使用する。
  * @stimulus 候補拒否後のLock削除を失敗させ、復元後同じRootを読み直す。
@@ -1130,13 +1198,17 @@ test("主失敗をLock清掃失敗で上書きしない", (t) => {
       throw new Error("injected");
     return remove(target);
   };
-  const result = updateAccessManagementState(f.root, 1, () =>
-    Buffer.from("{}"),
-  );
+  const result = locked(f.root, () => ({
+    status: "unavailable",
+    reason: "state_store_candidate_failed",
+    publication: "not_attempted",
+    revision: 1,
+    cleanupConfirmed: true,
+  }));
   fs.rmSync = remove;
   assert.equal(result.status, "unavailable");
   if (result.status !== "unavailable") return;
-  assert.equal(result.reason, "state_store_candidate_invalid");
+  assert.equal(result.reason, "state_store_candidate_failed");
   assert.equal(result.publication, "not_attempted");
   assert.equal(result.cleanupConfirmed, false);
   assert.ok(result.lockRecoveryId?.startsWith("filesystem-store-lock."));
@@ -1144,8 +1216,9 @@ test("主失敗をLock清掃失敗で上書きしない", (t) => {
     result.secondaryReason,
     "filesystem_store_lock_operation_completed_cleanup_unknown",
   );
-  assert.equal(readAccessManagementState(f.root).status, "unavailable");
+  assert.equal(readHostInitializationState(f.root).status, "unknown");
+  assert.deepEqual(readCurrent(f.root).bytes, bytes(f.state));
   removeKnownStoppedTestLock(f.directory, process.pid);
-  assert.equal(readAccessManagementState(f.root).status, "completed");
+  assert.equal(readHostInitializationState(f.root).status, "existing");
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
 });

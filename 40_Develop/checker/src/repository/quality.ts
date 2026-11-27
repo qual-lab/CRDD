@@ -138,27 +138,17 @@ export function inspectQualityRepository(
         );
     }
   }
-  for (const registryFileName of [
-    "test-catalog.json",
-    "coordinator-execution-traceability.json",
-    "coordinator-task-design-traceability.json",
-  ]) {
-    const registryFilePath = path.join(
-      qualityRoot,
-      "Registry",
-      registryFileName,
+  const catalogPath = path.join(qualityRoot, "Registry", "test-catalog.json");
+  if (
+    !lstatIfPresent(catalogPath)?.isFile() ||
+    pathContainsSymbolicLink(root, catalogPath)
+  )
+    add(
+      "error",
+      "quality-current-profile-registry-missing",
+      relative(catalogPath),
+      "The official repository requires its declared test catalog.",
     );
-    if (
-      !lstatIfPresent(registryFilePath)?.isFile() ||
-      pathContainsSymbolicLink(root, registryFilePath)
-    )
-      add(
-        "error",
-        "quality-current-profile-registry-missing",
-        relative(registryFilePath),
-        "The CRDD official repository currently has machine consumers for all three Quality Registry contracts.",
-      );
-  }
   for (const legacyRelativePath of [
     "07_Quality/04_Test_Catalog.json",
     "07_Quality/05_Coordinator_Runtime_Traceability.json",

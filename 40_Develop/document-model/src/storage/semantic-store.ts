@@ -26,6 +26,7 @@ import {
 export type SemanticBundlePublishRequest = Readonly<{
   outputRelativePath: string;
   content: string;
+  existingContract?: string;
 }>;
 
 /**
@@ -130,6 +131,18 @@ export function publishSemanticCoverageBundleWithHooks(
     const targetMetadata = fs.lstatSync(targetPath);
     if (targetMetadata.isSymbolicLink() || !targetMetadata.isFile())
       throw new Error("Semantic coverage output is not a regular file.");
+    if (request.existingContract !== undefined) {
+      const existing: unknown = JSON.parse(fs.readFileSync(targetPath, "utf8"));
+      if (
+        existing === null ||
+        typeof existing !== "object" ||
+        !("contract" in existing) ||
+        existing.contract !== request.existingContract
+      )
+        throw new Error(
+          "Semantic coverage output does not own the existing file.",
+        );
+    }
   }
 
   const temporaryPath = path.join(

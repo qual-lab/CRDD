@@ -88,7 +88,7 @@ export async function requestInChild(
     url.search ||
     url.hash ||
     (write === undefined
-      ? route !== "/api/workbench/view?route=%2F" &&
+      ? route !== "/api/workbench/overview" &&
         !isVerificationWorkspaceRead(route)
       : !isVerificationAiWrite(route))
   )

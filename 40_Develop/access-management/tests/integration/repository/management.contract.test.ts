@@ -18,22 +18,21 @@ import test from "node:test";
 import { parseRepositoryProjectContextMarkdown } from "@qual-lab/crdd-document-model";
 import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import {
-  readHostedAccessCandidates,
-  resolveHostedAccessCollection,
-  resolveHostedAccessDirectories,
+  readGitHostLinkedAccessCandidates,
+  resolveGitHostLinkedAccessCollection,
+  resolveGitHostLinkedAccessDirectories,
+  readHostInitializationState,
 } from "../../../src/index.ts";
 import {
   saveRepositoryRegistration,
   saveRepositoryRemoval,
 } from "../../../src/repository/register.ts";
+import { deriveRepositoryBindingId } from "../../../src/repository/binding.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
-import {
-  readAccessManagementState,
-  readCurrent,
-} from "../../../src/storage/store.ts";
+import { readCurrent } from "../../../src/storage/store.ts";
 import {
   bytes,
-  attachHostedContentFixture,
+  attachGitHostLinkedContentFixture,
   contentFixture,
   hostedContentFixture,
   managementFixture,
@@ -57,30 +56,39 @@ test("Gitホスト結合の確定は現在の本人と登録だけを照合し�
     bindingId,
   };
   user.accountLinks = [link];
-  delete registration.hostedRepository;
   const filename = path.join(f.directory, "access-management.json");
   const save = () => fs.writeFileSync(filename, bytes(state));
-  save();
   const principal = {
     kind: "account" as const,
     userId: user.userId,
     bindingId,
     expiresAt: Date.now() + 60_000,
   };
-  const unlinked = readHostedAccessCandidates(f.root, principal);
-  assert.equal(unlinked.status, "current");
-  if (unlinked.status !== "current") assert.fail("missing valid principal");
-  assert.deepEqual(unlinked.candidates, []);
+  const incomplete = bytes({
+    ...state,
+    registeredRepositories: [
+      registration,
+      {
+        repositoryId: "missing-host",
+        repositoryRoot: registration.repositoryRoot,
+        bindingId: deriveRepositoryBindingId(
+          "missing-host",
+          registration.repositoryRoot,
+        ),
+      },
+    ],
+  });
+  fs.writeFileSync(filename, incomplete);
+  assert.equal(
+    readGitHostLinkedAccessCandidates(f.root, principal).status,
+    "unavailable",
+  );
+  assert.equal(readHostInitializationState(f.root).status, "unknown");
+  assert.deepEqual(fs.readFileSync(filename), incomplete);
+  assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
 
-  registration.hostedRepository = {
-    host: "github.com",
-    provider: "github",
-    providerData: { installationId: "24" },
-    repositoryId: "92",
-  };
-  state.revision++;
   save();
-  const read = readHostedAccessCandidates(f.root, principal);
+  const read = readGitHostLinkedAccessCandidates(f.root, principal);
   assert.equal(read.status, "current");
   if (read.status !== "current") assert.fail("missing valid principal");
   assert.deepEqual(read.candidates, [
@@ -112,13 +120,20 @@ test("Gitホスト結合の確定は現在の本人と登録だけを照合し�
     candidates: read.candidates,
     allowUnrelatedRevision: true as const,
   };
-  assert.deepEqual(resolveHostedAccessDirectories(f.root, principal, checked), [
-    {
-      repositoryId: registration.repositoryId,
-      root: registration.repositoryRoot,
-    },
-  ]);
-  const resolved = resolveHostedAccessCollection(f.root, principal, checked);
+  assert.deepEqual(
+    resolveGitHostLinkedAccessDirectories(f.root, principal, checked),
+    [
+      {
+        repositoryId: registration.repositoryId,
+        root: registration.repositoryRoot,
+      },
+    ],
+  );
+  const resolved = resolveGitHostLinkedAccessCollection(
+    f.root,
+    principal,
+    checked,
+  );
   assert.equal(resolved.status, "completed");
   if (resolved.status !== "completed")
     assert.fail("missing verified repository");
@@ -128,7 +143,7 @@ test("Gitホスト結合の確定は現在の本人と登録だけを照合し�
   state.revision++;
   save();
   assert.equal(
-    resolveHostedAccessCollection(f.root, principal, checked).status,
+    resolveGitHostLinkedAccessCollection(f.root, principal, checked).status,
     "completed",
   );
   const previous = registration.hostedRepository;
@@ -141,14 +156,14 @@ test("Gitホスト結合の確定は現在の本人と登録だけを照合し�
     state.revision++;
     save();
     assert.equal(
-      resolveHostedAccessDirectories(f.root, principal, checked),
+      resolveGitHostLinkedAccessDirectories(f.root, principal, checked),
       null,
     );
   }
   link.bindingId = crypto.randomUUID();
   state.revision++;
   save();
-  assert.deepEqual(readHostedAccessCandidates(f.root, principal), {
+  assert.deepEqual(readGitHostLinkedAccessCandidates(f.root, principal), {
     status: "revoked",
   });
 });
@@ -188,7 +203,7 @@ test("Gitホスト認可の観測不能は空・部分成功にせず、期限�
     repositoryId: "93",
   };
   fs.writeFileSync(f.currentPath, bytes(state));
-  const read = readHostedAccessCandidates(f.root, f.principal);
+  const read = readGitHostLinkedAccessCandidates(f.root, f.principal);
   assert.equal(read.status, "current");
   if (read.status !== "current")
     assert.fail("hosted registration fixture unavailable");
@@ -197,7 +212,7 @@ test("Gitホスト認可の観測不能は空・部分成功にせず、期限�
     candidates: [...read.candidates].reverse(),
   };
   const resolve = () =>
-    resolveHostedAccessCollection(f.root, f.principal, checked);
+    resolveGitHostLinkedAccessCollection(f.root, f.principal, checked);
   const complete = resolve();
   assert.equal(complete.status, "completed");
   if (complete.status !== "completed") assert.fail();
@@ -231,12 +246,15 @@ test("Gitホスト認可の観測不能は空・部分成功にせず、期限�
     assert.equal(manifestReads, 2);
     manifestReads = 0;
     const expired = { ...f.principal, expiresAt: Date.now() - 1 };
-    assert.deepEqual(resolveHostedAccessCollection(f.root, expired, checked), {
-      status: "unavailable",
-      reason: "repository_access_rejected",
-    });
     assert.deepEqual(
-      resolveHostedAccessCollection(f.root, f.principal, {
+      resolveGitHostLinkedAccessCollection(f.root, expired, checked),
+      {
+        status: "unavailable",
+        reason: "repository_access_rejected",
+      },
+    );
+    assert.deepEqual(
+      resolveGitHostLinkedAccessCollection(f.root, f.principal, {
         ...checked,
         candidates: [f.candidate, f.candidate],
       }),
@@ -293,6 +311,7 @@ test("本人権限は旧公開範囲を投影せず、現在の管理候補を�
     f.state.registeredRepositories.push({
       repositoryId: id,
       repositoryRoot: root,
+      hostedRepository: observeFixtureDirectory(root).hostedRepository,
       bindingId: `binding-${createHash("sha256").update(`${id}\n${normalized}`).digest("hex").slice(0, 32)}`,
     });
   }
@@ -403,6 +422,7 @@ test("旧容量上限を超えるUser登録を保存し再読取りできる", (
     repositoryId: "capacity-fixture",
     repositoryRoot: `${path.parse(f.directory).root.replaceAll("\\", "/")}x`,
     bindingId: `binding-${"0".repeat(32)}`,
+    hostedRepository: observeFixtureDirectory(f.directory).hostedRepository,
   };
   f.state.registeredRepositories.push(repository);
   repository.repositoryRoot += "x".repeat(
@@ -566,13 +586,10 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
     fs.readFileSync(path.join(target.directory, "PROJECT_CONTEXT.md"), "utf8"),
     partialContext,
   );
-  let current = readAccessManagementState(f.root);
-  assert.equal(current.status, "completed");
-  if (current.status !== "completed") return;
-  assert.equal(current.value.registeredRepositories.length, 1);
-  assert.equal(Object.hasOwn(current.value, "exposure"), false);
-  assert.deepEqual(current.value.users, before.users);
-  assert.deepEqual(current.value.users, before.users);
+  let current = readCurrent(f.root).state;
+  assert.equal(current.registeredRepositories.length, 1);
+  assert.equal(Object.hasOwn(current, "exposure"), false);
+  assert.deepEqual(current.users, before.users);
   const contextBefore = fs.readFileSync(
     path.join(target.directory, "PROJECT_CONTEXT.md"),
   );
@@ -593,14 +610,11 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
   } finally {
     fs.renameSync(heldDirectory, target.directory);
   }
-  current = readAccessManagementState(f.root);
-  assert.equal(current.status, "completed");
-  if (current.status !== "completed") return;
-  assert.deepEqual(current.value.registeredRepositories, []);
-  assert.equal(Object.hasOwn(current.value, "exposure"), false);
-  assert.deepEqual(current.value.users, before.users);
-  assert.deepEqual(current.value.users, before.users);
-  assert.deepEqual(current.value.initialization, before.initialization);
+  current = readCurrent(f.root).state;
+  assert.deepEqual(current.registeredRepositories, []);
+  assert.equal(Object.hasOwn(current, "exposure"), false);
+  assert.deepEqual(current.users, before.users);
+  assert.deepEqual(current.initialization, before.initialization);
   assert.deepEqual(
     fs.readFileSync(path.join(target.directory, "PROJECT_CONTEXT.md")),
     contextBefore,
@@ -737,7 +751,10 @@ test("登録は認可前にRootを観測せずIdentity差を保存しない", (t
       (directory) =>
         variant === "unavailable"
           ? null
-          : { directory, isCurrent: () => variant !== "changed" },
+          : {
+              ...observeFixtureDirectory(directory),
+              isCurrent: () => variant !== "changed",
+            },
     );
     assert.equal(result.status, "unavailable");
     assert.deepEqual(fs.readFileSync(currentPath), before);
@@ -828,8 +845,9 @@ test("登録固定Fileは旧1MiB超も内容を検査し開閉の一致を守る
       "completed",
     );
     assert.ok(opened > 0);
-    const { principal, candidate, state } = attachHostedContentFixture(f);
-    const collection = resolveHostedAccessCollection(f.root, principal, {
+    const { principal, candidate, state } =
+      attachGitHostLinkedContentFixture(f);
+    const collection = resolveGitHostLinkedAccessCollection(f.root, principal, {
       managementRevision: state.revision,
       candidates: [candidate],
     });
@@ -927,14 +945,14 @@ test("登録解除の拒否と出版後清掃不明を区別する", (t) => {
     assert.equal(result.observedRevision, 4);
     assert.equal(result.cleanupConfirmed, false);
   } else assert.fail("出版後失敗が欠測");
-  const current = readAccessManagementState(f.root);
-  assert.equal(current.status, "completed");
-  if (current.status === "completed") {
-    assert.deepEqual(current.value.registeredRepositories, []);
-    const next = structuredClone(current.value);
+  assert.equal(readHostInitializationState(f.root).status, "existing");
+  {
+    const current = readCurrent(f.root).state;
+    assert.deepEqual(current.registeredRepositories, []);
+    const next = structuredClone(current);
     next.revision = 5;
     next.operationId = "00000000-0000-4000-8000-000000000092";
-    prepare({ ...f, state: current.value }, next);
+    prepare({ ...f, state: current }, next);
     const materialNames = [
       "access-management.json",
       "access-management.pending.json",
@@ -1001,7 +1019,7 @@ test("登録解除の拒否と出版後清掃不明を区別する", (t) => {
     assert.deepEqual(fs.readFileSync(currentPath), materialBytes[0]);
 
     // 先行材料だけを準備し直し、登録要求も対象観測前に終了することを確認する。
-    prepare({ ...f, state: current.value }, next);
+    prepare({ ...f, state: current }, next);
     let directoryRequests = 0;
     const registration = saveRepositoryRegistration(
       f.root,

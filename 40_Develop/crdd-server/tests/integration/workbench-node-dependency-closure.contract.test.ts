@@ -284,28 +284,34 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     }
   }
   const transport = path.join(packageRoot, "src", "transport");
-  const mcpServer = path.join(transport, "mcp-server.ts");
-  const lowerTransport = [mcpServer];
-  const visitedTransport = new Set<string>();
-  for (
-    let current = lowerTransport.pop();
-    current !== undefined;
-    current = lowerTransport.pop()
-  ) {
-    if (visitedTransport.has(current)) continue;
-    visitedTransport.add(current);
-    for (const specifier of runtimeSpecifiers(current)) {
-      if (!specifier.startsWith(".")) continue;
-      const resolved = resolveLocalSource(current, specifier);
-      assert.notEqual(resolved, mcpServer);
-      assert.notEqual(resolved, path.join(transport, "api-server.ts"));
-      assert.notEqual(resolved, path.join(transport, "api-http.ts"));
-      assert.notEqual(resolved, path.join(transport, "api-document.ts"));
-      if (path.dirname(resolved) === transport) lowerTransport.push(resolved);
+  const mcpEntries = ["mcp-server.ts", "mcp-http.ts", "mcp-stdio.ts"].map(
+    (name) => path.join(transport, name),
+  );
+  const apiEntries = ["api-server.ts", "api-http.ts", "api-document.ts"].map(
+    (name) => path.join(transport, name),
+  );
+  // 統一起動が各入口を組み立てる。Factoryと通信口は互いを取り込まない。
+  for (const entry of mcpEntries) {
+    assert.ok(visited.has(entry), path.basename(entry));
+    const lowerTransport = [entry];
+    const visitedTransport = new Set<string>();
+    for (
+      let current = lowerTransport.pop();
+      current !== undefined;
+      current = lowerTransport.pop()
+    ) {
+      if (visitedTransport.has(current)) continue;
+      visitedTransport.add(current);
+      for (const specifier of runtimeSpecifiers(current)) {
+        if (!specifier.startsWith(".")) continue;
+        const resolved = resolveLocalSource(current, specifier);
+        assert.ok(!mcpEntries.includes(resolved), path.basename(resolved));
+        assert.ok(!apiEntries.includes(resolved), path.basename(resolved));
+        if (path.dirname(resolved) === transport) lowerTransport.push(resolved);
+      }
     }
+    assert.ok(visitedTransport.has(path.join(transport, "mcp-protocol.ts")));
   }
-  for (const name of ["mcp-http.ts", "mcp-stdio.ts", "mcp-protocol.ts"])
-    assert.ok(visitedTransport.has(path.join(transport, name)), name);
 });
 
 /**
@@ -410,7 +416,7 @@ test("Serverの公開入口はCLIとクライアント向け型だけに限る",
   const types = readFileSync(path.join(packageRoot, "src/index.ts"), "utf8");
   const declarations = types.replace(/\/\*[\s\S]*?\*\//gu, "");
   const namedTypeExports =
-    /export type\s*\{([^}]+)\}\s*from\s*"\.\/[^"]+\.ts"\s*;/gsu;
+    /export type\s*\{([^}]+)\}\s*from\s*"(?:\.\/[^"]+\.ts|@qual-lab\/crdd-coordinator)"\s*;/gsu;
   assert.equal(declarations.replace(namedTypeExports, "").trim(), "");
   assert.deepEqual(
     [...declarations.matchAll(namedTypeExports)]
@@ -423,12 +429,17 @@ test("Serverの公開入口はCLIとクライアント向け型だけに限る",
       "AiRequestSnapshot",
       "AiResultItem",
       "AiSelectionView",
+      "ExecutionActivityObservation",
       "ManagementResult",
       "ManagementView",
       "OwnerArtifactCatalog",
+      "ProjectPageResponse",
       "ProjectPlanObservation",
       "ProjectQualityObservation",
+      "RepositoryFilesResponse",
       "ViewResponse",
+      "WorkbenchHttpRoute",
+      "WorkspaceHttpRoutes",
     ],
   );
   assert.match(

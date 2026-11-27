@@ -7,8 +7,56 @@
  * @boundary 合成HTTP応答とBrowserの表示モデル。保存・実行は行わない。
  */
 import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createServer } from "vite";
+import {
+  inspectWorkbenchManagementUsers,
+  readManagementPermissions,
+} from "../../src/api/access.ts";
+
+test("管理画面はAMの操作許可を使い、欠落や不正な許可から推測しない", () => {
+  const permissions = {
+    openSession: true,
+    registerRoles: ["manager"],
+    registerRepository: false,
+    unregisterRepository: true,
+  };
+  assert.deepEqual(readManagementPermissions(permissions), permissions);
+  assert.throws(() =>
+    readManagementPermissions({
+      ...permissions,
+      registerRoles: ["manager", "manager"],
+    }),
+  );
+  assert.throws(() =>
+    readManagementPermissions({ ...permissions, openSession: "yes" }),
+  );
+  const user = {
+    userId: "00000000-0000-4000-8000-000000000003",
+    username: "未紐付け",
+    role: "administrator",
+  };
+  const value = { status: "completed", revision: 2, formToken: "A".repeat(43) };
+  const actions = {
+    rename: false,
+    changeRoles: ["developer"],
+    renewInvitation: true,
+  };
+  assert.deepEqual(
+    inspectWorkbenchManagementUsers({ ...value, users: [{ ...user, actions }] })
+      .users,
+    [{ ...user, actions }],
+  );
+  assert.throws(() =>
+    inspectWorkbenchManagementUsers({ ...value, users: [user] }),
+  );
+});
+
 import test from "node:test";
 import {
+  isFederatedProject,
+  validateExecutionActivity,
   validateGitHostConnections,
   validateManagementResponse,
   validateViewResponse,
@@ -197,8 +245,7 @@ function mainResponse() {
         },
       },
     },
-    portfolio: null,
-    portfolioPage: { nextCursor: null, cursorInvalid: false },
+    portfolioAvailable: false,
     connection: { state: "repository" },
     topicPage: page,
     topicQuery: {},
@@ -208,7 +255,6 @@ function mainResponse() {
     selectedRepositoryId: null,
     recordActionsConfigured: false,
     repositoryActions: [],
-    worktree: { state: "unknown", tree: null, diff: null },
     aiSelection: {
       catalog: {
         identity: "fixture",
@@ -227,7 +273,6 @@ function mainResponse() {
       snapshot: null,
       notice: null,
     },
-    executionActivity: null,
   });
   assert.equal(response.view, "main");
   return response;
@@ -244,14 +289,12 @@ function mainResponse() {
  * @cleanup N/A: 純粋なModel検査だけ。
  * @boundary 接続JSON→CSR Model Inspector。
  */
-test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守る", () => {
+test("Workbenchの接続画面は閉じた表示契約と未認証境界を守る", () => {
   const model = {
     contract: "crdd/workbench/view/v1",
     view: "access",
     actionToken: "a".repeat(43),
     authenticated: false,
-    notice: null,
-    portfolio: null,
   };
   assert.equal(validateViewResponse(model).view, "access");
   const loginProviders = [
@@ -268,14 +311,6 @@ test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守
     "access",
   );
   const empty = { projects: [], retainedAsSourceOfTruth: false };
-  assert.equal(
-    validateViewResponse({
-      ...model,
-      authenticated: true,
-      portfolio: empty,
-    }).view,
-    "access",
-  );
   for (const value of [
     { ...model, token: "synthetic-secret" },
     { ...model, root: "synthetic-host-root" },
@@ -302,6 +337,81 @@ test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守
     assert.throws(() => validateViewResponse(value), {
       message: "workbench_client_model_invalid",
     });
+});
+
+/** 受理した提供元名とIDを、実React部品の選択肢に対応させる。 @trace ARCH-000012 */
+test("通常ログインと招待は提供元の表示名と個別の送り先を二つ描画する", async (t) => {
+  const vite = await createServer({
+    configFile: false,
+    oxc: { jsx: { runtime: "automatic" } },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    ssr: { optimizeDeps: { noDiscovery: true, include: [] } },
+    server: { middlewareMode: true, ws: false, watch: null },
+    appType: "custom",
+  });
+  t.after(() => vite.close());
+  const { AccessWorkbench } = (await vite.ssrLoadModule(
+    "/src/pages/access.tsx",
+  )) as typeof import("../../src/pages/access.tsx");
+  const { ExternalLoginOptions } = (await vite.ssrLoadModule(
+    "/src/components/connection.tsx",
+  )) as typeof import("../../src/components/connection.tsx");
+  const priorWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { location: { hash: `#invite=${"a".repeat(43)}` } },
+  });
+  let html: string;
+  let signIn: string;
+  try {
+    const initialModel = validateViewResponse({
+      contract: "crdd/workbench/view/v1",
+      view: "access",
+      actionToken: "b".repeat(43),
+      authenticated: false,
+      loginProviders: [
+        { id: "alpha", displayName: "提供元A" },
+        { id: "other", displayName: "提供元B" },
+      ],
+    });
+    assert.equal(initialModel.view, "access");
+    assert.ok(initialModel.loginProviders);
+    signIn = renderToStaticMarkup(
+      createElement(ExternalLoginOptions, {
+        providers: initialModel.loginProviders,
+      }),
+    );
+    html = renderToStaticMarkup(
+      createElement(AccessWorkbench, { initialModel }),
+    );
+  } finally {
+    if (priorWindow) Object.defineProperty(globalThis, "window", priorWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
+  const readForms = (markup: string) =>
+    Array.from(
+      markup.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/gu),
+      ([form]) => form,
+    );
+  const signInForms = readForms(signIn);
+  assert.equal(signInForms.length, 2);
+  assert.match(signInForms[0] ?? "", /action="\/api\/session\/login\/alpha"/u);
+  assert.match(signInForms[0] ?? "", /提供元Aでログイン/u);
+  assert.match(signInForms[1] ?? "", /action="\/api\/session\/login\/other"/u);
+  assert.match(signInForms[1] ?? "", /提供元Bでログイン/u);
+  assert.doesNotMatch(signIn, /name="invitation"|招待を使って/u);
+  const forms = readForms(html);
+  assert.equal(forms.length, 2);
+  assert.match(
+    forms[0] ?? "",
+    /action="\/api\/session\/login\/alpha\/invitation"/u,
+  );
+  assert.match(forms[0] ?? "", /招待を使って提供元Aでログイン/u);
+  assert.match(
+    forms[1] ?? "",
+    /action="\/api\/session\/login\/other\/invitation"/u,
+  );
+  assert.match(forms[1] ?? "", /招待を使って提供元Bでログイン/u);
 });
 
 test("Google共有画面の作業領域権限を、単体や通常Gitの書込みへ読み替えない", () => {
@@ -740,25 +850,14 @@ test("Main表示は未信頼JSONの状態と相関を検証する", () => {
     duplicateSources,
     contextOnMissingSource,
   ]) {
-    const invalidPortfolioModel = structuredClone(model) as unknown as {
-      portfolio: unknown;
-    };
-    invalidPortfolioModel.portfolio = invalidPortfolio;
-    assert.throws(
-      () => validateViewResponse(invalidPortfolioModel),
-      /workbench_client_model_invalid/u,
-    );
+    assert.equal(isFederatedProject(invalidPortfolio.projects[0]), false);
   }
   for (const sourceState of [
     "missing",
     "unavailable",
     "conflicting",
   ] as const) {
-    const partialModel = {
-      ...structuredClone(model),
-      portfolio: structuredClone(validFederatedProject),
-    };
-    const project = partialModel.portfolio.projects[0];
+    const project = structuredClone(validFederatedProject.projects[0]);
     assert.ok(project);
     const source = project.sources[0];
     assert.ok(source);
@@ -771,45 +870,33 @@ test("Main表示は未信頼JSONの状態と相関を検証する", () => {
     Object.assign(project, {
       state: sourceState === "conflicting" ? "conflicting" : "partial",
     });
-    assert.doesNotThrow(() => validateViewResponse(partialModel));
+    assert.equal(isFederatedProject(project), true);
     for (const field of [
       "revision",
       "context",
       "repositoryRole",
       "state",
     ] as const) {
-      const invalid = structuredClone(partialModel);
-      const invalidSource = invalid.portfolio?.projects[0]?.sources[0];
+      const invalid: typeof project = structuredClone(project);
+      const invalidSource = invalid.sources[0];
       assert.ok(invalidSource);
       Object.assign(invalidSource, {
         [field]: field === "context" ? model.projectData.context : "invalid",
       });
-      assert.throws(
-        () => validateViewResponse(invalid),
-        /workbench_client_model_invalid/u,
-      );
+      assert.equal(isFederatedProject(invalid), false);
     }
     Object.assign(project, { state: "complete" });
-    assert.throws(
-      () => validateViewResponse(partialModel),
-      /workbench_client_model_invalid/u,
-    );
+    assert.equal(isFederatedProject(project), false);
   }
-  const nullComplete = {
-    ...structuredClone(model),
-    portfolio: structuredClone(validFederatedProject),
-  };
-  const completeSource = nullComplete.portfolio.projects[0]?.sources[0];
+  const nullComplete = structuredClone(validFederatedProject.projects[0]);
+  const completeSource = nullComplete?.sources[0];
   assert.ok(completeSource);
   Object.assign(completeSource, {
     revision: null,
     context: null,
     repositoryRole: null,
   });
-  assert.throws(
-    () => validateViewResponse(nullComplete),
-    /workbench_client_model_invalid/u,
-  );
+  assert.equal(isFederatedProject(nullComplete), false);
 
   const invalidQualityState = structuredClone(model) as unknown as {
     projectData: {
@@ -877,163 +964,107 @@ test("Main表示は未信頼JSONの状態と相関を検証する", () => {
     /workbench_client_model_invalid/u,
   );
 
-  const invalidWorktree = structuredClone(model) as unknown as {
-    worktree: { diff: unknown };
-  };
-  invalidWorktree.worktree.diff = {
-    path: { unsafe: true },
-    status: "modified",
-    staged: false,
-    binary: false,
-    oldPath: null,
-    patch: "diff",
-    reason: null,
+  const invalidWorktree = {
+    ...model,
+    worktree: { state: "unknown", tree: null, diff: null },
   };
   assert.throws(
     () => validateViewResponse(invalidWorktree),
     /workbench_client_model_invalid/u,
   );
 
-  const invalidActivity = structuredClone(model) as unknown as {
-    executionActivity: Record<string, unknown> | null;
-  };
-  invalidActivity.executionActivity = {
-    state: "available",
-    reason: "observed",
-    eventState: "observed",
-    eventReason: "observed",
-    eventContinuation: null,
-    projection: null,
-    events: [
-      {
-        eventId: "EVT-1",
-        occurredAt: "2026-09-28T00:00:00Z",
-        objectiveId: "OBJ-1",
-        taskId: "TASK-1",
-        attemptId: "ATTEMPT-1",
-        status: "completed",
-        reason: { unsafe: true },
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-      },
-    ],
-  };
   assert.throws(
-    () => validateViewResponse(invalidActivity),
+    () => validateViewResponse({ ...model, executionActivity: null }),
     /workbench_client_model_invalid/u,
   );
+});
 
-  const activityProjection = {
+/** @trace ERB-IT-021 */
+test("活動APIの応答は投影・履歴・実行選択の相関を保つ", () => {
+  const base = {
     projectId: "PRJ-001",
-    milestoneId: "MILESTONE-1",
-    generation: 1,
-    milestoneState: "active",
-    objectiveCounts: {},
-    taskCounts: {},
-    objectiveTaskSummaries: [],
-    workProgress: "進行中",
-    qualityState: "観測済み",
-    humanDecisionRequired: false,
-    recoveryRequired: false,
-    nextAction: "継続",
-  };
-  const observedWithoutProjection = structuredClone(model) as unknown as {
-    executionActivity: Record<string, unknown> | null;
-  };
-  observedWithoutProjection.executionActivity = {
-    state: "observed",
-    reason: "observed",
+    sources: [{ repositoryId: "repo-a", revision: null }],
+    currentSourceRepositoryId: null,
+    state: "unknown",
+    reason: "runtime_activity_state_unknown",
     projection: null,
     eventState: "observed",
-    eventReason: "execution_events_observed",
+    eventReason: "runtime_activity_events_observed",
     events: [],
     eventContinuation: null,
   };
-  const graphModel = {
-    ...model,
-    executionActivity: {
-      ...observedWithoutProjection.executionActivity,
-      state: "unknown",
-      graphs: [
-        {
-          repositoryId: "repo-a",
-          queueId: "queue-a",
-          milestoneId: "MILESTONE-1",
-          workspaceId: "workspace-a",
-          progress: {
-            milestoneState: "executing",
-            workProgress: "in_progress",
-            nextAction: "wait_for_task",
-          },
-        },
-        {
-          repositoryId: "repo-a",
-          queueId: "queue-b",
-          milestoneId: "MILESTONE-1",
-          workspaceId: "workspace-b",
-          progress: null,
-        },
-      ],
+  const graph = {
+    repositoryId: "repo-a",
+    queueId: "queue-a",
+    workspaceId: "workspace-a",
+    milestoneId: "MILESTONE-1",
+    progress: {
+      milestoneState: "executing",
+      workProgress: "in_progress",
+      nextAction: "wait_for_task",
     },
   };
-  assert.doesNotThrow(() => validateViewResponse(graphModel));
-  assert.throws(
-    () =>
-      validateViewResponse({
-        ...graphModel,
-        executionActivity: {
-          ...graphModel.executionActivity,
-          graphs: [
-            ...graphModel.executionActivity.graphs,
-            graphModel.executionActivity.graphs[0],
-          ],
-        },
-      }),
-    /workbench_client_model_invalid/u,
+  const projection = {
+    projectId: "PRJ-001",
+    milestoneId: "MILESTONE-1",
+    milestoneState: "active",
+    workProgress: "進行中",
+    nextAction: "継続",
+  };
+  const event = {
+    repositoryId: "repo-a",
+    eventId: "EVT-1",
+    occurredAt: "2026-09-28T00:00:00Z",
+    objectiveId: "OBJ-1",
+    taskId: "TASK-1",
+    status: "completed",
+    reason: "completed",
+  };
+  const read = (input: unknown) =>
+    validateExecutionActivity(input, "PRJ-001", "repo-a");
+  assert.equal(
+    read({
+      ...base,
+      graphs: [graph, { ...graph, queueId: "queue-b", progress: null }],
+    }).graphs?.length,
+    2,
   );
-  const absentWithProjection = structuredClone(model) as unknown as {
-    executionActivity: Record<string, unknown> | null;
-  };
-  absentWithProjection.executionActivity = {
-    state: "absent",
-    reason: "not_found",
-    projection: activityProjection,
-    eventState: "observed",
-    eventReason: "execution_events_observed",
-    events: [],
-    eventContinuation: null,
-  };
-  const unknownEventsWithPayload = structuredClone(model) as unknown as {
-    executionActivity: Record<string, unknown> | null;
-  };
-  unknownEventsWithPayload.executionActivity = {
-    state: "unknown",
-    reason: "observation_failed",
-    projection: null,
-    eventState: "unknown",
-    eventReason: "observation_failed",
-    events: [
-      {
-        eventId: "EVT-1",
-        occurredAt: "2026-09-28T00:00:00Z",
-        objectiveId: "OBJ-1",
-        taskId: "TASK-1",
-        attemptId: "ATTEMPT-1",
-        status: "completed",
-        reason: "completed",
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-      },
-    ],
-    eventContinuation: "cursor",
-  };
-  for (const invalidActivityCorrelation of [
-    observedWithoutProjection,
-    absentWithProjection,
-    unknownEventsWithPayload,
+  assert.equal(
+    read({
+      ...base,
+      state: "observed",
+      reason: "runtime_activity_state_observed",
+      currentSourceRepositoryId: "repo-a",
+      projection,
+    }).projection?.nextAction,
+    "継続",
+  );
+  for (const invalid of [
+    { ...base, sources: [] },
+    {
+      ...base,
+      state: "absent",
+      reason: "runtime_activity_state_absent",
+      sources: [],
+    },
+    { ...base, state: "available" },
+    { ...base, state: "observed", reason: "runtime_activity_state_observed" },
+    {
+      ...base,
+      state: "absent",
+      reason: "runtime_activity_state_absent",
+      projection,
+    },
+    { ...base, events: [{ ...event, reason: { unsafe: true } }] },
+    {
+      ...base,
+      eventState: "unknown",
+      eventReason: "runtime_activity_events_unknown",
+      events: [event],
+      eventContinuation: "cursor",
+    },
+    { ...base, graphs: [graph, graph] },
+    { ...base, graphs: [{ ...graph, repositoryId: "repo-other" }] },
   ])
-    assert.throws(
-      () => validateViewResponse(invalidActivityCorrelation),
-      /workbench_client_model_invalid/u,
-    );
+    assert.throws(() => read(invalid), /workbench_activity_response_invalid/u);
 });

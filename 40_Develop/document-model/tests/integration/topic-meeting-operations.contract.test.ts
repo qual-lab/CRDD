@@ -75,6 +75,14 @@ test("同Project Relationは集合整合と一意Ownerを保つ", () => {
               ownerRepositoryId: "stale-owner",
             }));
           },
+          getDocumentWithRelations(id: string) {
+            return id === "missing"
+              ? null
+              : {
+                  document: { markdown: "source" },
+                  relations: this.relations(id),
+                };
+          },
           hasRelationTarget: (kind: string, id: string) => {
             ownerCalls.push({ owner, scope, kind, id });
             reads += 1;
@@ -154,14 +162,29 @@ test("同Project Relationは集合整合と一意Ownerを保つ", () => {
           ...(nextMode === "one" ? { ownerRepositoryId: "repo-1" } : {}),
         })),
       );
+      reads = 0;
+      sourceCalls.length = 0;
+      ownerCalls.length = 0;
+      assert.deepEqual(combined[kind].getDocumentWithRelations(sourceId), {
+        document: { markdown: "source" },
+        relations: actual,
+      });
+      assert.equal(reads, 7);
+      assert.deepEqual(sourceCalls, [{ owner: 0, scope: kind, id: sourceId }]);
+      assert.equal(combined[kind].getDocumentWithRelations("missing"), null);
+      assert.equal(reads, 7);
     }
     mode = "throw";
     assert.throws(
       () => combined[kind].relations("ignored"),
       (error) => error === failure,
     );
+    assert.throws(
+      () => combined[kind].getDocumentWithRelations("ignored"),
+      (error) => error === failure,
+    );
     for (const name of Object.keys(first.application[kind])) {
-      if (name === "relations") continue;
+      if (name === "relations" || name === "getDocumentWithRelations") continue;
       assert.equal(
         Reflect.get(combined[kind], name),
         Reflect.get(first.application[kind], name),
@@ -209,7 +232,7 @@ test("公開CRUDは生成した種別だけを操作する", () => {
     ]);
     for (const kind of ["topic", "meeting"] as const)
       for (const name of Object.keys(source[kind]))
-        if (name !== "relations")
+        if (name !== "relations" && name !== "getDocumentWithRelations")
           assert.equal(
             Reflect.get(combined[kind], name),
             Reflect.get(source[kind], name),
@@ -462,9 +485,13 @@ test("TopicとMeetingを検索・絞込み・並び順付きCursorで取得す�
   const ownedRoot = createRepositoryTestDirectory("crdd-topic-filter-");
   const root = ownedRoot.path;
   try {
-    const application = createTopicMeetingOperations(
-      createTopicMeetingRepository(root),
-    );
+    const repository = createTopicMeetingRepository(root);
+    const application = createTopicMeetingOperations({
+      ...repository,
+      getDocument() {
+        assert.fail("一覧で取得済みの正本を再読取りした");
+      },
+    });
     application.create(
       "topic",
       topic("TOPIC-000001", {
@@ -560,6 +587,33 @@ test("TopicとMeetingを検索・絞込み・並び順付きCursorで取得す�
   }
 });
 
+/** 不一致の保存位置を、本文IDの正本がある証拠にしない。 @trace CPR-IT-010 */
+test("配置名と本文IDが異なる場合だけ、従来の照会で正本の有無を確かめる", () => {
+  const root = createRepositoryTestDirectory("crdd-topic-filter-identity-");
+  try {
+    const displaced = path.join(root.path, "22_Topics", "TOPIC-000002");
+    mkdirSync(displaced, { recursive: true });
+    writeFileSync(path.join(displaced, "topic.md"), topic("TOPIC-000001"));
+    const repository = createTopicMeetingRepository(root.path);
+    const observed: string[] = [];
+    const application = createTopicMeetingOperations({
+      ...repository,
+      getDocument(kind, id) {
+        observed.push(id);
+        return repository.getDocument(kind, id);
+      },
+    });
+    assert.deepEqual(application.list({ kind: "topic" }), {
+      status: "available",
+      records: [],
+      nextCursor: null,
+    });
+    assert.deepEqual(observed, ["TOPIC-000001"]);
+  } finally {
+    root.cleanup();
+  }
+});
+
 /**
  * Topic／Meeting／CHG Relationを安定IDと存在状態へ解決するを検証する。
  *
@@ -576,9 +630,15 @@ test("Topic／Meeting／CHG Relationを安定IDと存在状態へ解決する", 
   const ownedRoot = createRepositoryTestDirectory("crdd-topic-relations-");
   const root = ownedRoot.path;
   try {
-    const application = createTopicMeetingOperations(
-      createTopicMeetingRepository(root),
-    );
+    const repository = createTopicMeetingRepository(root);
+    const documentReads: string[] = [];
+    const application = createTopicMeetingOperations({
+      ...repository,
+      getDocument(kind, id) {
+        documentReads.push(id);
+        return repository.getDocument(kind, id);
+      },
+    });
     application.create("meeting", meeting([]));
     application.create(
       "topic",
@@ -599,12 +659,30 @@ test("Topic／Meeting／CHG Relationを安定IDと存在状態へ解決する", 
       "utf8",
     );
 
-    assert.deepEqual(application.relations("topic", "TOPIC-000001"), [
+    const relations = [
       { id: "CHG-000010", kind: "change", state: "available" },
       { id: "MTG-000001", kind: "meeting", state: "available" },
       { id: "TOPIC-999999", kind: "topic", state: "not_found" },
-    ]);
+    ];
+    assert.deepEqual(application.relations("topic", "TOPIC-000001"), relations);
     assert.deepEqual(application.relations("topic", "TOPIC-999999"), []);
+    documentReads.length = 0;
+    const observed = application.getDocumentWithRelations(
+      "topic",
+      "TOPIC-000001",
+    );
+    assert.ok(observed);
+    assert.match(observed.document.markdown, /MTG-000001/u);
+    assert.deepEqual(observed.relations, relations);
+    assert.deepEqual(documentReads, ["TOPIC-000001"]);
+
+    documentReads.length = 0;
+    assert.ok(application.getDocumentWithRelations("meeting", "MTG-000001"));
+    assert.equal(
+      application.getDocumentWithRelations("topic", "TOPIC-999999"),
+      null,
+    );
+    assert.deepEqual(documentReads, ["MTG-000001", "TOPIC-999999"]);
   } finally {
     ownedRoot.cleanup();
   }

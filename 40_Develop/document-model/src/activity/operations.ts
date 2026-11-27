@@ -16,6 +16,7 @@ import type {
   ProjectOperationRecord,
   ProjectOperationRecordKind,
   TopicMeetingAccess,
+  TopicMeetingDocument,
   TopicMeetingListQuery,
   TopicMeetingOperations,
   TopicMeetingPage,
@@ -23,6 +24,20 @@ import type {
   TopicMeetingRepository,
   TopicPromotionCommandResult,
 } from "./types.ts";
+
+/** 一覧の値制約。通信側も同じ語彙・書式を公開できる。 @trace ARCH-000006 */
+export const recordListQueryConstraints = Object.freeze({
+  topic: Object.freeze({
+    states: Object.freeze(["open", "waiting", "promoted", "closed"]),
+    sorts: Object.freeze(["id_asc", "title_asc", "state_asc"]),
+  }),
+  meeting: Object.freeze({
+    states: Object.freeze(["recorded", "closed", "corrected"]),
+    sorts: Object.freeze(["id_asc", "title_asc", "state_asc", "occurred_desc"]),
+  }),
+  relatedId: /^\s*(?:TOPIC|MTG|CHG|REQ|UX|IA|UI|SPEC|ARCH|QA)-\d{6}\s*$/u,
+  date: /^\d{4}-\d{2}-\d{2}$/u,
+});
 
 /**
  * Topic／Meetingの検索・更新Application境界におけるidentityの処理境界を固定する。
@@ -70,21 +85,19 @@ function normalizeQuery(
   const relation = query?.relation?.trim();
   if (
     relation !== undefined &&
-    !/^(?:TOPIC|MTG|CHG|REQ|UX|IA|UI|SPEC|ARCH|QA)-\d{6}$/u.test(relation)
+    !recordListQueryConstraints.relatedId.test(relation)
   )
     throw new Error("project_operation_list_query_invalid");
-  const allowedStates =
-    kind === "topic"
-      ? new Set(["open", "waiting", "promoted", "closed"])
-      : new Set(["recorded", "closed", "corrected"]);
+  const { states: allowedStates, sorts: allowedSorts } =
+    recordListQueryConstraints[kind];
   const states = Object.freeze(
     [...new Set(query?.states ?? [])].sort((left, right) =>
       left.localeCompare(right),
     ),
   );
-  if (!states.every((state) => allowedStates.has(state)))
+  if (!states.every((state) => allowedStates.includes(state)))
     throw new Error("project_operation_list_query_invalid");
-  const date = /^\d{4}-\d{2}-\d{2}$/u;
+  const { date } = recordListQueryConstraints;
   if (
     kind === "topic" &&
     (query?.occurredFrom !== undefined ||
@@ -101,10 +114,6 @@ function normalizeQuery(
   )
     throw new Error("project_operation_list_query_invalid");
   const sort = query?.sort ?? (kind === "meeting" ? "occurred_desc" : "id_asc");
-  const allowedSorts =
-    kind === "topic"
-      ? ["id_asc", "title_asc", "state_asc"]
-      : ["id_asc", "title_asc", "state_asc", "occurred_desc"];
   if (!allowedSorts.includes(sort))
     throw new Error("project_operation_list_query_invalid");
   return Object.freeze({
@@ -369,6 +378,31 @@ export function createTopicMeetingOperations(
     kind === "change"
       ? repository.hasChange(id)
       : repository.get(kind, id) !== null;
+  const relationsFor = (document: TopicMeetingDocument) => {
+    const ownId = identity(document.record);
+    const relationIds = [
+      ...new Set(
+        [...document.markdown.matchAll(/\b(?:TOPIC|MTG|CHG)-\d{6}\b/gu)]
+          .map((match) => match[0])
+          .filter((relationId) => relationId !== ownId),
+      ),
+    ].sort();
+    return Object.freeze(
+      relationIds.map((relationId): TopicMeetingRelation => {
+        const relationKind = relationId.startsWith("TOPIC-")
+          ? ("topic" as const)
+          : relationId.startsWith("MTG-")
+            ? ("meeting" as const)
+            : ("change" as const);
+        const isAvailable = hasRelationTarget(relationKind, relationId);
+        return Object.freeze({
+          id: relationId,
+          kind: relationKind,
+          state: isAvailable ? ("available" as const) : ("not_found" as const),
+        });
+      }),
+    );
+  };
   return Object.freeze({
     list: ({ kind, cursor, limit = 20, query }) => {
       validateTopicMeetingListInput(kind, {
@@ -379,9 +413,20 @@ export function createTopicMeetingOperations(
       const normalized = normalizeQuery(kind, query);
       const sort = normalized.sort ?? "id_asc";
       const signature = JSON.stringify(normalized);
-      const result = repository.list(kind);
+      const displaced = new Set<ProjectOperationRecord>();
+      const result = repository.list(
+        kind,
+        (directoryId, { record, markdown }) => {
+          if (directoryId === identity(record))
+            return matchesQuery(kind, record, markdown, normalized);
+          displaced.add(record);
+          return true;
+        },
+      );
       const filteredRecords = result.records
         .filter((record) => {
+          // 配置名と本文IDが異なる場合だけ、列挙後に従来の本文IDによる照会を行う。
+          if (!displaced.has(record)) return true;
           const document = repository.getDocument(kind, identity(record));
           return (
             document !== null &&
@@ -434,34 +479,15 @@ export function createTopicMeetingOperations(
     },
     get: (kind, id) => repository.get(kind, id),
     getDocument: (kind, id) => repository.getDocument(kind, id),
+    getDocumentWithRelations: (kind, id) => {
+      const document = repository.getDocument(kind, id);
+      return document === null
+        ? null
+        : Object.freeze({ document, relations: relationsFor(document) });
+    },
     relations: (kind, id) => {
       const document = repository.getDocument(kind, id);
-      if (document === null) return Object.freeze([]);
-      const ownId = identity(document.record);
-      const relationIds = [
-        ...new Set(
-          [...document.markdown.matchAll(/\b(?:TOPIC|MTG|CHG)-\d{6}\b/gu)]
-            .map((match) => match[0])
-            .filter((relationId) => relationId !== ownId),
-        ),
-      ].sort();
-      return Object.freeze(
-        relationIds.map((relationId): TopicMeetingRelation => {
-          const relationKind = relationId.startsWith("TOPIC-")
-            ? ("topic" as const)
-            : relationId.startsWith("MTG-")
-              ? ("meeting" as const)
-              : ("change" as const);
-          const isAvailable = hasRelationTarget(relationKind, relationId);
-          return Object.freeze({
-            id: relationId,
-            kind: relationKind,
-            state: isAvailable
-              ? ("available" as const)
-              : ("not_found" as const),
-          });
-        }),
-      );
+      return document === null ? Object.freeze([]) : relationsFor(document);
     },
     hasRelationTarget,
     create: (kind, markdown) => repository.create(kind, markdown),

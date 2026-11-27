@@ -37,7 +37,7 @@ export type StateStoreResult<T> =
     }>;
 
 /** 確定した最初の管理者と初回操作の非秘密な記録。 @trace ARCH-000013 */
-export type InitializationRecord = {
+type InitializationRecord = {
   stage: "completed";
   attemptId: string;
   initialUserId: string;
@@ -70,7 +70,7 @@ export type AccessManagementState = {
     repositoryId: string;
     repositoryRoot: string;
     bindingId: string;
-    hostedRepository?: GitHostLinkedRepository;
+    hostedRepository: GitHostLinkedRepository;
   }[];
   initialization: InitializationRecord;
 };

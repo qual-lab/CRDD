@@ -120,7 +120,7 @@ function meetingFixture(): string {
  * @cleanup Workbench Listener、Browser Process Tree、専用Profileおよび隔離Fixtureを削除する。
  * @boundary ERB-ST-022=Direct Boundary: workbench Test Source→対象契約
  */
-test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認する", {
+test("Workbenchの概要・Project・Topic・Meetingを全表示Profileと実Browser Zoomで確認する", {
   skip: process.env.CRDD_WORKBENCH_VISUAL_E2E !== "1",
 }, async (context) => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -163,22 +163,54 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
         "crdd-brand-icon-512x512.jpg",
       ),
     );
+    const contextBody = await readFile(
+      path.join(repositoryRoot, "PROJECT_CONTEXT.md"),
+      "utf8",
+    );
+    const projectId = /^Project ID: `([^`]+)`/mu.exec(contextBody)?.[1];
+    const repositoryId = /^Repository ID: `([^`]+)`/mu.exec(contextBody)?.[1];
+    const repositoryRole = /^Repository Role: `([^`]+)`/mu.exec(
+      contextBody,
+    )?.[1];
+    assert.ok(projectId && repositoryId && repositoryRole);
     await writeFile(
       path.join(fixture, "PROJECT_CONTEXT.md"),
-      await readFile(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8"),
+      contextBody,
       "utf8",
     );
     await writeFile(
       path.join(fixture, "22_Topics", "TOPIC-000042", "topic.md"),
-      topicFixture(),
+      topicFixture().replace(
+        "Project ID: `PRJ-001`",
+        `Project ID: \`${projectId}\``,
+      ),
       "utf8",
     );
     await writeFile(
       path.join(fixture, "23_Meetings", "MTG-000042", "meeting.md"),
-      meetingFixture(),
+      meetingFixture().replace(
+        "Project ID: `PRJ-001`",
+        `Project ID: \`${projectId}\``,
+      ),
       "utf8",
     );
     git(fixture, "init", "--quiet", "--initial-branch=main");
+    const config = path.join(fixture, ".crdd", "config");
+    await mkdir(config, { recursive: true });
+    await writeFile(
+      path.join(config, "repository-manifest.json"),
+      JSON.stringify({
+        schema: "crdd/repository-manifest/v2",
+        projectId,
+        repositoryId,
+        repositoryRole,
+        displayName: "Workbench visual fixture",
+        capabilities: [],
+        contextSurfaces: [],
+        externalSendPolicy: null,
+      }),
+      "utf8",
+    );
     await writeFile(path.join(fixture, ".gitignore"), "/.crdd/\n");
     git(fixture, "add", ".");
 
@@ -212,6 +244,11 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
             "ai-selection",
             "workbench-client-ready",
           ]),
+        }),
+        Object.freeze({
+          pageId: "project-detail",
+          pagePath: `/project?id=${encodeURIComponent(projectId)}`,
+          targetIds: Object.freeze(["project-detail"]),
         }),
         Object.freeze({
           pageId: "topic-detail",
@@ -250,7 +287,7 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
   assert.ok(result !== null);
   assert.equal(listenerState, "absent");
   assert.equal(afterStatus, beforeStatus);
-  assert.equal(result.measurements.length, 27);
+  assert.equal(result.measurements.length, 36);
   assert.equal(
     result.status,
     "passed",

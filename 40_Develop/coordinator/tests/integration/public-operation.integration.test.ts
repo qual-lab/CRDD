@@ -181,7 +181,8 @@ test("公開Objectiveは既定cwdと受付・実行の既知例外を区別す�
     coordinatorDataBoundaryBlocked,
   };
   const run = compileFunction(
-    `return (${sourceDeclaration(source, "runObjective")});`,
+    `${sourceDeclaration(source, "runObjectiveAfterCapture")}
+    return (${sourceDeclaration(source, "runObjective")});`,
     Object.keys(dependencies),
   )(...Object.values(dependencies)) as typeof runObjective;
   const signal = new AbortController().signal;

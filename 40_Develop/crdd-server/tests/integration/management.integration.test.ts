@@ -24,39 +24,42 @@ import {
   request as httpRequest,
   ServerResponse,
 } from "node:http";
-import { syncBuiltinESMExports } from "node:module";
+import { registerHooks, syncBuiltinESMExports } from "node:module";
 import { createConnection } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
 import {
   readAccount,
   registerRepository,
-  resolveHostedAccessCollection,
+  resolveGitHostLinkedAccessCollection,
 } from "@qual-lab/crdd-access-management";
 import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
-import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { prepareSharedSignIn } from "../support/shared-sign-in.ts";
-import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { hostedContentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
-import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
+import type { ExecutionActivityObservation } from "@qual-lab/crdd-coordinator";
 import {
   createPortfolioProjection,
   type ProjectContextSource,
   readRepositoryProjectContext,
 } from "@qual-lab/crdd-document-model";
 import { getRepository } from "@qual-lab/crdd-version-control";
+import { prepareAccessStore } from "../support/access-store.ts";
+import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import { hostedContentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
+import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
 import { startWorkbench } from "../../src/app.ts";
 import { resolveTopicMeetingAccess } from "../../src/service/topic.ts";
-import { observeRegistrationDirectory } from "../../src/service/access.ts";
+import { startManagementHttpFixture } from "../support/management-http.ts";
+import { observeRegistrationDirectory } from "../support/repository-registration.ts";
+import {
+  prepareSharedSignIn,
+  startSharedFixture,
+} from "../support/shared-sign-in.ts";
 import {
   assertManagementResponse,
   assertViewResponse,
 } from "../support/workbench-wire.ts";
-import { startManagementHttpFixture } from "../support/management-http.ts";
 
 /**
  * 閉じたServerへの再接続が拒否されることを確認する。
@@ -207,8 +210,8 @@ for (const mode of ["local", "cros"] as const) {
    * @trace CPR-IT-012
    * @trace EST-IT-002
    * @precondition 自己生成完了AM、登録可能Git Repository、本番ServerとBundle。
-   * @stimulus 管理操作・不正入力、旧鍵付き画面要求、現行セッションでの選択GETと読取り中の登録・紐付け・実体変更、重複ID、活動読取り開始前と開始後の切断を試す。
-   * @observation HTTP結果・実保存、対象活動履歴のopen／close、成功本文、次回要求の観測。旧鍵の照合の有無も計測する。
+   * @stimulus 管理操作・不正入力、Authorization付き画面要求、現行セッションでの選択GETと読取り中の登録・紐付け・実体変更、重複ID、活動読取り開始前と開始後の切断を試す。
+   * @observation HTTP結果・実保存、対象活動履歴のopen／close、成功本文、次回要求の観測。認証前の保存状態読取りも計測する。
    * @oracle 登録だけでは本文を渡さない。認可・実体失効では結果を公開せず、同値の順序変更だけなら許容する。重複IDと開始前の切断では活動読取り0、開始後は対象だけ一回読んで終了し、成功本文と再送は0。
    * @cleanup 所有Serverをclose後、exact自己生成Rootだけを回収する。
    * @boundary 管理RESTは実HTTPと実AM保存、共有表示は合成の本人確認とGitホストを使う。外部サービスとの接続やBrowser描画の代替ではない。
@@ -230,11 +233,10 @@ for (const mode of ["local", "cros"] as const) {
       fs.rmSync(owned, { recursive: true });
       assert.equal(fs.existsSync(owned), false);
     });
-    const root = createFilesystemStoreRoot(owned);
-    assert.ok(root);
+    const { root, directory: store } = prepareAccessStore(owned);
     const userId = randomUUID(),
-      operationId = randomUUID(),
-      material = createRetiredCredentialFixture();
+      operationId = randomUUID();
+    const invalidBearer = "synthetic-invalid-bearer";
     const identity = { issuer: "https://accounts.google.com", subject: userId };
     const accountBinding = { userId, bindingId: randomUUID() };
     const state: AccessManagementState = {
@@ -258,7 +260,7 @@ for (const mode of ["local", "cros"] as const) {
         connection: "account_confirmed",
       },
     };
-    const current = path.join(owned, "access-management.json");
+    const current = path.join(store, "access-management.json");
     fs.writeFileSync(current, JSON.stringify(state));
     const target = path.join(owned, "repository");
     fs.mkdirSync(target);
@@ -323,17 +325,17 @@ for (const mode of ["local", "cros"] as const) {
         "BROKEN STARTUP REPOSITORY CONTENT MUST NOT BE READ";
       fs.writeFileSync(path.join(startup, "PROJECT_CONTEXT.md"), forbiddenBody);
       const before = fs.readFileSync(current);
-      const local = await startWorkbench({
+      const local = await startSharedFixture({
         workingDirectory: startup,
         localAccessRoot: root,
       });
       try {
         const access = assertViewResponse(
-          await (await fetch(`${local.baseUrl}/api/workbench/view`)).json(),
+          await (await fetch(`${local.baseUrl}/api/workbench/overview`)).json(),
         );
         assert.ok(access.view === "access");
         assert.equal(access.authenticated, false);
-        assert.equal(access.portfolio, null);
+        assert.equal(Object.hasOwn(access, "portfolio"), false);
         assert.equal(Object.hasOwn(access, "credentials"), false);
         assert.deepEqual(fs.readFileSync(current), before);
         for (const route of [
@@ -348,64 +350,20 @@ for (const mode of ["local", "cros"] as const) {
           if (route !== "/assets/crdd-brand-icon.jpg")
             assert.equal((await reply.text()).includes(forbiddenBody), false);
         }
-        const rejectRetiredConnection = async (
-          operation: "connect" | "disconnect",
-        ) => {
-          const body = new URLSearchParams({
-            actionToken: access.actionToken,
-            operation,
-          });
-          if (operation === "connect") body.set("token", material.token);
-          const rejected = await fetch(
-            `${local.baseUrl}/api/access/connection`,
-            {
-              method: "POST",
-              headers: { origin: local.baseUrl },
-              body,
-              redirect: "manual",
-            },
-          );
-          assert.equal(rejected.status, 404);
-          assert.equal(rejected.headers.get("location"), null);
-          assert.equal(await rejected.text(), "");
-        };
-        for (const operation of ["connect", "disconnect"] as const) {
-          await rejectRetiredConnection(operation);
-          assert.deepEqual(fs.readFileSync(current), before);
-        }
-        const modelText = await (
-          await fetch(`${local.baseUrl}/api/workbench/view`, {
-            headers: { authorization: `Bearer ${material.token}` },
-          })
-        ).text();
-        for (const hidden of [
-          material.token,
-          material.tokenSalt,
-          material.tokenVerifier,
-          owned,
-          startup,
-          forbiddenBody,
-        ])
+        const denied = await fetch(`${local.baseUrl}/api/workbench/overview`, {
+          headers: { authorization: `Bearer ${invalidBearer}` },
+        });
+        assert.equal(denied.status, 403);
+        const modelText = await denied.text();
+        for (const hidden of [invalidBearer, owned, startup, forbiddenBody])
           assert.equal(modelText.includes(hidden), false);
-        const connected = assertViewResponse(JSON.parse(modelText));
-        assert.ok(connected.view === "access");
-        assert.equal(connected.authenticated, false);
-        assert.equal(connected.portfolio, null);
         const otherBrowser = assertViewResponse(
-          await (await fetch(`${local.baseUrl}/api/workbench/view`)).json(),
+          await (await fetch(`${local.baseUrl}/api/workbench/overview`)).json(),
         );
         assert.ok(otherBrowser.view === "access");
         assert.equal(otherBrowser.authenticated, false);
-        assert.equal(otherBrowser.portfolio, null);
+        assert.equal(Object.hasOwn(otherBrowser, "portfolio"), false);
         assert.equal(Object.hasOwn(otherBrowser, "credentials"), false);
-        const retiredCurrent = await fetch(
-          `${local.baseUrl}/api/access?view=current`,
-          {
-            headers: { authorization: `Bearer ${material.token}` },
-          },
-        );
-        assert.equal(retiredCurrent.status, 404);
-        assert.equal(await retiredCurrent.text(), "");
         for (const route of [
           "/owner-artifact?path=PROJECT_CONTEXT.md",
           "/change?id=CHG-000001",
@@ -415,149 +373,25 @@ for (const mode of ["local", "cros"] as const) {
           assert.match(shell.headers.get("content-type") ?? "", /text\/html/u);
           const body = await shell.text();
           assert.ok(body.includes("data-workbench-react-root"));
-          for (const hidden of [material.token, owned, startup, forbiddenBody])
+          for (const hidden of [invalidBearer, owned, startup, forbiddenBody])
             assert.equal(body.includes(hidden), false);
         }
         assert.equal(
           (
             await fetch(
-              `${local.baseUrl}/api/workbench/view?repositoryId=repository.fixture&route=%2Ftopic&id=TOPIC-000001`,
+              `${local.baseUrl}/api/repositories/repository.fixture/topics/TOPIC-000001`,
             )
           ).status,
-          403,
+          401,
         );
-        const unauthenticatedArtifact = assertViewResponse(
-          await (
-            await fetch(
-              `${local.baseUrl}/api/workbench/view?repositoryId=repository.fixture&route=%2Fchange&id=CHG-000001`,
-            )
-          ).json(),
+        const unauthenticatedArtifact = await fetch(
+          `${local.baseUrl}/api/repositories/repository.fixture/changes/CHG-000001`,
         );
-        assert.equal(unauthenticatedArtifact.view, "access");
-        if (unauthenticatedArtifact.view === "access") {
-          assert.equal(unauthenticatedArtifact.authenticated, false);
-          assert.equal(unauthenticatedArtifact.portfolio, null);
-          assert.equal(
-            Object.hasOwn(unauthenticatedArtifact, "credentials"),
-            false,
-          );
-        }
-        const initial = {
-          ...JSON.parse(before.toString("utf8")),
-          schemaRevision: 3,
-          credentials: [],
-          unresolvedKeyExchanges: [],
-          initialization: {
-            stage: "credential_stored",
-            attemptId: operationId,
-            userId,
-            initialCredentialId: material.credentialId,
-            confirmationCredentialId: material.credentialId,
-          },
-        };
-        fs.writeFileSync(current, JSON.stringify(initial));
-        const pending = fs.readFileSync(current);
-        const rename = fs.renameSync;
-        let publications = 0;
-        const observed = t.mock.method(
-          fs,
-          "renameSync",
-          (...args: Parameters<typeof rename>) => {
-            if (path.resolve(String(args[1])) === current) publications++;
-            return rename(...args);
-          },
-        );
-        try {
-          const response = await fetch(`${local.baseUrl}/api/workbench/view`);
-          assert.equal(response.status, 200);
-          for (const operation of ["connect", "disconnect"] as const) {
-            await rejectRetiredConnection(operation);
-            assert.deepEqual(fs.readFileSync(current), pending);
-            assert.equal(publications, 0);
-          }
-        } finally {
-          observed.mock.restore();
-        }
-        const currentState: AccessManagementState = JSON.parse(
-          before.toString("utf8"),
-        );
-        const administrator = currentState.users[0];
-        assert.ok(administrator);
-        delete administrator.accountLinks;
-        currentState.revision++;
-        currentState.operationId = randomUUID();
-        const secondUserId = randomUUID();
-        const secondMaterial = createRetiredCredentialFixture();
-        currentState.users.push({
-          userId: secondUserId,
-          username: "別の利用者",
-          role: "developer",
+        assert.equal(unauthenticatedArtifact.status, 401);
+        assert.deepEqual(await unauthenticatedArtifact.json(), {
+          error: "login_required",
         });
-        fs.writeFileSync(current, JSON.stringify(currentState));
-        const revoked = assertViewResponse(
-          await (
-            await fetch(`${local.baseUrl}/api/workbench/view`, {
-              headers: { authorization: `Bearer ${material.token}` },
-            })
-          ).json(),
-        );
-        assert.ok(revoked.view === "access");
-        assert.equal(revoked.authenticated, false);
-        assert.equal(revoked.portfolio, null);
-        const secondModel = assertViewResponse(
-          await (
-            await fetch(`${local.baseUrl}/api/workbench/view`, {
-              headers: { authorization: `Bearer ${secondMaterial.token}` },
-            })
-          ).json(),
-        );
-        assert.ok(secondModel.view === "access");
-        assert.equal(secondModel.authenticated, false);
-        assert.equal(Object.hasOwn(secondModel, "credentials"), false);
-        const duplicateBody = await new Promise<string>((resolve, reject) => {
-          const outgoing = httpRequest(
-            `${local.baseUrl}/api/workbench/view`,
-            {
-              headers: [
-                "Host",
-                new URL(local.baseUrl).host,
-                "Authorization",
-                `Bearer ${secondMaterial.token}`,
-                "Authorization",
-                `Bearer ${secondMaterial.token}`,
-              ],
-            },
-            (incoming) => {
-              let body = "";
-              incoming.setEncoding("utf8");
-              incoming.on("data", (chunk: string) => {
-                body += chunk;
-              });
-              incoming.once("error", reject);
-              incoming.once("end", () => resolve(body));
-            },
-          );
-          outgoing.once("error", reject);
-          outgoing.setTimeout(5000, () =>
-            outgoing.destroy(new Error("fixture_http_timeout")),
-          );
-          outgoing.end();
-        });
-        const duplicateModel = assertViewResponse(JSON.parse(duplicateBody));
-        assert.ok(duplicateModel.view === "access");
-        assert.equal(duplicateModel.authenticated, false);
-        assert.equal(duplicateModel.portfolio, null);
-        const malformedModel = assertViewResponse(
-          await (
-            await fetch(`${local.baseUrl}/api/workbench/view`, {
-              headers: {
-                authorization: `Bearer ${secondMaterial.token} extra`,
-              },
-            })
-          ).json(),
-        );
-        assert.ok(malformedModel.view === "access");
-        assert.equal(malformedModel.authenticated, false);
+        assert.deepEqual(fs.readFileSync(current), before);
         assert.equal(
           (await fetch(`${local.baseUrl}/api/access?view=current`)).status,
           404,
@@ -609,9 +443,13 @@ for (const mode of ["local", "cros"] as const) {
         ? await prepareSharedSignIn(t, [userId], hostRepositories)
         : undefined;
     if (signIn) configureRemote(target, hostRepositories[0]);
-    const handle = await startWorkbench({
+    const handle = await (signIn ? startSharedFixture : startWorkbench)({
       workingDirectory: repository,
-      ...(signIn && { ...signIn.options, localAccessRoot: root }),
+      ...(signIn && {
+        ...signIn.options,
+        localAccessRoot: root,
+        sharedRepositoryRoots: [owned],
+      }),
     });
     /**
      * 現行の共有セッションを所有Serverへの要求だけに搬送する。
@@ -644,16 +482,25 @@ for (const mode of ["local", "cros"] as const) {
       );
       const managementServer = management;
       const model = await (
-        await fetchWorkbench(`${handle.baseUrl}/api/workbench/view`)
+        await fetchWorkbench(`${handle.baseUrl}/api/workbench/overview`)
       ).json();
       assert.equal(model.view, mode === "cros" ? "access" : "main");
       const actorReply = await fetch(
         `${managementServer.baseUrl}/api/access/me`,
         { headers: { cookie: managementServer.cookie } },
       );
-      const { formToken: actorFormToken, ...currentActor } =
-        await actorReply.json();
+      const {
+        formToken: actorFormToken,
+        management: actorManagement,
+        ...currentActor
+      } = await actorReply.json();
       assert.equal(actorFormToken, managementServer.formToken);
+      assert.deepEqual(actorManagement, {
+        openSession: true,
+        registerRoles: ["developer", "manager", "administrator"],
+        registerRepository: true,
+        unregisterRepository: true,
+      });
       const actor = assertManagementResponse(currentActor, "current");
       assert.equal(actor.status, "completed");
       assert.ok("user" in actor);
@@ -667,6 +514,7 @@ for (const mode of ["local", "cros"] as const) {
           repositoryId: "repository.fixture",
           repositoryRoot: target,
           bindingId: deriveRepositoryBindingId("repository.fixture", target),
+          hostedRepository: hosted(92),
         });
         const saved = Buffer.from(JSON.stringify(scopedSelection));
         fs.writeFileSync(current, saved);
@@ -681,7 +529,7 @@ for (const mode of ["local", "cros"] as const) {
           origin: handle.baseUrl,
           "content-type": "application/json",
           "x-crdd-action-token": model.actionToken,
-          authorization: `Bearer ${material.token}`,
+          authorization: `Bearer ${invalidBearer}`,
         };
         let stateReads = 0;
         const open = fs.openSync;
@@ -720,9 +568,9 @@ for (const mode of ["local", "cros"] as const) {
             before,
           );
           for (const view of [
-            "/api/workbench/view",
-            "/api/workbench/view?repositoryId=repository.fixture",
-            "/api/workbench/view?repositoryId=repository.fixture&route=%2Fchange&id=CHG-000001",
+            "/api/workbench/overview",
+            "/api/workbench/overview?repositoryId=repository.fixture",
+            "/api/repositories/repository.fixture/changes/CHG-000001",
           ]) {
             const response = await fetch(`${handle.baseUrl}${view}`, {
               headers,
@@ -733,9 +581,12 @@ for (const mode of ["local", "cros"] as const) {
             });
           }
           assert.ok(cookie);
-          const mixed = await fetch(`${handle.baseUrl}/api/workbench/view`, {
-            headers: { ...headers, cookie },
-          });
+          const mixed = await fetch(
+            `${handle.baseUrl}/api/workbench/overview`,
+            {
+              headers: { ...headers, cookie },
+            },
+          );
           assert.equal(mixed.status, 403);
           assert.deepEqual(await mixed.json(), { error: "request_rejected" });
           assert.equal(stateReads, 0);
@@ -756,15 +607,21 @@ for (const mode of ["local", "cros"] as const) {
         const text = await reply.text();
         const { formToken, ...projection } = JSON.parse(text);
         assert.equal(formToken, managementServer.formToken);
+        if (view === "users") {
+          projection.users = projection.users.map(
+            ({ actions, ...user }: { actions: unknown; userId: string }) => {
+              assert.ok(actions && typeof actions === "object");
+              assert.deepEqual(Object.keys(actions).sort(), [
+                "changeRoles",
+                "rename",
+                "renewInvitation",
+              ]);
+              return user;
+            },
+          );
+        }
         assertManagementResponse(projection, view);
-        for (const hidden of [
-          material.token,
-          material.tokenSalt,
-          material.tokenVerifier,
-          owned,
-          target,
-          "bindingId",
-        ])
+        for (const hidden of [invalidBearer, owned, target, "bindingId"])
           assert.equal(text.includes(hidden), false);
       }
 
@@ -879,7 +736,7 @@ for (const mode of ["local", "cros"] as const) {
         );
       }
 
-      // 現行アカウントで登録し、後段ではGitホスト参照なしの拒否も検証する。
+      // 現行アカウントでホスト参照付きの登録を保存する。
       const setupRegistration = () =>
         registerRepository(
           root,
@@ -908,22 +765,6 @@ for (const mode of ["local", "cros"] as const) {
         fs.renameSync(displacedGit, gitDirectory);
       }
       assert.equal(setupRegistration().status, "completed");
-      const unlinked = JSON.parse(
-        fs.readFileSync(current, "utf8"),
-      ) as AccessManagementState;
-      const unlinkedRegistration = unlinked.registeredRepositories.find(
-        ({ repositoryId }) => repositoryId === "repository.fixture",
-      );
-      assert.ok(unlinkedRegistration);
-      delete unlinkedRegistration.hostedRepository;
-      fs.writeFileSync(current, JSON.stringify(unlinked));
-      const attachHost = (state: AccessManagementState) => {
-        const registration = state.registeredRepositories.find(
-          ({ repositoryId }) => repositoryId === "repository.fixture",
-        );
-        assert.ok(registration);
-        registration.hostedRepository = hosted(92);
-      };
       const beforeLocalProjection = fs.readFileSync(current);
       const contextBody = fs.readFileSync(
         path.join(target, "PROJECT_CONTEXT.md"),
@@ -971,7 +812,6 @@ for (const mode of ["local", "cros"] as const) {
         assert.ok(records.topic.getDocument("TOPIC-000001"));
         if (mode === "cros") {
           const linked = structuredClone(projectionState);
-          attachHost(linked);
           fs.writeFileSync(current, JSON.stringify(linked));
           recordHandle = await startWorkbench({ workingDirectory: target });
           const recordBase = recordHandle.baseUrl;
@@ -1144,7 +984,7 @@ for (const mode of ["local", "cros"] as const) {
                 const missingPath = field === "outcomeId" && missing;
                 assert.equal(
                   response.status,
-                  missingPath ? 405 : 400,
+                  missingPath ? 404 : 400,
                   `invalid_outcome_${field}_${missing}`,
                 );
                 if (missingPath) await response.arrayBuffer();
@@ -1317,7 +1157,7 @@ for (const mode of ["local", "cros"] as const) {
               fs.writeFileSync(recordManifest, savedBeforeFailure);
               const beforeFresh = fs.readFileSync(targetFile);
               const fresh = await fetchWorkbench(
-                `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+                `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
               );
               assert.equal(fresh.status, 200);
               await fresh.arrayBuffer();
@@ -1442,7 +1282,7 @@ for (const mode of ["local", "cros"] as const) {
             "closed",
           );
           const reply = await fetchWorkbench(
-            `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+            `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
           );
           assert.equal(reply.status, 200);
           const body = await reply.text();
@@ -1466,8 +1306,10 @@ for (const mode of ["local", "cros"] as const) {
             "project.fixture",
           );
           assert.equal(selectedModel.aiSelection?.selection.status, "missing");
-          assert.equal(selectedModel.executionActivity?.state, "absent");
-          assert.equal(selectedModel.executionActivity.projection, null);
+          assert.equal(
+            Object.hasOwn(selectedModel, "executionActivity"),
+            false,
+          );
           assert.equal(selectedModel.aiRequest.configured, false);
           assert.equal("candidateConfigured" in selectedModel.aiRequest, false);
           assert.equal(Object.hasOwn(selectedModel, "repositoryResult"), false);
@@ -1477,17 +1319,17 @@ for (const mode of ["local", "cros"] as const) {
           );
           assert.equal(selectedModel.aiSelectionManagement.snapshot, null);
           assert.equal(selectedModel.aiSelectionManagement.allowed, false);
-          for (const secret of [material.token, root.root, target, "bindingId"])
+          for (const secret of [invalidBearer, root.root, target, "bindingId"])
             assert.equal(body.includes(secret), false);
           const detail = await fetchWorkbench(
-            `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture&route=%2Ftopic&id=TOPIC-000001`,
+            `${handle.baseUrl}/api/repositories/repository.fixture/topics/TOPIC-000001`,
           );
-          const documentModel = assertViewResponse(await detail.json());
-          assert.ok(documentModel.view === "record-detail");
-          assert.equal(documentModel.record.id, "TOPIC-000001");
+          assert.equal(detail.status, 200);
+          const documentModel = await detail.json();
+          assert.equal(documentModel.record.topicId, "TOPIC-000001");
           assert.equal(documentModel.repositoryId, "repository.fixture");
           const absent = await fetchWorkbench(
-            `${handle.baseUrl}/api/workbench/view?repositoryId=repository.absent`,
+            `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.absent`,
           );
           assert.equal(absent.status, 403);
           assert.equal(
@@ -1495,13 +1337,13 @@ for (const mode of ["local", "cros"] as const) {
             "local_repository_access_unavailable\n",
           );
           const anonymous = await fetch(
-            `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+            `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
           );
           assert.equal(anonymous.status, 403);
           const portal = assertViewResponse(
             await (
               await fetchWorkbench(
-                `${handle.baseUrl}/api/workbench/view?repositoryId=`,
+                `${handle.baseUrl}/api/workbench/overview?repositoryId=`,
               )
             ).json(),
           );
@@ -1561,7 +1403,6 @@ for (const mode of ["local", "cros"] as const) {
             contextBody,
           );
           const scoped = structuredClone(projectionState);
-          attachHost(scoped);
           scoped.registeredRepositories.push({
             repositoryId: "repository.sibling",
             repositoryRoot: sibling,
@@ -1673,7 +1514,7 @@ for (const mode of ["local", "cros"] as const) {
             );
             fs.writeFileSync(current, siblingState);
             const fresh = await fetchWorkbench(
-              `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+              `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
             );
             assert.equal(fresh.status, 200);
             await fresh.arrayBuffer();
@@ -1687,51 +1528,46 @@ for (const mode of ["local", "cros"] as const) {
             syncBuiltinESMExports();
             fs.writeFileSync(current, siblingState);
           }
-          const activityReply = await fetchWorkbench(
-            `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
-          );
-          const activityModel = assertViewResponse(await activityReply.json());
-          assert.ok(activityModel.view === "main");
-          assert.equal(activityModel.executionActivity?.state, "absent");
-          assert.equal(activityModel.executionActivity?.eventState, "observed");
-          assert.equal(activityModel.executionActivity?.events.length, 20);
-          assert.equal(
-            activityModel.executionActivity?.events.some(
+          const activityPath = "/api/repositories/repository.fixture/activity";
+          const readActivity = async (query = "") => {
+            const reply = await fetchWorkbench(
+              `${handle.baseUrl}${activityPath}${query}`,
+            );
+            assert.equal(reply.status, 200);
+            return (await reply.json()) as ExecutionActivityObservation;
+          };
+          const activity = await readActivity();
+          assert.equal(activity.state, "absent");
+          assert.equal(activity.eventState, "observed");
+          assert.equal(activity.events.length, 20);
+          assert.ok(
+            activity.events.every(
               (entry) =>
-                entry.taskId === "task.foreign" ||
-                entry.taskId === "task.sibling",
-            ),
-            false,
-          );
-          assert.ok(
-            activityModel.executionActivity?.events.some(
-              (entry) => Number(entry.taskId.split("-").at(-1)) % 2 === 0,
+                entry.repositoryId === "repository.fixture" &&
+                entry.taskId !== "task.foreign" &&
+                entry.taskId !== "task.sibling",
             ),
           );
-          assert.ok(
-            activityModel.executionActivity?.events.some(
-              (entry) => Number(entry.taskId.split("-").at(-1)) % 2 === 1,
-            ),
-          );
-          const cursor = activityModel.executionActivity?.eventContinuation;
+          for (const parity of [0, 1])
+            assert.ok(
+              activity.events.some(
+                (entry) =>
+                  Number(entry.taskId.split("-").at(-1)) % 2 === parity,
+              ),
+            );
+          const cursor = activity.eventContinuation;
           assert.ok(cursor);
-          const continuation = assertViewResponse(
-            await (
-              await fetchWorkbench(
-                `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture&activityCursor=${encodeURIComponent(cursor)}`,
-              )
-            ).json(),
+          const continuation = await readActivity(
+            `?cursor=${encodeURIComponent(cursor)}`,
           );
-          assert.ok(continuation.view === "main");
-          assert.equal(continuation.executionActivity?.events.length, 5);
-          assert.equal(continuation.executionActivity?.eventContinuation, null);
+          assert.equal(continuation.events.length, 5);
+          assert.equal(continuation.eventContinuation, null);
           assert.deepEqual(
             [
               ...new Set(
-                [
-                  ...(activityModel.executionActivity?.events ?? []),
-                  ...(continuation.executionActivity?.events ?? []),
-                ].map((entry) => entry.taskId),
+                [...activity.events, ...continuation.events].map(
+                  (entry) => entry.taskId,
+                ),
               ),
             ].sort(),
             Array.from(
@@ -1739,20 +1575,13 @@ for (const mode of ["local", "cros"] as const) {
               (_, index) => `task.fixture-${index}`,
             ).sort(),
           );
-          const invalidCursor = assertViewResponse(
-            await (
-              await fetchWorkbench(
-                `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture&activityCursor=invalid`,
-              )
-            ).json(),
+          const invalidCursor = await fetchWorkbench(
+            `${handle.baseUrl}${activityPath}?cursor=invalid`,
           );
-          assert.ok(invalidCursor.view === "main");
-          assert.equal(invalidCursor.executionActivity?.state, "unknown");
-          assert.equal(invalidCursor.executionActivity?.events.length, 0);
-          assert.equal(
-            invalidCursor.executionActivity?.eventContinuation,
-            null,
-          );
+          assert.equal(invalidCursor.status, 503);
+          assert.deepEqual(await invalidCursor.json(), {
+            error: "execution_activity_unavailable",
+          });
           const historyPath = path.join(
             target,
             ".crdd",
@@ -1762,17 +1591,10 @@ for (const mode of ["local", "cros"] as const) {
           const savedHistory = fs.readFileSync(historyPath);
           try {
             fs.writeFileSync(historyPath, "invalid-history\n");
-            const unknown = assertViewResponse(
-              await (
-                await fetchWorkbench(
-                  `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
-                )
-              ).json(),
-            );
-            assert.ok(unknown.view === "main");
-            assert.equal(unknown.executionActivity?.state, "absent");
-            assert.equal(unknown.executionActivity?.eventState, "unknown");
-            assert.equal(unknown.executionActivity?.events.length, 0);
+            const unknown = await readActivity();
+            assert.equal(unknown.state, "absent");
+            assert.equal(unknown.eventState, "unknown");
+            assert.equal(unknown.events.length, 0);
           } finally {
             fs.writeFileSync(historyPath, savedHistory);
           }
@@ -1784,10 +1606,8 @@ for (const mode of ["local", "cros"] as const) {
             const originalClose = fs.closeSync;
             const originalOpen = fs.openSync;
             const historyHandles = new Map<number, string>();
-            const originalAsyncRead = fs.promises.readFile;
             const originalEnd = ServerResponse.prototype.end;
-            const selectedUrl =
-              "/api/workbench/view?repositoryId=repository.fixture";
+            const selectedUrl = activityPath;
             const opened = t.mock.method(
               fs,
               "openSync",
@@ -1826,22 +1646,34 @@ for (const mode of ["local", "cros"] as const) {
                 }
               },
             );
-            const early = t.mock.method(
-              fs.promises,
-              "readFile",
-              async (...args: Parameters<typeof fs.promises.readFile>) => {
-                const body = await originalAsyncRead(...args);
-                if (
-                  cancelStage === "before" &&
-                  !cancelled &&
-                  String(args[0]) === path.join(target, "PROJECT_CONTEXT.md")
-                ) {
-                  cancelled = true;
-                  client.request?.destroy();
-                }
-                return body;
-              },
-            );
+            const beforeReader = `activity-delayed-reader-${randomUUID()}`;
+            let earlyReaderCalls = 0;
+            const early =
+              cancelStage === "before"
+                ? registerHooks({
+                    resolve(specifier, context, next) {
+                      if (
+                        !cancelled &&
+                        specifier === "@qual-lab/crdd-coordinator" &&
+                        context.parentURL?.endsWith("/src/service/execution.ts")
+                      ) {
+                        cancelled = true;
+                        client.request?.destroy();
+                        const source = `await new Promise(resolve => setTimeout(resolve, 25)); export const queryActivity = globalThis[${JSON.stringify(beforeReader)}];`;
+                        return {
+                          url: `data:text/javascript,${encodeURIComponent(source)}`,
+                          shortCircuit: true,
+                        };
+                      }
+                      return next(specifier, context);
+                    },
+                  })
+                : null;
+            if (early)
+              Reflect.set(globalThis, beforeReader, () => {
+                earlyReaderCalls++;
+                throw new Error("unexpected_activity_reader");
+              });
             const publication = t.mock.method(
               ServerResponse.prototype,
               "end",
@@ -1882,9 +1714,10 @@ for (const mode of ["local", "cros"] as const) {
               assert.equal(
                 successBodies,
                 0,
-                "cancelled_activity_success_body_zero",
+                `${cancelStage}: cancelled_activity_success_body_zero`,
               );
               assert.equal(reads.length, cancelStage === "before" ? 0 : 1);
+              assert.equal(earlyReaderCalls, 0);
               assert.equal(
                 new Set(reads).size,
                 reads.length,
@@ -1899,12 +1732,13 @@ for (const mode of ["local", "cros"] as const) {
               client.request?.destroy();
               scan.mock.restore();
               opened.mock.restore();
-              early.mock.restore();
+              early?.deregister();
+              Reflect.deleteProperty(globalThis, beforeReader);
               publication.mock.restore();
               syncBuiltinESMExports();
             }
-            const next = assertViewResponse(
-              await new Promise<unknown>((resolve, reject) => {
+            const next = await new Promise<ExecutionActivityObservation>(
+              (resolve, reject) => {
                 const request = httpRequest(
                   `${handle.baseUrl}${selectedUrl}`,
                   {
@@ -1938,11 +1772,10 @@ for (const mode of ["local", "cros"] as const) {
                   ),
                 );
                 request.end();
-              }),
+              },
             );
-            assert.ok(next.view === "main");
-            assert.equal(next.executionActivity?.eventState, "observed");
-            assert.equal(next.executionActivity?.events.length, 20);
+            assert.equal(next.eventState, "observed");
+            assert.equal(next.events.length, 20);
           }
           for (const directory of [target, sibling, foreign])
             assert.equal(
@@ -2027,7 +1860,7 @@ for (const mode of ["local", "cros"] as const) {
               syncBuiltinESMExports();
               try {
                 const stale = await fetchWorkbench(
-                  `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+                  `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
                 );
                 assert.equal(changed, true, scenario);
                 if (scenario === "reorder") {
@@ -2085,7 +1918,7 @@ for (const mode of ["local", "cros"] as const) {
               reads = 0;
               opens = 0;
               const duplicate = await fetchWorkbench(
-                `${handle.baseUrl}/api/workbench/view?repositoryId=${selection}`,
+                `${handle.baseUrl}/api/workbench/overview?repositoryId=${selection}`,
               );
               assert.equal(duplicate.status, 403);
               assert.equal(
@@ -2096,7 +1929,7 @@ for (const mode of ["local", "cros"] as const) {
               assert.equal(opens, 0);
             }
             await fetchWorkbench(
-              `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+              `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
             );
             assert.ok(reads > 0, "valid_request_read_counter_positive");
             assert.ok(opens > 0, "valid_request_open_counter_positive");
@@ -2112,7 +1945,7 @@ for (const mode of ["local", "cros"] as const) {
           removed.registeredRepositories = [];
           fs.writeFileSync(current, JSON.stringify(removed));
           const withdrawn = await fetchWorkbench(
-            `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+            `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
           );
           assert.equal(withdrawn.status, 403);
           assert.equal(
@@ -2131,7 +1964,6 @@ for (const mode of ["local", "cros"] as const) {
         const state = JSON.parse(
           fs.readFileSync(current, "utf8"),
         ) as AccessManagementState;
-        attachHost(state);
         state.revision++;
         state.operationId = randomUUID();
         fs.writeFileSync(current, JSON.stringify(state));
@@ -2162,7 +1994,7 @@ for (const mode of ["local", "cros"] as const) {
       try {
         if (mode === "cros") {
           oldRead = fetchWorkbench(
-            `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
+            `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.fixture`,
           ).then((response) => {
             oldReadSettled = true;
             return response;
@@ -2292,10 +2124,14 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
   try {
     for (const allowed of [true, false]) {
       opened = 0;
-      const collection = resolveHostedAccessCollection(f.root, f.principal, {
-        managementRevision: f.state.revision,
-        candidates: allowed ? [f.candidate] : [],
-      });
+      const collection = resolveGitHostLinkedAccessCollection(
+        f.root,
+        f.principal,
+        {
+          managementRevision: f.state.revision,
+          candidates: allowed ? [f.candidate] : [],
+        },
+      );
       assert.equal(collection.status, "completed");
       if (collection.status !== "completed")
         throw new Error("collection unavailable");
@@ -2340,10 +2176,14 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
       } else assert.deepEqual(portfolio.projects, []);
     }
     fs.rmSync(target);
-    const collection = resolveHostedAccessCollection(f.root, f.principal, {
-      managementRevision: f.state.revision,
-      candidates: [f.candidate],
-    });
+    const collection = resolveGitHostLinkedAccessCollection(
+      f.root,
+      f.principal,
+      {
+        managementRevision: f.state.revision,
+        candidates: [f.candidate],
+      },
+    );
     assert.equal(collection.status, "completed");
     if (collection.status !== "completed")
       throw new Error("collection unavailable");

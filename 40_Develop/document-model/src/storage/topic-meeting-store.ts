@@ -430,7 +430,7 @@ export function createTopicMeetingRepository(
   return Object.freeze({
     get: read,
     getDocument: (kind, id) => readDocument(kind, id),
-    list: (kind) => {
+    list: (kind, include) => {
       const contract = KIND_CONTRACT[kind];
       const rootDirectory = path.join(root, contract.directory);
       if (!observeDirectoryChain(rootDirectory))
@@ -444,8 +444,13 @@ export function createTopicMeetingRepository(
             entry.isDirectory() ||
             new RegExp(`^${contract.prefix}-\\d{6}$`, "u").test(entry.name),
         )
-        .map((entry) => read(kind, entry.name))
-        .filter((record): record is ProjectOperationRecord => record !== null)
+        .flatMap((entry) => {
+          const document = readDocument(kind, entry.name);
+          return document &&
+            (include === undefined || include(entry.name, document))
+            ? [document.record]
+            : [];
+        })
         .sort((left, right) => recordId(left).localeCompare(recordId(right)));
       return Object.freeze({
         status: "available" as const,

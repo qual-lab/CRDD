@@ -7,7 +7,7 @@
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
 import type { ReactElement, ReactNode } from "react";
-import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
+import { EmptyState, WorkbenchPanel } from "./elements.ts";
 import { composeWorkbenchRecordDisplay } from "../api/view.ts";
 import type {
   MainViewResponse,
@@ -30,20 +30,17 @@ import type {
  * @security Server確定済みIdentityだけを運ぶ。
  * @concurrency 表示時のexpectedRevisionを保持する。
  */
-export function RecordOperationFields({
-  actionToken,
+function RecordOperationFields({
   repositoryId,
   document,
   operation,
 }: Readonly<{
-  actionToken: string;
   repositoryId: string | null;
   document: RecordDocumentView;
   operation: string;
 }>): ReactElement {
   return (
     <>
-      <ActionTokenInput value={actionToken} />
       {repositoryId === null ? null : (
         <input type="hidden" name="repositoryId" value={repositoryId} />
       )}
@@ -63,7 +60,7 @@ export function RecordOperationFields({
  * Topic／Meetingの明示的な編集・削除操作を描画する。
  * @responsibility Record種別ごとの許可操作と確認条件を表示する。
  * @trace ARCH-000012
- * @input actionToken、repositoryId、documentを受け取る。
+ * @input repositoryId、documentを受け取る。
  * @returns 明示POST FormのReact要素を返す。
  * @precondition documentは現在表示中のRecordである。
  * @postcondition 削除・Close等の破壊的操作は確認を要求する。
@@ -71,15 +68,13 @@ export function RecordOperationFields({
  * @failure Server拒否をClientで成功へ変換しない。
  * @invariant Authority判定はServerに残す。
  * @boundary Browser操作とTopic／Meeting Commandの境界。
- * @security Process限定Action Tokenと明示確認を使用する。
+ * @security 対象との相関と破棄時の明示確認を使用する。
  * @concurrency expectedRevisionで表示後競合を検出できる。
  */
 export function RecordActions({
-  actionToken,
   repositoryId,
   document,
 }: Readonly<{
-  actionToken: string;
   repositoryId: string | null;
   document: RecordDocumentView;
 }>): ReactElement {
@@ -89,7 +84,6 @@ export function RecordActions({
       {document.kind === "meeting" ? (
         <form method="post" data-record-operation="">
           <RecordOperationFields
-            actionToken={actionToken}
             repositoryId={repositoryId}
             document={document}
             operation="treat-outcome"
@@ -150,7 +144,6 @@ export function RecordActions({
       ) : (
         <form method="post" data-record-operation="">
           <RecordOperationFields
-            actionToken={actionToken}
             repositoryId={repositoryId}
             document={document}
             operation="promote-topic"
@@ -173,7 +166,6 @@ export function RecordActions({
       )}
       <form method="post" data-record-operation="">
         <RecordOperationFields
-          actionToken={actionToken}
           repositoryId={repositoryId}
           document={document}
           operation="update"
@@ -191,7 +183,6 @@ export function RecordActions({
       </form>
       <form method="post" data-record-operation="">
         <RecordOperationFields
-          actionToken={actionToken}
           repositoryId={repositoryId}
           document={document}
           operation="delete"
@@ -284,7 +275,7 @@ export function RecordCollection({
             <li key={id}>
               <strong>
                 <a
-                  href={`/${kind}?id=${encodeURIComponent(id)}${model.selectedRepositoryId === null ? "" : `&repositoryId=${encodeURIComponent(model.selectedRepositoryId)}`}`}
+                  href={`/${kind}?id=${encodeURIComponent(id)}&repositoryId=${encodeURIComponent(repositoryId)}`}
                 >
                   {id} — {record.title}
                 </a>
@@ -298,7 +289,6 @@ export function RecordCollection({
               {document === undefined ||
               !model.recordActionsConfigured ? null : (
                 <RecordActions
-                  actionToken={model.actionToken}
                   repositoryId={repositoryId}
                   document={document}
                 />
@@ -436,7 +426,6 @@ export function RecordCollection({
         <details className="record-editor">
           <summary>{label}を登録</summary>
           <form method="post" data-record-operation="">
-            <ActionTokenInput value={model.actionToken} />
             <input type="hidden" name="repositoryId" value={repositoryId} />
             <input type="hidden" name="kind" value={kind} />
             <input type="hidden" name="operation" value="create" />

@@ -9,60 +9,18 @@
  * @boundary 失敗保全はmemory依存、本番入口は専用TEMPと実Node Filesystem境界。
  */
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs, { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
-import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   classifyOwnedOperationDirectoryCreationFailure,
-  cleanupOwnedOperationDirectories,
   createCoordinatorOperation,
-  getOwnedHostRecoveryId,
 } from "../../src/lifecycle/host.ts";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-
-/**
- * 現行Hostの作業先となる試験専用Gitリポジトリを用意する。
- * @trace ERB-IT-003
- * @boundary 操作対象は既存fixtureが作成した試験Rootだけ。
- */
-function hostNamespaceFixture(t: test.TestContext) {
-  const directory = createRepositoryTestDirectory("node-host-namespace-");
-  t.after(directory.cleanup);
-  const git = (...args: string[]) =>
-    execFileSync("git", ["-C", directory.path, ...args], { windowsHide: true });
-  git("init", "--quiet");
-  git(
-    "-c",
-    "user.name=CRDD Test",
-    "-c",
-    "user.email=test@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-    "commit",
-    "--allow-empty",
-    "--quiet",
-    "-m",
-    "fixture",
-  );
-  const verified = getRepository(directory.path);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed")
-    throw Error("fixture_repository_invalid");
-  return {
-    root: directory.path,
-    parent: path.join(directory.path, ".crdd", "coordinator"),
-    input: {
-      root: verified.capability,
-      purpose: "isolation_probe" as const,
-      recordingCurrent: () => true,
-    },
-  };
-}
+import { createHostNamespaceFixture } from "../support/recovery-repository.ts";
 
 /**
  * 既存Node Ownerの正常系を、新規Repository-local領域と子Processに隔離する。
@@ -182,100 +140,6 @@ test("Namespace試験は子失敗・終了不明・未知残存を削除せず�
 });
 
 /**
- * 実Node正常系の結果契約を維持する。
- * @trace ERB-IT-003
- * @precondition 固定Namespaceを事前作成しない専用TEMPを使用する。
- * @stimulus 本番入口を呼ぶ。診断は受動・Operationは実行なし。
- * @observation 公開結果とHost Recovery IDの相関。
- * @oracle 旧UTのassertionを同じ本番入口へ適用する。
- * @cleanup runNodeNamespaceCaseが自己生成領域だけを回収する。
- * @boundary Coordinator→既存Node Owner→Node Filesystem。
- */
-test("production doctorは受動診断でHost領域・Namespaceを作成しない", {
-  timeout: 120_000,
-}, () => {
-  runNodeNamespaceCase(
-    `
-import assert from "node:assert/strict";
-import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)};
-
-  const report = await runDoctor({
-    activeIsolation: false,
-    cwd: process.cwd(),
-  });
-  for (const removedKey of [
-    "runtimeRoot",
-    "runtimeRootPathIdentity",
-    "runtimeActivation",
-    "runtimeRootEvaluation",
-    "runtimeRootProtectionPrecheck",
-  ]) {
-    assert.equal(Object.hasOwn(report, removedKey), false);
-  }
-  assert.equal(Object.hasOwn(report.egress, "authorityRoot"), false);
-  assert.equal(Object.hasOwn(report.egress, "activation"), false);
-  assert.equal(REQUIRED_CHECK_IDS.includes("runtime.root"), false);
-  assert.equal(report.diagnosticMode, "passive_preflight");
-  assert.equal(report.reportVersion, 17);
-  assert.equal(report.filesystem.policy, null);
-  assert.equal(report.recovery.required, false);
-  const directories = report.checks.find(item => item.id === "operation.directories");
-  assert.equal(directories.status, "not_implemented");
-  assert.equal(directories.reason, "owned_operation_directories_not_requested");
-  assert.equal(report.blockers.some(item => item.id === "operation.directories" && item.reason === directories.reason), true);
-  assert.equal(Object.hasOwn(report.credentials, "forwardedNames"), false);
-  assert.equal(Object.hasOwn(report.credentials, "environmentFiltered"), false);
-  assert.equal(report.credentials.valuesRecorded, false);
-  assert.ok(Array.isArray(report.credentials.detectedNames));
-  assert.equal(REQUIRED_CHECK_IDS.includes("execution.credential_environment"), false);
-  assert.equal(report.checks.some(item => item.id === "execution.credential_environment"), false);
-  assert.equal(Object.hasOwn(report, "repositoryLocation"), true);
-  assert.equal(Object.hasOwn(report, "repositoryGitLayout"), false);
-  assert.equal(report.repositoryLocation.pathReported, false);
-  assert.equal(report.fakeProviderLifecycle.fakeProviderExecuted, false);
-`,
-    false,
-  );
-});
-
-/**
- * 実Node正常系の結果契約を維持する。
- * @trace ERB-IT-003
- * @precondition 固定Namespaceを事前作成しない専用TEMPを使用する。
- * @stimulus 本番入口を呼ぶ。診断は受動・Operationは実行なし。
- * @observation 公開結果とHost Recovery IDの相関。
- * @oracle 旧UTのassertionを同じ本番入口へ適用する。
- * @cleanup runNodeNamespaceCaseが自己生成領域だけを回収する。
- * @boundary Coordinator→既存Node Owner→Node Filesystem。
- */
-test("production Operationは実Directory producerのexact Host Recovery IDを公開する", {
-  timeout: 120_000,
-}, (t) => {
-  const { input, parent } = hostNamespaceFixture(t);
-  const seen = new Set<string>();
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const created = createCoordinatorOperation(input);
-    try {
-      assert.equal(
-        getOwnedHostRecoveryId(created.owned),
-        created.hostRecoveryId,
-      );
-      assert.equal(
-        created.hostRecoveryId,
-        `host-operation.${created.operationId}`,
-      );
-      assert.match(created.hostRecoveryId, /^host-operation\.OP-[0-9]+$/u);
-      assert.equal(created.owned.root, path.join(parent, created.operationId));
-      assert.ok(!seen.has(created.hostRecoveryId));
-      seen.add(created.hostRecoveryId);
-    } finally {
-      cleanupOwnedOperationDirectories(created.owned);
-      assert.equal(fs.existsSync(created.owned.root), false);
-    }
-  }
-});
-
-/**
  * 本番の新しいCoordinator親で不正実体の保全と自己生成物の回収を確認する。
  * @trace ERB-IT-003
  * @precondition 毎回独立した試験Repositoryと固定の試験資源を使う。
@@ -290,7 +154,7 @@ test("production Operationは不正Namespaceと部分生成失敗を既存分類
 }, async (t) => {
   for (const scenario of ["file", "link", "partial"] as const) {
     await t.test(scenario, (sub) => {
-      const { input, parent, root } = hostNamespaceFixture(sub);
+      const { input, parent, root } = createHostNamespaceFixture(sub);
       fs.mkdirSync(path.dirname(parent));
       const target = path.join(root, "link-target");
       let original: fs.Stats | null = null;

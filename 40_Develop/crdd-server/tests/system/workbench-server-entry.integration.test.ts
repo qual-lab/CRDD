@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { generateKeyPairSync } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { EventEmitter, once } from "node:events";
 import {
   copyFile,
@@ -30,25 +30,25 @@ import {
   createServer as createHttpsServer,
   request as httpsRequest,
 } from "node:https";
-import { createServer } from "node:net";
 import { registerHooks } from "node:module";
+import { createServer } from "node:net";
 import path from "node:path";
 import type { Duplex } from "node:stream";
 import test from "node:test";
-import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
-import { prepareHostInitializationRoot } from "../../../access-management/src/initialization/root.ts";
 import {
-  readHostInitializationState,
-  resolveHostRootInput,
   type FilesystemStoreRoot,
+  readHostInitializationState,
 } from "@qual-lab/crdd-access-management";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
+import {
+  prepareAccessStore,
+  syntheticSharedEnvironment,
+} from "../support/access-store.ts";
 import { startCrddServer, startWorkbench } from "../../src/app.ts";
 import { inspectServerPublicOrigin } from "../../src/service/configuration.ts";
-import {
-  MCP_COORDINATOR_PROTOCOL_VERSION,
-  type McpAuthenticatedRequestHandlerResolver,
-} from "../../src/transport/mcp-server.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
+import { asMcpFixtureFactory } from "../support/mcp-factory.ts";
+import { startSharedFixture } from "../support/shared-sign-in.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -108,34 +108,54 @@ async function verifyUnifiedMcpJoin(
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const accept: McpAuthenticatedRequestHandlerResolver =
-    () => async (_request, signal) => {
-      const onAbort = () => observed.emit("aborted");
-      signal.addEventListener("abort", onAbort, { once: true });
-      observed.emit("started");
-      try {
-        await held;
-        return { jsonrpc: "2.0", id: "held", result: { tools: [] } };
-      } finally {
-        signal.removeEventListener("abort", onAbort);
-      }
-    };
-  const name = "crdd.test.unified-mcp-resolver";
+  const factory = asMcpFixtureFactory(async (_request, signal) => {
+    const onAbort = () => observed.emit("aborted");
+    signal.addEventListener("abort", onAbort, { once: true });
+    observed.emit("started");
+    try {
+      await held;
+      return { jsonrpc: "2.0", id: "held", result: { tools: [] } };
+    } finally {
+      signal.removeEventListener("abort", onAbort);
+    }
+  });
+  const name = "crdd.test.unified-mcp-factory";
   const key = Symbol.for(name);
-  const realMcp = new URL("../../src/transport/mcp-server.ts", import.meta.url);
+  const realOAuth = new URL(
+    "../../src/transport/mcp-oauth.ts",
+    import.meta.url,
+  );
+  const sharedTransport = new URL(
+    "../../src/transport/shared-server.ts",
+    import.meta.url,
+  );
   const stub =
     "data:text/javascript," +
     encodeURIComponent(
-      `export { createMcpHttpRequestHandler } from ${JSON.stringify(realMcp.href)};
-      export const createOAuthMcpResolver = () => Reflect.get(globalThis, Symbol.for(${JSON.stringify(name)}));`,
+      `export const createOAuthMcpAccess = () => ({
+        admit: () => true,
+        factory: Reflect.get(globalThis, Symbol.for(${JSON.stringify(name)}))
+      });`,
     );
-  Reflect.set(globalThis, key, accept);
+  const oauthStub =
+    "data:text/javascript," +
+    encodeURIComponent(`
+      export * from ${JSON.stringify(realOAuth.href)};
+      export const createMcpIntrospection = async ({ resource }) => async (token) => ({
+        token, resource, clientId: "fixture", scopes: ["mcp:access"],
+        expiresAt: Math.floor(Date.now() / 1000) + 60
+      });
+    `);
+  Reflect.set(globalThis, key, factory);
   const hooks = registerHooks({
     resolve(specifier, context, next) {
-      return specifier === "./transport/mcp-server.ts" &&
-        context.parentURL?.endsWith("/src/app.ts")
-        ? { url: stub, shortCircuit: true }
-        : next(specifier, context);
+      if (context.parentURL === sharedTransport.href) {
+        if (specifier === "./mcp-server.ts")
+          return { url: stub, shortCircuit: true };
+        if (specifier === "./mcp-oauth.ts")
+          return { url: oauthStub, shortCircuit: true };
+      }
+      return next(specifier, context);
     },
   });
   recordListenerClosed(false);
@@ -762,7 +782,8 @@ test("Workbench CLIはHelpと不正引数を起動前に処置する", () => {
   const help = runRejectedEntry(["--help"]);
   assert.equal(help.status, 0);
   assert.match(help.stdout, /crdd-server \[--shared \| --mcp-stdio\]/u);
-  assert.match(help.stdout, /crdd-server --initialize --provider google/u);
+  assert.match(help.stdout, /crdd-server --initialize --provider <提供元>/u);
+  assert.match(help.stdout, /--provider: google/u);
   assert.doesNotMatch(help.stdout, /--(?:initialize|link)-google/u);
   assert.equal(help.stderr, "");
   for (const args of [
@@ -937,16 +958,11 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         XDG_CONFIG_HOME: host,
         XDG_RUNTIME_DIR: host,
       };
-      const input = resolveHostRootInput(environment);
-      assert.ok(input);
-      const prepared = prepareHostInitializationRoot(input);
-      assert.equal(prepared.status, "ready");
-      if (prepared.status !== "ready")
-        throw new Error("test_host_preparation_failed");
-      const material = createRetiredCredentialFixture();
+      await mkdir(host);
+      const prepared = prepareAccessStore(host, "workbench-entry-live");
       const userId = "00000000-0000-4000-8000-000000000003";
       const attemptId = "00000000-0000-4000-8000-000000000002";
-      const state = path.join(prepared.root.root, "access-management.json");
+      const state = path.join(prepared.directory, "access-management.json");
       const bytes = JSON.stringify({
         contract: "crdd-access-management/state",
         schemaRevision: 4,
@@ -1016,33 +1032,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         assert.match(missing.stderr, /mcp_oauth_configuration_required/u);
         assert.equal(await readFile(state, "utf8"), bytes);
       }
-      const { privateKey } = generateKeyPairSync("rsa", {
-        modulusLength: 2048,
-      });
-      Object.assign(environment, {
-        CRDD_LOGIN_PROVIDERS: '["google"]',
-        CRDD_GOOGLE_CLIENT_ID: "synthetic.apps.googleusercontent.com",
-        CRDD_GOOGLE_CLIENT_SECRET: "synthetic-secret",
-        CRDD_SHARED_REPOSITORY_ROOTS: JSON.stringify([fixture]),
-        CRDD_GIT_HOSTS: JSON.stringify([
-          {
-            host: "github.com",
-            provider: "github",
-            providerData: {
-              clientIdEnv: "CRDD_GITHUB_CLIENT_ID",
-              clientSecretEnv: "CRDD_GITHUB_CLIENT_SECRET",
-            },
-          },
-        ]),
-        CRDD_GITHUB_CLIENT_ID: "synthetic-github-app",
-        CRDD_GITHUB_CLIENT_SECRET: "synthetic-github-secret",
-        CRDD_MCP_OAUTH_CLIENTS: JSON.stringify([
-          { id: "desktop", redirects: ["http://127.0.0.1:18443/callback"] },
-        ]),
-        CRDD_MCP_OAUTH_SIGNING_KEY: privateKey
-          .export({ format: "pem", type: "pkcs8" })
-          .toString(),
-      });
+      Object.assign(environment, syntheticSharedEnvironment(fixture));
       if (mode === "localhost") {
         for (const roots of [
           undefined,
@@ -1087,10 +1077,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
           );
           assert.equal(beforeLink.status, 2);
           assert.equal(beforeLink.stdout, "");
-          assert.match(
-            beforeLink.stderr,
-            /host_google_administrator_unavailable/u,
-          );
+          assert.match(beforeLink.stderr, /host_administrator_unavailable/u);
           assert.equal(await readFile(state, "utf8"), unlinkedBytes);
         } finally {
           await writeFile(state, bytes);
@@ -1120,16 +1107,110 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         );
       }
       const driver = `
+          const { request: localRequest } = require('node:http');
           const realFetch = globalThis.fetch;
+          const publicOrigin = ${JSON.stringify(publicOrigin ?? null)};
+          const loopbackOrigin = ${JSON.stringify(`http://127.0.0.1:${port}`)};
           globalThis.fetch = async (input, init) => {
             const u = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
             const issuer = 'https://accounts.google.com';
             if (u.href === issuer + '/.well-known/openid-configuration')
               return Response.json({ issuer, authorization_endpoint: issuer + '/auth', token_endpoint: issuer + '/token', jwks_uri: issuer + '/jwks', code_challenge_methods_supported: ['S256'], id_token_signing_alg_values_supported: ['RS256'] });
-            if (u.hostname !== '127.0.0.1') throw new Error('unexpected_external_request');
+            // 外部DNS/TLSには依存せず、公開Originから認可サーバーへのプロキシ転送だけを再現する。
+            if (u.origin === publicOrigin && [
+              '/.well-known/openid-configuration',
+              '/oauth/introspect',
+            ].includes(u.pathname) && !u.search && !u.hash) {
+              const headers = new Headers(init?.headers);
+              headers.set('host', u.host);
+              headers.set('x-forwarded-host', u.host);
+              headers.set('x-forwarded-proto', 'https');
+              return new Promise((resolve, reject) => {
+                const request = localRequest(new URL(u.pathname, loopbackOrigin), {
+                  method: init?.method,
+                  signal: init?.signal,
+                  headers: Object.fromEntries(headers),
+                }, (response) => {
+                  const chunks = [];
+                  response.on('data', (chunk) => chunks.push(chunk));
+                  response.once('error', reject);
+                  response.once('end', () => resolve(new Response(Buffer.concat(chunks), {
+                    status: response.statusCode,
+                    headers: response.headersDistinct && Object.entries(response.headersDistinct)
+                      .flatMap(([name, values]) => values.map((value) => [name, value])),
+                  })));
+                });
+                request.once('error', reject);
+                request.end(init?.body?.toString());
+              });
+            }
+            if (u.origin !== loopbackOrigin) throw new Error('unexpected_external_request');
             return realFetch(input, init);
           };
         ${startupDriver}`;
+      if (mode === "localhost") {
+        // 他の起動条件を満たした状態で、同じ登録からホスト参照だけを欠測させる。
+        const initialized = JSON.parse(bytes);
+        const repositoryId = "repository.startup-fixture";
+        const boundPath =
+          process.platform === "win32" ? fixture.toLowerCase() : fixture;
+        const registration = {
+          repositoryId,
+          repositoryRoot: fixture,
+          bindingId: `binding-${createHash("sha256").update(`${repositoryId}\n${boundPath}`).digest("hex").slice(0, 32)}`,
+        };
+        const withHost = {
+          ...registration,
+          hostedRepository: {
+            provider: "github",
+            host: "github.com",
+            repositoryId: "92",
+            providerData: { installationId: "24" },
+          },
+        };
+        const missingHost = JSON.stringify({
+          ...initialized,
+          registeredRepositories: [registration],
+        });
+        await writeFile(
+          state,
+          JSON.stringify({
+            ...initialized,
+            registeredRepositories: [withHost],
+          }),
+        );
+        assert.equal(
+          readHostInitializationState(prepared.root).status,
+          "existing",
+        );
+        await writeFile(state, missingHost);
+        try {
+          const rejected = spawnSync(
+            process.execPath,
+            ["--eval", driver, entry, "--shared", "--port", String(port)],
+            {
+              cwd: startup,
+              env: environment,
+              windowsHide: true,
+              encoding: "utf8",
+              timeout: 5000,
+            },
+          );
+          assert.ifError(rejected.error);
+          assert.equal(rejected.status, 2);
+          assert.equal(rejected.stdout, "");
+          assert.match(
+            rejected.stderr,
+            /workbench_host_initialization_unavailable/u,
+          );
+          assert.equal(await readFile(state, "utf8"), missingHost);
+          assert.deepEqual(await readdir(prepared.directory), [
+            "access-management.json",
+          ]);
+        } finally {
+          await writeFile(state, bytes);
+        }
+      }
       child = spawn(
         process.execPath,
         ["--eval", driver, entry, "--shared", "--port", String(port)],
@@ -1228,9 +1309,11 @@ for (const mode of ["localhost", "public", "tls"] as const) {
       const url = tls?.origin ?? internalUrl;
       assert.equal(announced, publicOrigin ?? internalUrl);
       listeningUrl = internalUrl;
-      const serverLock = path.join(prepared.root.root, "shared-server.lock");
+      const serverLock = path.join(prepared.directory, "shared-server.lock");
       if (mode === "localhost") {
         const lockBytes = await readFile(serverLock);
+        const { identity } = JSON.parse(lockBytes.toString("utf8"));
+        assert.equal(identity, "crdd-server:shared-server");
         const second = spawnSync(
           process.execPath,
           [
@@ -1255,7 +1338,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         assert.match(second.stderr, /shared_server_lock_occupied/u);
         assert.deepEqual(await readFile(serverLock), lockBytes);
       }
-      const response = await requestEntry(`${url}/api/workbench/view`, {
+      const response = await requestEntry(`${url}/api/workbench/overview`, {
         ca: tls?.ca,
         headers: requestHeaders,
         signal: AbortSignal.timeout(5000),
@@ -1264,11 +1347,11 @@ for (const mode of ["localhost", "public", "tls"] as const) {
       const model = await response.json();
       assert.equal(model.view, "access");
       assert.equal(model.authenticated, false);
-      assert.equal(model.portfolio, null);
+      assert.equal(Object.hasOwn(model, "portfolio"), false);
       assert.equal("project" in model, false);
       if (tls) {
         await assert.rejects(
-          requestEntry(`${url}/api/workbench/view`, {
+          requestEntry(`${url}/api/workbench/overview`, {
             ca: Buffer.alloc(0),
             signal: AbortSignal.timeout(5000),
           }),
@@ -1278,20 +1361,23 @@ for (const mode of ["localhost", "public", "tls"] as const) {
               "SELF_SIGNED_CERT_IN_CHAIN",
             ].includes((error as NodeJS.ErrnoException).code ?? ""),
         );
-        const overwritten = await requestEntry(`${url}/api/workbench/view`, {
-          ca: tls.ca,
-          headers: {
-            "x-forwarded-proto": "http",
-            "x-forwarded-host": "foreign.invalid",
-            forwarded: "proto=http;host=foreign.invalid",
+        const overwritten = await requestEntry(
+          `${url}/api/workbench/overview`,
+          {
+            ca: tls.ca,
+            headers: {
+              "x-forwarded-proto": "http",
+              "x-forwarded-host": "foreign.invalid",
+              forwarded: "proto=http;host=foreign.invalid",
+            },
+            signal: AbortSignal.timeout(5000),
           },
-          signal: AbortSignal.timeout(5000),
-        });
+        );
         assert.equal(overwritten.status, 200);
         assert.equal((await overwritten.json()).authenticated, false);
       }
       const selected = await requestEntry(
-        `${url}/api/workbench/view?repositoryId=repository.unavailable`,
+        `${url}/api/workbench/overview?repositoryId=repository.unavailable`,
         {
           ca: tls?.ca,
           headers: requestHeaders,
@@ -1315,9 +1401,9 @@ for (const mode of ["localhost", "public", "tls"] as const) {
       assert.equal((await metadata.json()).resource, `${announced}/mcp`);
       const oldHeaders = {
         ...requestHeaders,
-        authorization: `Bearer ${material.token}`,
+        authorization: "Bearer synthetic-invalid-bearer",
       };
-      const oldHttp = await requestEntry(`${url}/api/workbench/view`, {
+      const oldHttp = await requestEntry(`${url}/api/workbench/overview`, {
         ca: tls?.ca,
         headers: oldHeaders,
         signal: AbortSignal.timeout(5000),
@@ -1346,6 +1432,13 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         await assert.rejects(
           startWorkbench({
             workingDirectory: startup,
+            localAccessRoot: prepared.root,
+          }),
+          { message: "mcp_oauth_configuration_required" },
+        );
+        await assert.rejects(
+          startSharedFixture({
+            workingDirectory: startup,
             localAccessRoot: { ...prepared.root },
             port: 0,
           }),
@@ -1361,7 +1454,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
           const address = occupyingListener.address();
           assert.ok(address && typeof address !== "string");
           await assert.rejects(
-            startWorkbench({
+            startSharedFixture({
               workingDirectory: startup,
               localAccessRoot: prepared.root,
               port: address.port,
@@ -1379,7 +1472,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         const retained = "synthetic lock retained for recovery\n";
         await writeFile(serverLock, retained, { flag: "wx" });
         await assert.rejects(
-          startWorkbench({
+          startSharedFixture({
             workingDirectory: startup,
             localAccessRoot: prepared.root,
             port: 0,
@@ -1389,7 +1482,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         assert.equal(await readFile(serverLock, "utf8"), retained);
       }
       await assert.rejects(
-        fetch(`${internalUrl}/api/workbench/view`, {
+        fetch(`${internalUrl}/api/workbench/overview`, {
           signal: AbortSignal.timeout(2000),
         }),
       );
@@ -1419,7 +1512,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
       ) {
         if (listeningUrl)
           await assert.rejects(
-            fetch(`${listeningUrl}/api/workbench/view`, {
+            fetch(`${listeningUrl}/api/workbench/overview`, {
               signal: AbortSignal.timeout(2000),
             }),
           );
@@ -1471,6 +1564,7 @@ test("Workbench CLIは不存在・未初期化・破損Hostを変更せず停止
     const host = path.join(fixture, "host");
     const environment = {
       ...process.env,
+      ...syntheticSharedEnvironment(fixture),
       CROS_TRUST_DOMAIN_ID: "workbench-entry-fixture",
       LOCALAPPDATA: host,
       HOME: host,
@@ -1478,33 +1572,32 @@ test("Workbench CLIは不存在・未初期化・破損Hostを変更せず停止
       XDG_CONFIG_HOME: host,
       XDG_RUNTIME_DIR: host,
     };
-    const input = resolveHostRootInput(environment);
-    assert.ok(input, "test_platform_requires_host_root_input");
     const absent = runRejectedEntry(["--shared", "--port", "0"], environment);
     assert.equal(absent.status, 2);
     assert.equal(absent.stdout, "");
     assert.match(absent.stderr, /単体へ切り替えず停止しました/u);
+    assert.match(absent.stderr, /workbench_host_configuration_unavailable/u);
     assert.deepEqual(await readdir(fixture), []);
 
-    const prepared = prepareHostInitializationRoot(input);
-    assert.equal(prepared.status, "ready");
-    if (prepared.status !== "ready")
-      throw new Error("test_host_preparation_failed");
+    await mkdir(host);
+    const prepared = prepareAccessStore(host, environment.CROS_TRUST_DOMAIN_ID);
     const fresh = runRejectedEntry(["--shared", "--port", "0"], environment);
     assert.equal(fresh.status, 2);
     assert.equal(fresh.stdout, "");
     assert.match(fresh.stderr, /単体へ切り替えず停止しました/u);
-    assert.deepEqual(await readdir(prepared.root.root), []);
+    assert.match(fresh.stderr, /workbench_host_initialization_unavailable/u);
+    assert.deepEqual(await readdir(prepared.directory), []);
 
-    const state = path.join(prepared.root.root, "access-management.json");
+    const state = path.join(prepared.directory, "access-management.json");
     const invalid = '{"contract":"invalid-fixture"}\n';
     await writeFile(state, invalid, "utf8");
     const corrupt = runRejectedEntry(["--shared", "--port", "0"], environment);
     assert.equal(corrupt.status, 2);
     assert.equal(corrupt.stdout, "");
     assert.match(corrupt.stderr, /単体へ切り替えず停止しました/u);
+    assert.match(corrupt.stderr, /workbench_host_initialization_unavailable/u);
     assert.equal(await readFile(state, "utf8"), invalid);
-    assert.deepEqual(await readdir(prepared.root.root), [
+    assert.deepEqual(await readdir(prepared.directory), [
       "access-management.json",
     ]);
   } finally {

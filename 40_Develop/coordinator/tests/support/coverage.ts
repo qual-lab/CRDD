@@ -4,7 +4,52 @@
  * @responsibility Counterを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+import type { SpawnSyncReturns } from "node:child_process";
 import path from "node:path";
+
+/**
+ * 計測子Processの完了と既知の型除去警告を区別する。
+ * @responsibility 正常終了と、空のstderr又はNode.jsが出す固定の一件だけを受け付ける。
+ * @trace ARCH-000010
+ * @input result: 固定コマンドの終了結果。
+ * @returns 検査前のLCOV本文。
+ * @effect N/A: 終了結果の検査だけ。
+ * @failure 非0、起動不能、Signal、未知・重複警告は拒否する。
+ * @boundary Node.jsの終了結果とLCOV構文検査。
+ */
+export function requireCoverageProcessOutput(
+  result: Pick<
+    SpawnSyncReturns<string>,
+    "error" | "signal" | "status" | "stdout" | "stderr"
+  >,
+  label: string,
+): string {
+  if (
+    result.error ||
+    result.signal !== null ||
+    result.status !== 0 ||
+    typeof result.stdout !== "string" ||
+    typeof result.stderr !== "string"
+  ) {
+    throw new Error(`${label} coverage command failed`);
+  }
+  if (result.stderr !== "") {
+    const [warning, help, end, ...extra] = result.stderr.split(/\r?\n/u);
+    if (
+      warning === undefined ||
+      !/^\(node:[1-9][0-9]*\) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time$/u.test(
+        warning,
+      ) ||
+      help !==
+        "(Use `node --trace-warnings ...` to show where the warning was created)" ||
+      end !== "" ||
+      extra.length !== 0
+    ) {
+      throw new Error(`${label} coverage command failed`);
+    }
+  }
+  return result.stdout;
+}
 
 // Node.jsのV8 coverage counterは試験件数でなく実行回数である。
 // Filesystemやparserの反復は正当に百万回を超え得るため、

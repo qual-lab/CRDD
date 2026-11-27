@@ -13,14 +13,13 @@ import {
   parseRealityTestCatalog,
   type RealitySymbolGraph,
   type RepositoryObservationPort,
+  testCatalogPath,
 } from "@qual-lab/crdd-document-model";
 import type { Repository } from "@qual-lab/crdd-version-control";
-import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "@qual-lab/crdd-version-control";
+import { resolveVerifiedRepositoryRoot } from "@qual-lab/crdd-version-control";
 import { mapRealityDomainIssueToCheckerFinding } from "../report/reality.ts";
 import type { CheckerFinding, CheckerRealityFinding } from "../report/types.ts";
+import { inspectRealityCoverage } from "./reality-coverage.ts";
 /**
  * 固定された適用条件の後でRealityの観測と診断を行う。
  *
@@ -30,8 +29,8 @@ import type { CheckerFinding, CheckerRealityFinding } from "../report/types.ts";
  * @returns N/A: 診断をaddへ渡す。
  * @precondition 適用の初期観測と十工程の検査は呼出し元が実施済みである。
  * @postcondition 取得不能を正常化せず、既存code・rule・Path・文言を渡す。
- * @effect Rootを再検証し、Manifestがある場合だけCatalogを読む。登録Pathの実体は観測するがSource本文は解析しない。書込みなし。
- * @failure Root未検証は診断、その他の既存観測例外・add例外は伝播する。
+ * @effect 台帳を一度読み、宣言された所有者のManifestと注釈を観測する。書込みなし。
+ * @failure 台帳・実装の観測不能は診断に残す。
  * @invariant 登録の構造成立を試験実行・Pass・観測済みEvidenceへ昇格しない。
  * @boundary Repository・Version Control公開APIとDomainモデルの境界。
  * @security 未実行の宣言を実行済みEvidenceにしない。
@@ -40,30 +39,69 @@ import type { CheckerFinding, CheckerRealityFinding } from "../report/types.ts";
 export function inspectRealityRepository(
   repositoryRoot: string,
   add: (finding: CheckerFinding) => void,
+  official = false,
+  trackedFilePaths: readonly string[] | null = null,
 ): void {
-  const verified = getRepository(repositoryRoot);
-  if (verified.status !== "completed") {
+  const discovery = observeRealitySymbolRepository(repositoryRoot, false);
+  const manifests = discovery.manifests;
+  if (discovery.catalog)
+    inspectRealityCoverage(discovery.catalog, manifests, trackedFilePaths, add);
+  const registeredTests = new Map(
+    discovery.catalog?.tests.map((entry) => [
+      entry.path,
+      { owner: entry.owner, testId: entry.id },
+    ]),
+  );
+  for (const warning of discovery.catalogWarnings)
     add({
-      severity: "error",
-      code: "reality-symbol-repository-root-unverified",
-      path: ".",
+      severity: "warning",
+      code: "test-catalog-warning",
+      path: testCatalogPath,
       rule: "current-profile.reality-symbol-graph",
-      message: verified.reason,
+      message: warning,
     });
-    return;
+  if (official && discovery.catalog) {
+    const develop =
+      createFilesystemRepositoryObservationPort(
+        repositoryRoot,
+      ).observeDirectory("40_Develop");
+    if (develop.status === "resolved") {
+      const roots = discovery.catalog.owners.map(({ root }) => root);
+      for (const entry of develop.entries) {
+        if (entry.kind !== "directory" && entry.kind !== "symbolic-link")
+          continue;
+        const entryPath = `40_Develop/${entry.name}`;
+        if (
+          roots.some(
+            (root) => root === entryPath || root.startsWith(`${entryPath}/`),
+          )
+        )
+          continue;
+        add({
+          severity: "warning",
+          code: "reality-symbol-owner-undeclared",
+          path: entryPath,
+          rule: "current-profile.reality-symbol-graph",
+          message:
+            "No test-catalog owner declares this implementation directory.",
+        });
+      }
+    }
   }
-  const discovery = discoverRealitySymbolManifests(verified.capability);
-  const testCatalog =
-    discovery.manifests.length > 0
-      ? readRegisteredRealityTests(verified.capability)
-      : { testsByPath: new Map(), findings: [] };
   const built = createRealitySymbolGraph(
-    discovery.manifests,
+    manifests,
     discovery.knownArchIds,
     discovery.knownQaIds,
     discovery.knownLocalTestIdsByQaId,
-    testCatalog.testsByPath,
-    [...discovery.findings, ...testCatalog.findings],
+    registeredTests,
+    [
+      ...discovery.repositoryIssues.map(({ code, path, reason }) => ({
+        code,
+        path,
+        message: reason,
+      })),
+      ...discovery.domainIssues.map(mapRealityDomainIssueToCheckerFinding),
+    ],
   );
   for (const finding of [...built.findings])
     add({
@@ -216,7 +254,7 @@ export function readRegisteredRealityTestsFromRepository(
   > | null;
   findings: readonly CheckerRealityFinding[];
 }> {
-  const catalogRelativePath = "07_Quality/Registry/test-catalog.json";
+  const catalogRelativePath = testCatalogPath;
   const observation = repository.observeFile(catalogRelativePath);
   if (observation.status !== "resolved")
     return {

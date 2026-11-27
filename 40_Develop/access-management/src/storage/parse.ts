@@ -11,10 +11,10 @@ import { deriveRepositoryBindingId } from "../repository/binding.ts";
 import type { GitHostLinkedRepository } from "../repository/types.ts";
 import type { AccessManagementState } from "./types.ts";
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+export const UUID_V4 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
-const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+export const RESOURCE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 
 /** 検証済み外部主体IDの保存形式。本人性は判定しない。 @trace ARCH-000013 */
 export function isAccountSubject(value: unknown): value is string {
@@ -58,7 +58,7 @@ export function isInvitationDigest(value: unknown): value is string {
  * @security reasonに入力本文や秘密を含まない。
  * @compatibility 保存成功・認可・Root成立を表さない。
  */
-export type StateParseResult =
+type StateParseResult =
   | { status: "parsed"; state: AccessManagementState }
   | {
       status: "invalid";
@@ -201,7 +201,7 @@ export function parseAccessManagementState(
       !Number.isSafeInteger(state.revision) ||
       (state.revision as number) < 1 ||
       typeof state.operationId !== "string" ||
-      !UUID_PATTERN.test(state.operationId)
+      !UUID_V4.test(state.operationId)
     )
       throw new Error("invalid");
     for (const key of ["users", "registeredRepositories"])
@@ -229,7 +229,7 @@ export function parseAccessManagementState(
       ]);
       if (
         typeof user.userId !== "string" ||
-        !UUID_PATTERN.test(user.userId) ||
+        !UUID_V4.test(user.userId) ||
         users.has(user.userId) ||
         typeof user.username !== "string" ||
         user.username !== user.username.trim() ||
@@ -253,7 +253,7 @@ export function parseAccessManagementState(
             !isAccountIssuer(issuer) ||
             !isAccountSubject(subject) ||
             typeof bindingId !== "string" ||
-            !UUID_PATTERN.test(bindingId) ||
+            !UUID_V4.test(bindingId) ||
             issuers.has(issuer) ||
             accountBindingIds.has(bindingId)
           )
@@ -287,19 +287,15 @@ export function parseAccessManagementState(
     const repositories = new Set<string>();
     const bindings = new Set<string>();
     for (const value of state.registeredRepositories as unknown[]) {
-      const hosted =
-        value !== null &&
-        typeof value === "object" &&
-        Object.hasOwn(value, "hostedRepository");
       const repository = requireClosedRecord(value, [
         "repositoryId",
         "repositoryRoot",
         "bindingId",
-        ...(hosted ? ["hostedRepository"] : []),
+        "hostedRepository",
       ]);
       if (
         typeof repository.repositoryId !== "string" ||
-        !ID_PATTERN.test(repository.repositoryId) ||
+        !RESOURCE_ID.test(repository.repositoryId) ||
         repositories.has(repository.repositoryId) ||
         typeof repository.repositoryRoot !== "string" ||
         !isAbsolute(repository.repositoryRoot) ||
@@ -316,7 +312,7 @@ export function parseAccessManagementState(
         repository.repositoryRoot,
       );
       if (repository.bindingId !== expectedBinding) throw new Error("invalid");
-      if (hosted && !captureGitHostReference(repository.hostedRepository))
+      if (!captureGitHostReference(repository.hostedRepository))
         throw new Error("invalid");
     }
     const initialization = requireClosedRecord(state.initialization, [
@@ -329,9 +325,9 @@ export function parseAccessManagementState(
       initialization.stage !== "completed" ||
       initialization.connection !== "account_confirmed" ||
       typeof initialization.attemptId !== "string" ||
-      !UUID_PATTERN.test(initialization.attemptId) ||
+      !UUID_V4.test(initialization.attemptId) ||
       typeof initialization.initialUserId !== "string" ||
-      !UUID_PATTERN.test(initialization.initialUserId)
+      !UUID_V4.test(initialization.initialUserId)
     )
       throw new Error("invalid");
     const initialUser = users.get(initialization.initialUserId);

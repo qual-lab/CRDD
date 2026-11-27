@@ -5,39 +5,83 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
-import { matchesSecret } from "../secret.ts";
+import { matchesSecret } from "../service/secret.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+  type AuthInfo,
+  buildOAuthProtectedResourceMetadata,
+  checkResourceAllowed,
+  getOAuthProtectedResourceMetadataUrl,
+  OAuthError,
+  OAuthErrorCode,
+  verifyBearerToken,
+} from "@modelcontextprotocol/server";
 import Provider, {
+  type Adapter,
   type AdapterFactory,
   type AdapterPayload,
   type ClientMetadata,
-  type Configuration,
   errors,
 } from "oidc-provider";
 import * as oidc from "openid-client";
 import {
+  type AsyncHttpHandler,
   readActionForm,
+  requestFailureStatus,
   sendResponseBody,
   setResponseHeaders,
 } from "./api-http.ts";
-import type { createClientSessionHandler } from "./api-session.ts";
-import type { PublicLoginProvider } from "./login-providers.ts";
-import { readMcpAccountSubject } from "./mcp-types.ts";
+import type { PublicLoginProvider } from "../service/login-providers.ts";
+import {
+  type EmbeddedMcpOAuthOptions,
+  type McpTokenVerifier,
+  readMcpAccountSubject,
+} from "./mcp-types.ts";
 
 export const mcpScope = "mcp:access";
 
+/** 共有Listenerへ認可サーバーの公開経路を結び付ける契約。 */
+interface McpOAuthEndpoint {
+  readonly metadata: URL;
+  matches(requestUrl: string | undefined): boolean;
+  readonly handle: AsyncHttpHandler;
+}
+
 const maximumActive = 2_048;
+const maximumActivePerUser = 64;
+const maximumIssuedPerUser = 32;
 const maximumPending = 256;
 const maximumLifetimeSeconds = 30 * 60;
 const interactionLifetimeSeconds = 300;
 const maximumRecordBytes = 32 * 1_024;
 
+/** 組込み認可サーバーの保存部品と、現在の同意を扱う接続。 @trace ARCH-000012 */
+interface McpOAuthStore {
+  (name: string): Adapter;
+  readonly hasCurrentToken: (token: string, subject: string) => boolean;
+  readonly bindGrantHosts: (
+    grantId: string,
+    subject: string,
+    references: ReadonlyMap<string, string>,
+  ) => boolean;
+  readonly readGrantHostReference: (
+    token: string,
+    subject: string,
+    host: string,
+  ) => string | null;
+  readonly collectGrantHostReferences: (host: string) => Set<string>;
+  readonly observeSubject: (subject: string) => boolean;
+  readonly runRequest: <T>(handle: () => Promise<T>) => Promise<T>;
+  readonly invalidateUser: (userId: string) => void;
+}
+
 /** 認可途中の枠を分け、確定済みの認可は上限でも追い出さない。 @trace ARCH-000012 */
-export function createMcpOAuthState() {
+export function createMcpOAuthStore(): McpOAuthStore {
   type Record = {
     kind: string;
     payload: AdapterPayload;
     expiresAt: number;
+    owner?: string;
     hostReferences?: ReadonlyMap<string, string>;
   };
   const state = new Map<string, Record>();
@@ -92,6 +136,19 @@ export function createMcpOAuthState() {
       payload.result?.login?.accountId,
       payload.lastSubmission?.login?.accountId,
     ].flatMap((subject) => userIdOf(subject) ?? []);
+  const activeOwner = (payload: AdapterPayload) => {
+    const owners = new Set(directUsers(payload));
+    for (const id of relatedGrants(payload)) {
+      const grant = id === undefined ? undefined : state.get(`Grant:${id}`);
+      if (grant && grant.expiresAt > Date.now()) {
+        for (const owner of directUsers(grant.payload)) owners.add(owner);
+      }
+    }
+    if (owners.size > 1) throw new Error("mcp_oauth_state_owner_invalid");
+    return owners.values().next().value;
+  };
+  const issued = (kind: string) =>
+    kind === "AccessToken" || kind === "AuthorizationCode";
   const observeUser = (userId: string) => {
     const request = requestSubjects.getStore();
     request?.observed.add(userId);
@@ -172,10 +229,41 @@ export function createMcpOAuthState() {
         const beforeConsent = isPending(kind, payload);
         const bucket = beforeConsent ? pending : state;
         const limit = beforeConsent ? maximumPending : maximumActive;
+        // 現行のコード・トークン等は、格納時点の本人に結合する。
+        // 同意が後で消滅しても、残存レコードを別の本人の枠へ移さない。
+        const resolvedOwner = activeOwner(payload);
+        const owner = resolvedOwner ?? previous?.owner;
+        if (
+          resolvedOwner !== undefined &&
+          previous?.owner !== undefined &&
+          previous.owner !== resolvedOwner
+        )
+          throw new Error("mcp_oauth_state_owner_invalid");
+        let replace: string | undefined;
+        if (!beforeConsent && owner && !state.has(recordKey)) {
+          let count = 0;
+          let issuedCount = 0;
+          let oldestIssued: string | undefined;
+          for (const [entry, record] of state) {
+            if (record.owner !== owner || record.expiresAt <= now) continue;
+            count++;
+            if (!issued(record.kind)) continue;
+            issuedCount++;
+            oldestIssued ??= entry;
+          }
+          if (
+            count >= maximumActivePerUser ||
+            (issued(kind) && issuedCount >= maximumIssuedPerUser)
+          ) {
+            if (!issued(kind) || oldestIssued === undefined)
+              throw new Error("mcp_oauth_state_owner_capacity");
+            replace = oldestIssued;
+          }
+        }
         if (bucket.size >= limit && !bucket.has(recordKey)) {
           for (const [entry, record] of bucket)
             if (record.expiresAt <= now) bucket.delete(entry);
-          if (bucket.size >= limit) {
+          if (bucket.size >= limit && replace === undefined) {
             if (!beforeConsent) throw new Error("mcp_oauth_state_capacity");
             const oldest = pending.keys().next().value;
             if (oldest !== undefined) pending.delete(oldest);
@@ -187,11 +275,13 @@ export function createMcpOAuthState() {
         const owned = structuredClone(payload);
         if (previous?.payload.consumed)
           owned.consumed = previous.payload.consumed;
+        if (replace !== undefined) state.delete(replace);
         (beforeConsent ? state : pending).delete(recordKey);
         bucket.set(recordKey, {
           kind,
           payload: owned,
           expiresAt: now + ttl * 1_000,
+          ...(owner === undefined ? {} : { owner }),
           ...(kind === "Grant" &&
           previous?.payload.accountId === owned.accountId &&
           previous?.payload.clientId === owned.clientId &&
@@ -285,6 +375,17 @@ export function createMcpOAuthState() {
     readGrantHostReference(token: string, subject: string, host: string) {
       return currentGrant(token, subject)?.hostReferences?.get(host) ?? null;
     },
+    /** 容量整理のときだけ、未満了の同意で使う参照を返す。 */
+    collectGrantHostReferences(host: string) {
+      const references = new Set<string>();
+      const now = Date.now();
+      for (const record of state.values()) {
+        if (record.kind !== "Grant" || record.expiresAt <= now) continue;
+        const reference = record.hostReferences?.get(host);
+        if (reference !== undefined) references.add(reference);
+      }
+      return references;
+    },
     observeSubject(subject: string) {
       const userId = userIdOf(subject);
       return userId !== undefined && observeUser(userId);
@@ -328,6 +429,8 @@ export function createMcpOAuthState() {
 const accessTokenSeconds = 300;
 const bearerPattern = /^[A-Za-z0-9._~+/-]{1,4096}={0,2}$/u;
 const interactionPath = /^\/api\/session\/mcp\/([A-Za-z0-9_-]{1,128})$/u;
+export const isMcpBrowserReturnPath = (path: string) =>
+  interactionPath.exec(path)?.[0] === path;
 const issuerRoutes = Object.freeze({
   authorization: "/oauth/authorize",
   token: "/oauth/token",
@@ -347,24 +450,34 @@ function httpsOrLoopback(url: URL) {
   );
 }
 
-/** 指定された認可サーバーだけをMCPの発行先として案内する。 @trace ARCH-000012 */
-export function createMcpResourceMetadata(resource: URL, issuer: URL) {
+function validateMcpOAuthOrigins(resource: URL, issuer: URL) {
   if (
     !httpsOrLoopback(resource) ||
     resource.pathname !== "/mcp" ||
     !httpsOrLoopback(issuer)
   )
     throw new Error("mcp_oauth_configuration_invalid");
-  const metadata = new URL(
-    `/.well-known/oauth-protected-resource${resource.pathname}`,
-    resource,
-  );
+}
+
+/** 組み込み認可サーバーだけをMCPの発行先として案内する。 @trace ARCH-000012 */
+export function createMcpResourceMetadata(resource: URL, issuer: URL) {
+  validateMcpOAuthOrigins(resource, issuer);
+  const document = buildOAuthProtectedResourceMetadata({
+    oauthMetadata: {
+      issuer: issuer.href,
+      authorization_endpoint: new URL(issuerRoutes.authorization, issuer).href,
+      token_endpoint: new URL(issuerRoutes.token, issuer).href,
+      response_types_supported: ["code"],
+    },
+    resourceServerUrl: resource,
+    scopesSupported: [mcpScope],
+  });
   return {
-    metadata,
+    metadata: new URL(getOAuthProtectedResourceMetadataUrl(resource)),
     document: {
-      resource: resource.href,
-      authorization_servers: [issuer.href],
-      scopes_supported: [mcpScope],
+      resource: document.resource,
+      authorization_servers: document.authorization_servers,
+      scopes_supported: document.scopes_supported,
       bearer_methods_supported: ["header"],
     },
   };
@@ -372,17 +485,13 @@ export function createMcpResourceMetadata(resource: URL, issuer: URL) {
 
 /** CRDDに組み込む発行側。Googleログイン・同意画面は構成側の明示接続が必要。 @trace ARCH-000012 */
 export function createMcpOAuthProvider(
-  input: {
+  input: EmbeddedMcpOAuthOptions & {
     issuer: URL;
     resource: URL;
-    clients: readonly { id: string; redirects: readonly string[] }[];
-    verifier: Readonly<{ id: string; secret: string }>;
-    jwks: NonNullable<Configuration["jwks"]>;
-    cookieKeys: readonly string[];
   },
-  state = createMcpOAuthState(),
+  state = createMcpOAuthStore(),
 ) {
-  createMcpResourceMetadata(input.resource, input.issuer);
+  validateMcpOAuthOrigins(input.resource, input.issuer);
   if (
     input.issuer.pathname !== "/" ||
     input.issuer.origin !== input.resource.origin ||
@@ -476,13 +585,9 @@ export function createMcpOAuthProvider(
 export function createMcpOAuthEndpoint(
   provider: Provider,
   resource: URL,
-  interact: (
-    request: IncomingMessage,
-    response: ServerResponse,
-    signal: AbortSignal,
-  ) => Promise<void>,
-  state?: ReturnType<typeof createMcpOAuthState>,
-) {
+  interact: AsyncHttpHandler,
+  state?: McpOAuthStore,
+): McpOAuthEndpoint {
   const issuer = new URL(provider.issuer);
   const { metadata, document } = createMcpResourceMetadata(resource, issuer);
   const knownPaths = new Set<string>([
@@ -571,17 +676,34 @@ const escaped = (value: string) =>
       })[character] ?? "",
   );
 
+type ConsentAccountObservation =
+  | Readonly<{
+      status: "completed";
+      account: Readonly<{
+        userId: string;
+        bindingId: string;
+        username: string;
+      }>;
+    }>
+  | Readonly<{ status: "rejected" | "unavailable" }>;
+
 /** 現在のブラウザー本人確認と明示的なMCP利用同意を、発行側へ一度ずつ渡す。 @trace ARCH-000012 */
 export function createMcpOAuthInteraction(
   provider: Provider,
   resource: URL,
-  browser: Pick<
-    ReturnType<typeof createClientSessionHandler>,
-    "readCurrent" | "begin"
-  >,
+  browser: Readonly<{
+    readCurrent: (request: IncomingMessage) => ConsentAccountObservation;
+    begin: (
+      provider: string,
+      request: IncomingMessage,
+      response: ServerResponse,
+      signal: AbortSignal,
+      returnTo: string,
+    ) => Promise<void>;
+  }>,
   loginProviders: readonly PublicLoginProvider[],
   readMcpReferences?: (request: IncomingMessage) => ReadonlyMap<string, string>,
-  state?: ReturnType<typeof createMcpOAuthState>,
+  state?: McpOAuthStore,
 ) {
   const origin = new URL(provider.issuer).origin;
   const loginActions = new Map<string, PublicLoginProvider>(
@@ -649,8 +771,11 @@ export function createMcpOAuthInteraction(
       }
       if (signal.aborted || response.destroyed) return;
       details = await provider.interactionDetails(request, response);
-    } catch {
-      if (!signal.aborted && !response.destroyed) unavailable(response, 403);
+    } catch (error) {
+      if (!signal.aborted && !response.destroyed) {
+        const status = requestFailureStatus(error, response);
+        unavailable(response, status === 413 ? status : 403);
+      }
       return;
     }
     if (signal.aborted || response.destroyed) return;
@@ -797,14 +922,23 @@ export function createMcpOAuthInteraction(
   };
 }
 
-/** 標準のトークン照会だけを使い、発行側のストアへ依存しない。 @trace ARCH-000012 */
-export async function createMcpTokenVerifier(input: {
+type McpIntrospectionOptions = Readonly<{
   issuer: URL;
   resource: URL;
   clientId: string;
   clientSecret: string;
-}) {
-  createMcpResourceMetadata(input.resource, input.issuer);
+}>;
+
+export type InspectMcpToken = (
+  token: string,
+  signal: AbortSignal,
+) => Promise<AuthInfo>;
+
+/** 標準のトークン照会だけを使い、発行側のストアへ依存しない。 @trace ARCH-000012 */
+export async function createMcpIntrospection(
+  input: McpIntrospectionOptions,
+): Promise<InspectMcpToken> {
+  validateMcpOAuthOrigins(input.resource, input.issuer);
   const audience = input.resource.href;
   const expectedIssuer = input.issuer.href;
   let configuration: oidc.Configuration;
@@ -837,39 +971,107 @@ export async function createMcpTokenVerifier(input: {
   }
   return async (token: string, signal: AbortSignal) => {
     if (signal.aborted || !bearerPattern.test(token))
-      return { status: "rejected" as const };
+      throw new OAuthError(OAuthErrorCode.InvalidToken, "Invalid token");
+    const result = await oidc.tokenIntrospection(configuration, token, {
+      token_type_hint: "access_token",
+    });
+    const reportedAudience = Array.isArray(result.aud)
+      ? result.aud.length === 1
+        ? result.aud[0]
+        : undefined
+      : result.aud;
+    if (
+      signal.aborted ||
+      !result.active ||
+      result.iss !== issuer ||
+      typeof reportedAudience !== "string" ||
+      // SDKの範囲照合は子パスも許す。CRDDの対象は完全一致の識別子だけ。
+      reportedAudience !== audience ||
+      !checkResourceAllowed({
+        requestedResource: reportedAudience,
+        configuredResource: audience,
+      }) ||
+      typeof result.token_type !== "string" ||
+      result.token_type.toLowerCase() !== "bearer" ||
+      typeof result.exp !== "number" ||
+      !Number.isSafeInteger(result.exp) ||
+      result.exp <= Math.floor(Date.now() / 1_000) ||
+      typeof result.sub !== "string" ||
+      !result.sub ||
+      typeof result.client_id !== "string" ||
+      !result.client_id
+    )
+      throw new OAuthError(OAuthErrorCode.InvalidToken, "Invalid token");
+    return {
+      token,
+      clientId: result.client_id,
+      resource: new URL(reportedAudience),
+      scopes: typeof result.scope === "string" ? result.scope.split(" ") : [],
+      expiresAt: result.exp,
+      extra: { subject: result.sub },
+    };
+  };
+}
+
+/** SDKのBearer検証を、要求単位の照会と取消へ接続する。 @trace ARCH-000012 */
+export function verifyMcpBearer(
+  authorization: string | undefined,
+  resource: URL,
+  inspect: InspectMcpToken,
+  signal: AbortSignal,
+  resourceMetadataUrl?: string,
+) {
+  // 固定SDKはトークン後ろの余剰語を無視する。ヘッダー全体を確定してから渡す。
+  const match = authorization?.match(/^Bearer (\S+)$/iu);
+  if (
+    signal.aborted ||
+    (authorization !== undefined &&
+      (match?.[0] !== authorization ||
+        !match?.[1] ||
+        !bearerPattern.test(match[1])))
+  )
+    throw new OAuthError(
+      OAuthErrorCode.InvalidToken,
+      "Invalid Authorization header",
+    );
+  return verifyBearerToken(authorization, {
+    verifier: {
+      verifyAccessToken: (token) => inspect(token, signal),
+    },
+    expectedResource: resource,
+    requiredScopes: [mcpScope],
+    ...(resourceMetadataUrl && { resourceMetadataUrl }),
+  });
+}
+
+/** 接続時と同じ検証で、実行中に必須な本人と失効時刻だけを再観測する。 */
+export function createMcpTokenObserver(
+  resource: URL,
+  inspect: InspectMcpToken,
+): McpTokenVerifier {
+  return async (token, signal) => {
     try {
-      const result = await oidc.tokenIntrospection(configuration, token, {
-        token_type_hint: "access_token",
-      });
-      const exactAudience =
-        result.aud === audience ||
-        (Array.isArray(result.aud) &&
-          result.aud.length === 1 &&
-          result.aud[0] === audience);
+      const auth = await verifyMcpBearer(
+        `Bearer ${token}`,
+        resource,
+        inspect,
+        signal,
+      );
       if (
         signal.aborted ||
-        !result.active ||
-        result.iss !== issuer ||
-        !exactAudience ||
-        typeof result.token_type !== "string" ||
-        result.token_type.toLowerCase() !== "bearer" ||
-        typeof result.scope !== "string" ||
-        !result.scope.split(" ").includes(mcpScope) ||
-        typeof result.exp !== "number" ||
-        !Number.isSafeInteger(result.exp) ||
-        result.exp <= Math.floor(Date.now() / 1_000) ||
-        typeof result.sub !== "string" ||
-        !result.sub
+        typeof auth.extra?.subject !== "string" ||
+        typeof auth.expiresAt !== "number"
       )
-        return { status: "rejected" as const };
+        return { status: "rejected" };
       return {
-        status: "completed" as const,
-        subject: result.sub,
-        expiresAt: result.exp * 1_000,
+        status: "completed",
+        subject: auth.extra.subject,
+        expiresAt: auth.expiresAt * 1_000,
       };
-    } catch {
-      return { status: "unavailable" as const };
+    } catch (error) {
+      return {
+        status: error instanceof OAuthError ? "rejected" : "unavailable",
+      };
     }
   };
 }

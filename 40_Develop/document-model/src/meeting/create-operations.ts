@@ -42,6 +42,8 @@ export function createMeetingOperations(
     list: (input) => application.list({ ...input, kind: "meeting" }),
     get: (id) => application.get("meeting", id),
     getDocument: (id) => application.getDocument("meeting", id),
+    getDocumentWithRelations: (id) =>
+      application.getDocumentWithRelations("meeting", id),
     relations: (id) => application.relations("meeting", id),
     hasRelationTarget: application.hasRelationTarget,
     create: (markdown) => application.create("meeting", markdown),

@@ -18,12 +18,15 @@ import { request, ServerResponse } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
+import { prepareAccessStore } from "../support/access-store.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
-import { startWorkbench } from "../../src/app.ts";
-import { prepareSharedSignIn, testIssuer } from "../support/shared-sign-in.ts";
+import {
+  prepareSharedSignIn,
+  startSharedFixture,
+  testIssuer,
+} from "../support/shared-sign-in.ts";
 
 /**
  * 同名本文の選択、閉Queryと読取り後の失効／取消を反証する。
@@ -47,15 +50,14 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
   fs.mkdirSync(testRoot, { recursive: true });
   const fixture = fs.mkdtempSync(path.join(testRoot, "workbench-artifact-"));
   assert.equal(path.dirname(fixture), testRoot);
-  let handle: Awaited<ReturnType<typeof startWorkbench>>;
+  let handle: Awaited<ReturnType<typeof startSharedFixture>>;
   t.after(async () => {
     await handle?.close();
     assert.equal(path.dirname(fixture), testRoot);
     fs.rmSync(fixture, { recursive: true, force: true });
     assert.equal(fs.existsSync(fixture), false);
   });
-  const access = path.join(fixture, "access");
-  fs.mkdirSync(access);
+  const { root, directory: access } = prepareAccessStore(fixture);
   const userId = randomUUID(),
     initialOperationId = randomUUID();
   const subject = "workbench-synthetic-artifact-reader";
@@ -168,10 +170,8 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
   }
   const current = path.join(access, "access-management.json");
   fs.writeFileSync(current, JSON.stringify(state));
-  const root = createFilesystemStoreRoot(access);
-  assert.ok(root);
   const session = await prepareSharedSignIn(t, [subject], gitRepositories);
-  handle = await startWorkbench({
+  handle = await startSharedFixture({
     workingDirectory: repositoryRoot,
     localAccessRoot: root,
     ...session.options,
@@ -189,9 +189,65 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
    * @boundary 実HTTP→Artifact Reader。外部AIなし。
    */
   const query = (id: string, route: string, identity: string) =>
-    `/api/workbench/view?${new URLSearchParams({ repositoryId: id, route, [route === "/change" ? "id" : "path"]: identity })}`;
+    route === "/change"
+      ? `/api/repositories/${id}/changes/${encodeURIComponent(identity)}`
+      : `/api/repositories/${id}/artifacts?${new URLSearchParams({ path: identity })}`;
   try {
     const headers = { cookie: await session.signIn(handle.baseUrl, subject) };
+    const contextUrl = `${handle.baseUrl}/api/workbench/context`;
+    const originalFetch = globalThis.fetch;
+    let requestsToGitHost = 0;
+    const observeBootstrap = t.mock.method(
+      globalThis,
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(
+          typeof input === "string" || input instanceof URL ? input : input.url,
+        );
+        if (url.hostname === "api.github.com") requestsToGitHost++;
+        return originalFetch(input, init);
+      },
+    );
+    try {
+      const anonymousContext = await fetch(contextUrl);
+      assert.equal(anonymousContext.status, 200);
+      const { contract, mode, login } = await anonymousContext.json();
+      assert.equal(contract, "crdd/workbench/context/v1");
+      assert.equal(mode, "shared");
+      assert.equal(login.authenticated, false);
+      assert.equal(Object.hasOwn(login, "portfolio"), false);
+      assert.ok(login.loginProviders.length > 0);
+      const signedInContext = await fetch(contextUrl, { headers });
+      assert.equal(signedInContext.status, 200);
+      assert.deepEqual(await signedInContext.json(), {
+        contract,
+        mode,
+        login: null,
+      });
+      try {
+        const altered = structuredClone(state);
+        altered.revision++;
+        const binding = altered.users[0]?.accountLinks?.[0];
+        assert.ok(binding);
+        binding.bindingId = randomUUID();
+        fs.writeFileSync(current, JSON.stringify(altered));
+        const revoked = await fetch(contextUrl, { headers });
+        assert.equal(revoked.status, 200);
+        assert.equal((await revoked.json()).login.authenticated, false);
+
+        fs.writeFileSync(current, "unreadable state");
+        const unavailable = await fetch(contextUrl, { headers });
+        assert.equal(unavailable.status, 503);
+        assert.deepEqual(await unavailable.json(), {
+          error: "workbench_context_unavailable",
+        });
+      } finally {
+        fs.writeFileSync(current, JSON.stringify(state));
+      }
+      assert.equal(requestsToGitHost, 0);
+    } finally {
+      observeBootstrap.mock.restore();
+    }
     for (const suffix of ["a", "b"])
       for (const [route, identity] of [
         ["/change", "CHG-000301"],
@@ -203,15 +259,11 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
         );
         assert.equal(response.status, 200);
         assert.deepEqual(await response.json(), {
-          contract: "crdd/workbench/view/v1",
-          view: "artifact",
           repositoryId: `repo.${suffix}`,
-          selectedRepositoryId: `repo.${suffix}`,
-          artifact: {
-            kind: route === "/change" ? "change" : "owner",
-            identity,
-            markdown: `# 原文-${suffix}\n<script>globalThis.__artifactProbe=1</script>\n`,
-          },
+          scope: "shared",
+          kind: route === "/change" ? "change" : "owner",
+          identity,
+          markdown: `# 原文-${suffix}\n<script>globalThis.__artifactProbe=1</script>\n`,
         });
       }
     const largeRelative = "99_Roadmap/large.md";
@@ -226,9 +278,12 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       path.join(fixture, "a", "99_Roadmap", "03_Releases.md"),
     );
     const main = await (
-      await fetch(`${handle.baseUrl}/api/workbench/view?repositoryId=repo.a`, {
-        headers,
-      })
+      await fetch(
+        `${handle.baseUrl}/api/workbench/overview?repositoryId=repo.a`,
+        {
+          headers,
+        },
+      )
     ).json();
     assert.equal(main.view, "main");
     assert.equal(main.projectData.ownerArtifacts.state, "available");
@@ -247,21 +302,24 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
     );
     assert.equal(largeResponse.status, 200);
     assert.deepEqual(await largeResponse.json(), {
-      contract: "crdd/workbench/view/v1",
-      view: "artifact",
       repositoryId: "repo.a",
-      selectedRepositoryId: "repo.a",
-      artifact: {
-        kind: "owner",
-        identity: largeRelative,
-        markdown: largeMarkdown,
-      },
+      scope: "shared",
+      kind: "owner",
+      identity: largeRelative,
+      markdown: largeMarkdown,
     });
     const anonymous = await fetch(
       handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
     );
-    assert.equal(anonymous.status, 200);
-    assert.equal((await anonymous.json()).view, "access");
+    assert.equal(anonymous.status, 401);
+    assert.deepEqual(await anonymous.json(), { error: "login_required" });
+    const head = await fetch(
+      handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
+      { method: "HEAD", headers },
+    );
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), "");
+    assert.ok(Number(head.headers.get("content-length")) > 0);
     const shell = await fetch(
       `${handle.baseUrl}/change?repositoryId=repo.a&id=CHG-000301`,
     );
@@ -285,11 +343,11 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
     syncBuiltinESMExports();
     try {
       for (const suffix of [
-        "&id=CHG-000301",
-        "&path=a.md",
-        "&route=%2Fowner-artifact",
-        "&repositoryId=repo.b",
-        "&unknown=x",
+        "?id=CHG-000301",
+        "?path=a.md",
+        "?route=%2Fowner-artifact",
+        "?repositoryId=repo.b",
+        "?unknown=x",
       ]) {
         const response = await fetch(
           handle.baseUrl + query("repo.a", "/change", "CHG-000301") + suffix,
@@ -351,6 +409,58 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
     } finally {
       fs.writeFileSync(quality, savedQuality);
     }
+    {
+      const target = path.join(fixture, "a", "99_Roadmap", "01_Roadmap.md");
+      const originalOpen = fs.promises.open;
+      let catalogOpened = false;
+      let bodyReads = 0;
+      const body = t.mock.method(
+        fs.promises,
+        "readFile",
+        async (...args: Parameters<typeof originalRead>) => {
+          if (
+            path.resolve(String(args[0])).toLowerCase() === target.toLowerCase()
+          )
+            bodyReads++;
+          return originalRead(...args);
+        },
+      );
+      const catalog = t.mock.method(
+        fs.promises,
+        "open",
+        async (...args: Parameters<typeof originalOpen>) => {
+          if (
+            path.resolve(String(args[0])).toLowerCase() === target.toLowerCase()
+          ) {
+            const altered = structuredClone(state);
+            altered.revision++;
+            altered.registeredRepositories =
+              altered.registeredRepositories.filter(
+                (repository) => repository.repositoryId !== "repo.a",
+              );
+            fs.writeFileSync(current, JSON.stringify(altered));
+            catalogOpened = true;
+          }
+          return originalOpen(...args);
+        },
+      );
+      syncBuiltinESMExports();
+      try {
+        const response = await fetch(
+          handle.baseUrl +
+            query("repo.a", "/owner-artifact", "99_Roadmap/01_Roadmap.md"),
+          { headers },
+        );
+        assert.equal(response.status, 403);
+        assert.equal(catalogOpened, true);
+        assert.equal(bodyReads, 0);
+      } finally {
+        catalog.mock.restore();
+        body.mock.restore();
+        syncBuiltinESMExports();
+        fs.writeFileSync(current, JSON.stringify(state));
+      }
+    }
     const file = path.join(
         fixture,
         "a",
@@ -368,15 +478,11 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       );
       assert.equal(response.status, 200);
       assert.deepEqual(await response.json(), {
-        contract: "crdd/workbench/view/v1",
-        view: "artifact",
         repositoryId: "repo.a",
-        selectedRepositoryId: "repo.a",
-        artifact: {
-          kind: "change",
-          identity: "CHG-000301",
-          markdown: largeChange,
-        },
+        scope: "shared",
+        kind: "change",
+        identity: "CHG-000301",
+        markdown: largeChange,
       });
     };
     fs.writeFileSync(file, largeChange);

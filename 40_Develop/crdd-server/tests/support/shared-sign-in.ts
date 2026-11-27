@@ -3,8 +3,72 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { createServer } from "node:net";
 import type { TestContext } from "node:test";
+import { startCrddServer, type WorkbenchStartRequest } from "../../src/app.ts";
 
 export const testIssuer = "https://accounts.google.com";
+
+/** 共有HTTP試験も、合成OAuthの設定を備えた本番の起動入口を使う。 */
+export async function startSharedFixture(request: WorkbenchStartRequest) {
+  assert.ok(request.localAccessRoot);
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  let port = request.port ?? 0;
+  if (!port && !request.publicOrigin) {
+    const listener = createServer();
+    await new Promise<void>((resolve, reject) => {
+      listener.once("error", reject);
+      listener.listen(0, "127.0.0.1", resolve);
+    });
+    const address = listener.address();
+    await new Promise<void>((resolve, reject) =>
+      listener.close((error) => (error ? reject(error) : resolve())),
+    );
+    assert.ok(address && typeof address !== "string");
+    port = address.port;
+  }
+  return startCrddServer({
+    ...request,
+    localAccessRoot: request.localAccessRoot,
+    port,
+    sharedRepositoryRoots: request.sharedRepositoryRoots ?? [
+      request.workingDirectory,
+    ],
+    loginProviders: request.loginProviders ?? {
+      google: {
+        clientId: "test-shared-client",
+        clientSecret: "test-shared-login-secret",
+      },
+    },
+    gitHosts: request.gitHosts ?? [
+      {
+        host: "github.com",
+        provider: "github",
+        providerData: {
+          clientId: "test-shared-client",
+          clientSecret: "test-shared-git-secret",
+        },
+      },
+    ],
+    ...(request.publicOrigin && { mcpPublicOrigin: request.publicOrigin }),
+    mcpOAuth: {
+      clients: [
+        {
+          id: "test-shared-client",
+          redirects: ["http://127.0.0.1:18443/callback"],
+        },
+      ],
+      verifier: {
+        id: "crdd-mcp-verifier",
+        secret: "synthetic-test-only-verifier-secret-32-bytes",
+      },
+      cookieKeys: ["synthetic-test-only-cookie-key-32-bytes"],
+      jwks: {
+        keys: [
+          { ...privateKey.export({ format: "jwk" }), alg: "RS256", use: "sig" },
+        ],
+      },
+    },
+  });
+}
 
 /** 外部ネットワークを使わず、公開ログイン・Git連携から実Cookieを得る。 */
 export async function prepareSharedSignIn(
@@ -28,6 +92,13 @@ export async function prepareSharedSignIn(
   const clientId = "synthetic-shared-ai";
   const nonces = new Map<string, string>();
   const localFetch = globalThis.fetch;
+  let interactiveObservations = 0;
+  let monitoringObservations = 0;
+  let gitHostRequests = 0;
+  const monitoredPermissions = new Map<number, "none" | "read" | "write">();
+  let monitorResponse:
+    | ((id: number) => Promise<Response | undefined>)
+    | undefined;
   const encode = (value: object) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
   t.mock.method(
@@ -70,6 +141,7 @@ export async function prepareSharedSignIn(
         });
       }
       if (url.href === "https://github.com/login/oauth/access_token") {
+        gitHostRequests++;
         const subject =
           new URLSearchParams(String(init?.body)).get("code") ?? "";
         const index = subjects.indexOf(subject);
@@ -81,6 +153,7 @@ export async function prepareSharedSignIn(
         });
       }
       if (url.origin === "https://api.github.com") {
+        gitHostRequests++;
         const auth = new Headers(init?.headers).get("authorization");
         if (url.pathname === "/app/installations/24/access_tokens") {
           const id = JSON.parse(String(init?.body)).repository_ids?.[0];
@@ -110,10 +183,19 @@ export async function prepareSharedSignIn(
           );
           assert.ok(id === 73 || id === 74);
           const user = { id, login: `fixture-${id}` };
+          if (!url.pathname.startsWith("/user/")) {
+            monitoringObservations++;
+            const response = await monitorResponse?.(installation.id);
+            if (response) return response;
+          }
           return Response.json(
             url.pathname.startsWith("/user/")
               ? user
-              : { user, permission: "write" },
+              : {
+                  user,
+                  permission:
+                    monitoredPermissions.get(installation.id) ?? "write",
+                },
           );
         }
         assert.ok(
@@ -121,6 +203,7 @@ export async function prepareSharedSignIn(
         );
         if (url.pathname === "/user")
           return Response.json({ id: auth.endsWith("0") ? 73 : 74 });
+        interactiveObservations++;
         if (url.pathname === "/user/installations")
           return Response.json({
             total_count: 1,
@@ -150,6 +233,16 @@ export async function prepareSharedSignIn(
     },
   );
   return {
+    interactiveObservations: () => interactiveObservations,
+    monitoringObservations: () => monitoringObservations,
+    gitHostRequests: () => gitHostRequests,
+    setMonitorResponse: (respond: typeof monitorResponse) => {
+      monitorResponse = respond;
+    },
+    setMonitoredPermission: (
+      repositoryId: number,
+      permission: "none" | "read" | "write",
+    ) => monitoredPermissions.set(repositoryId, permission),
     options: {
       port: address.port,
       loginProviders: {

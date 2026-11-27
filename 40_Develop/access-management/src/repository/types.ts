@@ -16,7 +16,7 @@ export type GitHostLinkedRepository = Readonly<{
 }>;
 
 /** 外部ホストで権限を確認するための候補。アクセス可能なPathや本文は含まない。 */
-export type HostedAccessCandidate = Readonly<{
+export type GitHostLinkedAccessCandidate = Readonly<{
   repositoryId: string;
   bindingId: string;
   hostedRepository: GitHostLinkedRepository;
@@ -37,7 +37,7 @@ export type AuthorizedRepository = Readonly<{
   bindingId: string;
   manifest: RepositoryManifest;
   root: string;
-  hostedRepository?: GitHostLinkedRepository;
+  hostedRepository: GitHostLinkedRepository;
 }>;
 
 /**

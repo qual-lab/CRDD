@@ -6616,7 +6616,7 @@ test("終了再入場は再入場理由だけを既存の用途限定Readerへ�
     };
     const normal = ["normal", "related", "missing_value"].includes(mode);
     const result = runInNewContext(
-      body + "; completeRecovery(root,id,assertOwner,'docker_task')",
+      `${body}; completeRecovery(root,id,assertOwner,'docker_task')`,
       {
         Buffer,
         root: {},

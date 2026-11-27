@@ -46,7 +46,7 @@ export function extractRealitySymbolAnnotations(
   const archIds = new Set<string>();
   const qaIds = new Set<string>();
   for (const match of source.matchAll(
-    /^\s*\/\/\s*@crdd\s+(ARCH-[0-9]{6}|QA-[0-9]{6})\s*$/gmu,
+    /^[^\S\r\n]*(?:(?!["'\x60])[^\p{L}\p{N}\s]){1,4}[^\S\r\n]*@crdd[^\S\r\n]+(ARCH-[0-9]{6}|QA-[0-9]{6})[^\S\r\n]*(?:\*\/|-->)?[^\S\r\n]*$/gmu,
   )) {
     const identity = match[1];
     if (identity?.startsWith("ARCH-")) archIds.add(identity);

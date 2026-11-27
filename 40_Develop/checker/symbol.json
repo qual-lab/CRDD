@@ -4,6 +4,16 @@
   "subsystem": "checker",
   "symbols": [
     {
+      "symbolId": "checker.cli.entry",
+      "kind": "file",
+      "path": "bin/checker.ts",
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000003",
+        "ARCH-000008"
+      ]
+    },
+    {
       "symbolId": "checker.test-catalog-plan",
       "kind": "file",
       "path": "src/test-catalog/plan.ts",
@@ -127,6 +137,12 @@
       ]
     },
     {
+      "symbolId": "checker.repository-reality-coverage",
+      "kind": "module",
+      "path": "src/repository/reality-coverage.ts",
+      "archIds": ["ARCH-000001"]
+    },
+    {
       "symbolId": "checker.test.integration.crdd-check",
       "kind": "test-suite",
       "path": "tests/integration/crdd-check.contract.test.ts",
@@ -192,6 +208,7 @@
         "checker.artifact-relation-adapter",
         "checker.public-entry",
         "checker.repository-reality",
+        "checker.repository-reality-coverage",
         "checker.report-reality",
         "document-model.source.src.artifact.parse-markdown",
         "checker.report-semantic"

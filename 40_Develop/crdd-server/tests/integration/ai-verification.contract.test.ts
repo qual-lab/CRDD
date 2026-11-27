@@ -351,7 +351,7 @@ function assertReadonlyTiming(input: unknown) {
         assert.equal(
           r.route,
           r.routeKind === "view"
-            ? "/api/workbench/view?route=%2F"
+            ? "/api/workbench/overview"
             : "/api/repositories/{repositoryId}/ai-requests",
         );
         const start = integer(r.startedAt, 1);
@@ -401,7 +401,7 @@ test("読取り計測summaryは閉じた型と欠測を検査し容量で拒否�
         stage: "observe",
         routeKind: "view",
         method: "GET",
-        route: "/api/workbench/view?route=%2F",
+        route: "/api/workbench/overview",
         startedAt: 1,
         requestCreatedAt: null,
         headersSendingAt: null,
@@ -871,7 +871,7 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
   for (const { route, scenario } of [
     "/api/repositories/fixture/workspaces?projectId=project&limit=20",
     "/api/repositories/fixture/ai-requests",
-    "/api/workbench/view?route=%2F",
+    "/api/workbench/overview",
     "/api/repositories/fixture/workspaces/",
   ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     let expire!: () => void;
@@ -2200,7 +2200,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
                 const before = timing.snapshot();
                 channel("http.server.request.start").publish({
                   request: {
-                    url: "/api/workbench/view?route=%2F",
+                    url: "/api/workbench/overview",
                     socket: { localPort: 1, localAddress: "127.0.0.1" },
                   },
                   response: {},

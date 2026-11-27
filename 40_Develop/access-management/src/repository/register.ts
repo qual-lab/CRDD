@@ -11,24 +11,23 @@ import {
   createFilesystemRepositoryObservationPort,
   parseRepositoryProjectContextMarkdown,
 } from "@qual-lab/crdd-document-model";
+import { projectManagementOperationResult } from "../authorization/management.ts";
 import {
-  evaluateManagementPermission,
-  projectManagementOperationResult,
-} from "../authorization/management.ts";
-import {
-  acceptsAccessPrincipal,
+  isUnexpiredAccountPrincipal,
   resolveAccessPrincipal,
 } from "../authorization/principal.ts";
 import type { AccountAccessPrincipal } from "../authorization/types.ts";
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
+import { evaluateManagementPermission } from "../permission/validation.ts";
 import { locked } from "../storage/lock.ts";
 import {
   captureGitHostReference,
   parseAccessManagementState,
+  RESOURCE_ID,
+  UUID_V4,
 } from "../storage/parse.ts";
 import {
-  ATTEMPT_UUID,
   ordinaryChange,
   publishState,
   readCurrent,
@@ -57,7 +56,7 @@ const ROOT_CODE_UNIT_LIMIT = 32_768;
 type ObserveRegistrationDirectory = (directory: string) => Readonly<{
   directory: string;
   isCurrent: () => boolean;
-  hostedRepository?: GitHostLinkedRepository;
+  hostedRepository: GitHostLinkedRepository;
 }> | null;
 
 function acceptsRegistrationDirectory(value: unknown): value is string {
@@ -70,10 +69,7 @@ function acceptsRegistrationDirectory(value: unknown): value is string {
 }
 
 function acceptsRepositoryId(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value)
-  );
+  return typeof value === "string" && RESOURCE_ID.test(value);
 }
 
 /**
@@ -128,7 +124,7 @@ function acceptsRepositoryRegistrationChange(
 }
 
 /** 共有登録の事前判定。競合では保存・既存材料の清掃・外部照会を行わない。 */
-export function checkHostedRepositoryRegistration(
+export function checkGitHostLinkedRepositoryRegistration(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
   request: Readonly<{
@@ -140,11 +136,11 @@ export function checkHostedRepositoryRegistration(
 ): "ready" | "rejected" | "conflict" {
   const { repositoryId, directory, expectedRevision, operationId } = request;
   if (
-    !acceptsAccessPrincipal(principal) ||
+    !isUnexpiredAccountPrincipal(principal) ||
     !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 1 ||
     typeof operationId !== "string" ||
-    !ATTEMPT_UUID.test(operationId) ||
+    !UUID_V4.test(operationId) ||
     !acceptsRepositoryId(repositoryId) ||
     !acceptsRegistrationDirectory(directory)
   )
@@ -204,11 +200,7 @@ function observeRegistration(
 ): AccessManagementState["registeredRepositories"][number] | null {
   const location = observeDirectory(repositoryRoot);
   if (!location) return null;
-  const rawReference = location.hostedRepository;
-  const hostedRepository =
-    rawReference === undefined
-      ? undefined
-      : captureGitHostReference(rawReference);
+  const hostedRepository = captureGitHostReference(location.hostedRepository);
   if (hostedRepository === null) return null;
   const root = location.directory;
   const observer = createFilesystemRepositoryObservationPort(root);
@@ -240,7 +232,7 @@ function observeRegistration(
     repositoryId,
     repositoryRoot: root,
     bindingId: deriveRepositoryBindingId(repositoryId, root),
-    ...(hostedRepository && { hostedRepository }),
+    hostedRepository,
   };
 }
 
@@ -275,7 +267,7 @@ function prepareRepositoryRegistrationChange(
       change.repositoryRoot as string,
       change.observeDirectory,
     );
-    if (!registration?.hostedRepository) return null;
+    if (!registration) return null;
     if (
       current.registeredRepositories.some(
         (item) => item.bindingId === registration.bindingId,
@@ -314,11 +306,11 @@ function executeRepositoryRegistration(
   change: RepositoryRegistrationChange,
 ): RepositoryManagementResult {
   if (
-    !acceptsAccessPrincipal(principal) ||
+    !isUnexpiredAccountPrincipal(principal) ||
     !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 1 ||
     typeof operationId !== "string" ||
-    !ATTEMPT_UUID.test(operationId)
+    !UUID_V4.test(operationId)
   )
     return { status: "unavailable", reason: "management_operation_rejected" };
   let admitted = false;

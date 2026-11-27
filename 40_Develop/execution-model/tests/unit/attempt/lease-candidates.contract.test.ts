@@ -823,13 +823,13 @@ test("LeaseとQueueは未捕捉tupleの実行Propertyを評価しない", async 
         "binding",
         { kind, input },
       ]);
-      assert.equal(result.status, "blocked", name + ":" + kind);
+      assert.equal(result.status, "blocked", `${name}:${kind}`);
       assert.equal(
         result.reason,
         "coordinator_snapshot_input_invalid",
-        name + ":" + kind,
+        `${name}:${kind}`,
       );
-      assert.equal(traps, 0, name + ":" + kind);
+      assert.equal(traps, 0, `${name}:${kind}`);
     }
   }
 });

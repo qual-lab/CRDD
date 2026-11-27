@@ -21,50 +21,42 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
-import {
-  acceptInvitation,
-  readFilesystemStoreDirectory,
-  readAccount,
-} from "@qual-lab/crdd-access-management";
+import { readFilesystemStoreDirectory } from "@qual-lab/crdd-access-management";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import {
   createMeetingOperations,
   createTopicOperations,
 } from "@qual-lab/crdd-document-model";
-import { acquireLock } from "@qual-lab/crdd-lock";
+import { acquireLock, type LockResult } from "@qual-lab/crdd-lock";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "@qual-lab/crdd-version-control";
-import type { HostedAccessSession } from "./service/access.ts";
-import { createRepositoryScope } from "./service/repository-scope.ts";
+import type { GitHostLinkedAccessSession } from "./service/access.ts";
 import {
   inspectServerPublicOrigin,
   readAiSelectionView,
 } from "./service/configuration.ts";
 import {
   type AiSessionOperation,
-  createHostedAiSessions,
+  createGitHostLinkedAiSessions,
   createObjectiveRuns,
-  createRepositoryWorkbenchActivityReader,
+  type ObjectiveRuns,
 } from "./service/execution.ts";
-import {
-  bindGitHost,
-  configuredGitHosts,
-  createGitHostLinks,
-} from "./service/git-host.ts";
-import {
-  readArtifactSelection,
-  readProjectViewData,
-} from "./service/project-context.ts";
+import { bindGitHost, configuredGitHosts } from "./service/git-host.ts";
+import { configuredLoginProviders } from "./service/login-providers.ts";
+import { readProjectViewData } from "./service/project-context.ts";
+import { createRepositoryScope } from "./service/repository-scope.ts";
 import { createApiServer, setResponseHeaders } from "./transport/api-http.ts";
 import {
   createApiApplication,
+  createArtifactResourceHandler,
   createExecutionActivityHandler,
   createExecutionDefinitionHandler,
-  createManagementSessionHandler,
-  createManagementSessionLifecycleHandler,
   createProjectContextHandler,
+  createRepositoryFilesHandler,
   createTopicMeetingHandler,
+  createWorkbenchContextHandler,
   createWorkspaceResourceHandler,
   handleAiRequestObservation,
   handleAiRequestWrite,
@@ -80,21 +72,14 @@ import {
   isExecutionWritePath,
   isRepositoryWritePath,
 } from "./transport/api-server.ts";
-import {
-  clientLoginPaths,
-  createClientSessionHandler,
-  gitHostConnectionPaths,
-} from "./transport/api-session.ts";
 import type {
   CrddServerStartRequest,
-  EmbeddedMcpOAuthOptions,
   WorkbenchConnectionState,
   WorkbenchHandle,
   WorkbenchPresentationState,
   WorkbenchStartRequest,
 } from "./transport/api-types.ts";
-import { createLogin } from "./transport/login.ts";
-import { configuredLoginProviders } from "./transport/login-providers.ts";
+import type { EmbeddedMcpOAuthOptions } from "./transport/mcp-types.ts";
 
 export type {
   ManagementResult,
@@ -112,15 +97,6 @@ export type {
   AiRequestStartResult,
   AiRequests,
   AiResultItem,
-  WorkbenchExecutionActivityObservation,
-  WorkbenchExecutionActivityPageRequest,
-  WorkbenchExecutionActivityProjection,
-  WorkbenchExecutionEventProjection,
-} from "./service/execution.ts";
-// 活動Readerは起動時のDomain ContextのProject／Repository IDを第二引数に要求する。
-export {
-  createRepositoryWorkbenchActivityReader,
-  type WorkbenchActivityReader,
 } from "./service/execution.ts";
 export type {
   ProjectPlanObservation,
@@ -140,6 +116,20 @@ export {
 const HOST = "127.0.0.1";
 const CONTRACT: WorkbenchHandle["contract"] = "crdd/workbench/v1";
 const HEALTH_PATH = "/.well-known/crdd-workbench-health";
+
+/** HTTP前段から個別処理へ渡す、要求内だけの接続情報。 */
+interface PreparedRequest {
+  readonly incoming: IncomingMessage;
+  readonly response: ServerResponse;
+  readonly requestSignal: AbortSignal;
+  readonly method: string;
+  readonly requestUrl: URL;
+  readonly requestPath: string;
+  readonly actionToken: string;
+  readonly repositoryRoot: string;
+  readonly localAccessRoot: WorkbenchStartRequest["localAccessRoot"];
+  readonly origin: string | null;
+}
 
 export type {
   CrddServerStartRequest,
@@ -168,6 +158,8 @@ export async function startWorkbench(
   request: WorkbenchStartRequest,
   objectiveRuns = createObjectiveRuns(),
 ): Promise<WorkbenchHandle> {
+  if (request.localAccessRoot !== undefined)
+    throw new Error("mcp_oauth_configuration_required");
   return startOwnedHttpServer(request, objectiveRuns);
 }
 
@@ -208,17 +200,17 @@ class StartupCleanupUnconfirmed extends Error {}
 /** 認可状態を共有するServerだけが、保存領域を終了確定まで占有する。 */
 async function startOwnedHttpServer(
   request: WorkbenchStartRequest,
-  objectiveRuns: ReturnType<typeof createObjectiveRuns>,
+  objectiveRuns: ObjectiveRuns,
   mcpOAuth?: EmbeddedMcpOAuthOptions,
 ): Promise<WorkbenchHandle> {
   if (request.localAccessRoot === undefined)
     return startHttpServer(request, objectiveRuns, mcpOAuth);
-  let acquired: ReturnType<typeof acquireLock>;
+  let acquired: LockResult;
   try {
     acquired = acquireLock({
       directory: readFilesystemStoreDirectory(request.localAccessRoot),
       name: "shared-server.lock",
-      identity: "access-management:shared-server",
+      identity: "crdd-server:shared-server",
     });
   } catch {
     throw new Error("shared_server_lock_unavailable");
@@ -260,13 +252,11 @@ async function startOwnedHttpServer(
   });
 }
 
-/** HTTP起動と、明示構成された場合だけMCPへの分岐を所有する。 @trace ARCH-000012 */
-async function startHttpServer(
+/** リポジトリと明示された公開設定を、待受開始前に確定する。 @trace ARCH-000012 */
+function inspectStartup(
   request: WorkbenchStartRequest,
-  objectiveRuns: ReturnType<typeof createObjectiveRuns>,
   mcpOAuth?: EmbeddedMcpOAuthOptions,
-  beforeListen?: () => void,
-): Promise<WorkbenchHandle> {
+) {
   const allowedStartFields = new Set([
     "workingDirectory",
     "publicOrigin",
@@ -279,7 +269,6 @@ async function startHttpServer(
     "sharedRepositoryRoots",
     "aiRequests",
     "sharedAiRequestsFactory",
-    "activityReader",
   ]);
   if (Object.keys(request).some((field) => !allowedStartFields.has(field)))
     throw new Error("workbench_configuration_invalid");
@@ -330,14 +319,26 @@ async function startHttpServer(
   const readGitHost = (host: string) => gitHostByName.get(host);
   if (
     request.localAccessRoot !== undefined &&
-    (request.portfolio !== undefined ||
-      request.aiRequests !== undefined ||
-      request.activityReader !== undefined)
+    (request.portfolio !== undefined || request.aiRequests !== undefined)
   )
-    throw new Error("workbench_local_cros_sources_conflicting");
+    throw new Error("server_shared_sources_conflicting");
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     request.workingDirectory,
   );
+  return {
+    publicOrigin,
+    port,
+    loginProviders,
+    gitHostingEnabled,
+    repositoryScope,
+    gitRuntimes,
+    readGitHost,
+    repositoryRoot,
+  };
+}
+
+/** 固定の配布物を読む。欠落時は待受を開始しない。 @trace ARCH-000012 */
+async function readWorkbenchAssets() {
   const logoPath = new URL(
     "../../../04_UI/assets/brand/crdd-brand-icon-512x512.jpg",
     import.meta.url,
@@ -365,6 +366,27 @@ async function startHttpServer(
     }))
     .catch(() => null);
   if (assets === null) throw new Error("workbench_client_asset_unavailable");
+  return assets;
+}
+
+/** HTTP起動と、明示構成された場合だけMCPへの分岐を所有する。 @trace ARCH-000012 */
+async function startHttpServer(
+  request: WorkbenchStartRequest,
+  objectiveRuns: ObjectiveRuns,
+  mcpOAuth?: EmbeddedMcpOAuthOptions,
+  beforeListen?: () => void,
+): Promise<WorkbenchHandle> {
+  const {
+    publicOrigin,
+    port,
+    loginProviders,
+    gitHostingEnabled,
+    repositoryScope,
+    gitRuntimes,
+    readGitHost,
+    repositoryRoot,
+  } = inspectStartup(request, mcpOAuth);
+  const assets = await readWorkbenchAssets();
   const verification = getRepository(repositoryRoot);
   if (verification.status !== "completed")
     throw new Error("workbench_repository_root_invalid");
@@ -373,44 +395,33 @@ async function startHttpServer(
       ? await readProjectViewData(repositoryRoot)
       : undefined;
   const presentation: WorkbenchPresentationState = {
-    executionActivityObservation: undefined,
     projectSurface: initialProjectSurface,
     aiSelection: readAiSelectionView(repositoryRoot),
     currentAiRequestId: null,
     aiRequestSnapshot: null,
-    aiRequestNotice: null,
-    aiSelectionManagementResult: null,
   };
   const aiRequests = request.aiRequests;
-  const hostedAiSessions =
+  const gitHostLinkedAiSessions =
     request.sharedAiRequestsFactory && gitHostingEnabled
-      ? createHostedAiSessions(request.sharedAiRequestsFactory)
+      ? createGitHostLinkedAiSessions(request.sharedAiRequestsFactory)
       : undefined;
-  const openHostedAiSession = (
-    session: HostedAccessSession,
+  const openGitHostLinkedAiSession = (
+    session: GitHostLinkedAccessSession,
     repositoryId: string,
     operation: AiSessionOperation,
     signal: AbortSignal,
+    observedRequestId?: string,
   ) =>
-    accessRoot && hostedAiSessions
-      ? hostedAiSessions.open(
+    accessRoot && gitHostLinkedAiSessions
+      ? gitHostLinkedAiSessions.open(
           accessRoot,
           session,
           repositoryId,
           operation,
           signal,
+          observedRequestId,
         )
       : Promise.resolve(null);
-  const activityReader =
-    request.activityReader ??
-    (request.aiRequests !== undefined &&
-    request.localAccessRoot === undefined &&
-    presentation.projectSurface !== undefined
-      ? createRepositoryWorkbenchActivityReader(
-          repositoryRoot,
-          presentation.projectSurface.context,
-        )
-      : undefined);
   const topicMeeting =
     request.localAccessRoot === undefined
       ? Object.freeze({
@@ -424,190 +435,32 @@ async function startHttpServer(
   const actionToken = randomBytes(32).toString("base64url");
   const transport = createApiServer();
   const server = transport.server;
-  const browserAuthentication = loginProviders !== undefined;
-  const publicLoginProviders = loginProviders?.map(
-    ({ profile: { id, displayName } }) => Object.freeze({ id, displayName }),
+  const publicLoginProviders = loginProviders?.map(({ id, displayName }) =>
+    Object.freeze({ id, displayName }),
   );
   const accessRoot = request.localAccessRoot;
-  let mcp:
-    | ReturnType<
-        typeof import("./transport/mcp-server.ts").createMcpHttpRequestHandler
-      >
-    | undefined;
-  let clientSession: ReturnType<typeof transport.handleRequest> | undefined;
-  let changeManagementSession:
-    | ReturnType<typeof transport.handleRequest>
-    | undefined;
-  let managementSession: ReturnType<typeof transport.handleRequest> | undefined;
-  let gitConnection: ReturnType<typeof transport.handleRequest> | undefined;
-  let readHostedSession:
-    | ReturnType<typeof createClientSessionHandler>["readHostedAccessSession"]
-    | undefined;
-  let readManagementSession:
-    | ReturnType<typeof createClientSessionHandler>["readManagement"]
-    | undefined;
-  let oauthEndpoint:
-    | ReturnType<
-        typeof import("./transport/mcp-oauth.ts").createMcpOAuthEndpoint
-      >
-    | undefined;
-  if (loginProviders && accessRoot) {
-    const oauth =
-      mcpOAuth === undefined
-        ? undefined
-        : await import("./transport/mcp-oauth.ts");
-    const oauthState = oauth?.createMcpOAuthState();
-    const origin = publicOrigin ?? new URL(`http://${HOST}:${port}`);
-    const logins = Object.fromEntries(
-      await Promise.all(
-        loginProviders.map(
-          async ({ profile, credentials }) =>
-            [
-              profile.id,
-              await createLogin(profile, {
-                ...credentials,
-                callback: new URL(
-                  clientLoginPaths(profile.id).callback,
-                  origin,
-                ),
-              }),
-            ] as const,
-        ),
-      ),
-    );
-    const gitConnections = gitRuntimes.map(
-      ({ id, host, displayName, connect, observePermission }) => ({
-        host,
-        id,
-        displayName,
-        connection: connect(
-          new URL(gitHostConnectionPaths(id).callback, origin),
-        ),
-        links: createGitHostLinks(),
-        ...(observePermission && { observePermission }),
-      }),
-    );
-    const gitConnectionByHost = new Map(
-      gitConnections.map((connection) => [connection.host, connection]),
-    );
-    const browser = createClientSessionHandler(
-      origin,
-      logins,
-      (identity, session) => readAccount(accessRoot, identity, session),
-      gitConnections,
-      (identity, { digest, email, emailVerified }) =>
-        acceptInvitation(
+  const shared =
+    loginProviders && publicLoginProviders && accessRoot && mcpOAuth
+      ? await (
+          await import("./transport/shared-server.ts")
+        ).createSharedTransport({
+          transport,
           accessRoot,
-          { ...identity, email, emailVerified },
-          digest,
-        ),
-      oauthState?.invalidateUser,
-      readGitHost,
-      repositoryScope,
-    );
-    clientSession = transport.handleRequest(browser.handle);
-    changeManagementSession = transport.handleRequest(
-      createManagementSessionLifecycleHandler(origin, browser.changeManagement),
-    );
-    managementSession = transport.handleRequest(
-      createManagementSessionHandler(
-        origin,
-        accessRoot,
-        browser.readManagement,
-        gitHostingEnabled,
-        (incoming) =>
-          browser.readHostedAccessSession(incoming)?.principal ?? null,
-        (incoming) => browser.readCurrent(incoming, false),
-        repositoryScope,
-      ),
-    );
-    server.once("close", browser.close);
-    readHostedSession = browser.readHostedAccessSession;
-    readManagementSession = browser.readManagement;
-    if (gitHostingEnabled) {
-      gitConnection = transport.handleRequest(browser.handleGitConnection);
-    }
-    if (mcpOAuth !== undefined && oauth && oauthState) {
-      const {
-        createMcpOAuthProvider,
-        createMcpOAuthEndpoint,
-        createMcpOAuthInteraction,
-        createMcpTokenVerifier,
-      } = oauth;
-      const { createOAuthMcpResolver, createMcpHttpRequestHandler } =
-        await import("./transport/mcp-server.ts");
-      const resource = new URL("/mcp", origin);
-      const provider = createMcpOAuthProvider(
-        {
-          ...mcpOAuth,
-          issuer: origin,
-          resource,
-        },
-        oauthState,
-      );
-      oauthEndpoint = createMcpOAuthEndpoint(
-        provider,
-        resource,
-        createMcpOAuthInteraction(
-          provider,
-          resource,
-          browser,
-          publicLoginProviders ?? [],
-          browser.readMcpReferences,
-          oauthState,
-        ),
-        oauthState,
-      );
-      // 同じListenerの起動後にDiscoveryする。失敗を旧Bearer認証へは回さない。
-      let discovery: ReturnType<typeof createMcpTokenVerifier> | undefined;
-      const resolver = createOAuthMcpResolver(
-        accessRoot,
-        async (token, signal) => {
-          if (signal.aborted) return { status: "rejected" };
-          discovery ??= createMcpTokenVerifier({
-            issuer: origin,
-            resource,
-            clientId: mcpOAuth.verifier.id,
-            clientSecret: mcpOAuth.verifier.secret,
-          });
-          const pending = discovery;
-          try {
-            return (await pending)(token, signal);
-          } catch {
-            if (discovery === pending) discovery = undefined;
-            return { status: "unavailable" };
-          }
-        },
-        gitHostingEnabled
-          ? {
-              hasCurrentToken: oauthState.hasCurrentToken,
-              readGrantHostReference: oauthState.readGrantHostReference,
-              readGitHost,
-              repositoryScope,
-              read: (host, reference, binding) =>
-                gitConnectionByHost.get(host)?.links.read(reference, binding) ??
-                null,
-              open: (host, reference, binding) => {
-                const connection = gitConnectionByHost.get(host);
-                if (!connection?.observePermission) return null;
-                const link = connection.links.open(reference, binding);
-                return (
-                  link && {
-                    ...link,
-                    observePermission: connection.observePermission,
-                  }
-                );
-              },
-            }
-          : undefined,
-        objectiveRuns,
-      );
-      mcp = createMcpHttpRequestHandler(resolver, {
-        ...(publicOrigin ? { publicOrigin: publicOrigin.origin } : {}),
-        resourceMetadataUrl: oauthEndpoint.metadata,
-      });
-    }
-  }
+          origin: publicOrigin ?? new URL(`http://${HOST}:${port}`),
+          publicOrigin,
+          loginProviders,
+          publicLoginProviders,
+          gitRuntimes,
+          readGitHost,
+          repositoryScope,
+          mcpOAuth,
+          objectiveRuns,
+        })
+      : undefined;
+  const readGitHostLinkedSession =
+    shared?.session.readGitHostLinkedAccessSession;
+  const readManagementSession = shared?.session.readManagement;
+  const clearInvalidSessionCookies = shared?.session.clearInvalidCookies;
   /**
    * 個別Routeより先に既存の要求前段を実行する。
    * @responsibility Artifact入力・資格抽出・接続確認・通常認証・共有AI／GET・共有操作経路の順序を保持する。
@@ -627,30 +480,13 @@ async function startHttpServer(
     incoming: IncomingMessage,
     response: ServerResponse,
     requestSignal: AbortSignal,
-  ) => {
+  ): Promise<PreparedRequest | undefined> => {
     const method = incoming.method ?? "";
     const requestUrl = new URL(incoming.url ?? "/", `http://${HOST}`);
     const requestPath = requestUrl.pathname;
-    let artifactSelection: ReturnType<typeof readArtifactSelection> = null;
-    if (
-      requestPath === "/api/workbench/view" &&
-      (method === "GET" || method === "HEAD")
-    ) {
-      try {
-        artifactSelection = readArtifactSelection(
-          requestUrl.searchParams,
-          request.localAccessRoot !== undefined,
-        );
-      } catch {
-        setResponseHeaders(response);
-        response.statusCode = 400;
-        response.end("artifact_input_invalid\n");
-        return;
-      }
-    }
     if (
       request.localAccessRoot !== undefined &&
-      requestPath === "/api/workbench/view" &&
+      requestPath === "/api/workbench/overview" &&
       requestUrl.searchParams.getAll("repositoryId").length > 1
     ) {
       setResponseHeaders(response);
@@ -661,12 +497,13 @@ async function startHttpServer(
     if (request.localAccessRoot !== undefined) {
       const repositoryWrite = isRepositoryWritePath(method, requestPath);
       const browserViewSession =
-        requestPath === "/api/workbench/view" &&
+        requestPath === "/api/workbench/overview" &&
         (method === "GET" || method === "HEAD")
-          ? readHostedSession?.(incoming)
+          ? readGitHostLinkedSession?.(incoming)
           : undefined;
       const readsExecutionState =
-        method === "GET" && isExecutionStatePath(requestPath);
+        (method === "GET" || method === "HEAD") &&
+        isExecutionStatePath(requestPath);
       const readsAiRequest =
         (method === "GET" || method === "HEAD") &&
         isAiRequestReadPath(requestPath);
@@ -682,7 +519,6 @@ async function startHttpServer(
             method,
             requestUrl,
             requestPath,
-            artifactSelection,
             shared:
               browserViewSession && accessRoot && gitHostingEnabled
                 ? {
@@ -695,7 +531,8 @@ async function startHttpServer(
             loginProviders: publicLoginProviders,
             actionToken,
             configuration: request,
-            observeHostedAiSelection: hostedAiSessions?.observeSelected,
+            observeGitHostLinkedAiSelection:
+              gitHostLinkedAiSessions?.observeSelected,
             assets,
             contract: CONTRACT,
             host: HOST,
@@ -727,7 +564,6 @@ async function startHttpServer(
       method,
       requestUrl,
       requestPath,
-      artifactSelection,
       actionToken,
       repositoryRoot,
       localAccessRoot: request.localAccessRoot,
@@ -738,19 +574,6 @@ async function startHttpServer(
           : null),
     };
   };
-  /**
-   * 個別操作へ継続する当該要求の入力。
-   * @responsibility 前段で処理済みの要求と、個別Routeへ渡す入力を区別する。
-   * @trace ARCH-000012
-   * @shape 要求・応答・Signal、URLと入力選択、当該要求の資格・検証済みRoot・Action Token。
-   * @invariant 要求終了後に保存せず、別要求の認可根拠へ転用しない。
-   * @boundary 要求前段と個別HTTP操作。
-   * @security Server内の一時値であり、Wire・Browser・Cacheへ公開しない。
-   * @compatibility 既存Handler内の局所値をまとめるだけで、通信・保存契約を変更しない。
-   */
-  type PreparedRequest = NonNullable<
-    Awaited<ReturnType<typeof prepareRequest>>
-  >;
   /**
    * 既存の起動Ownerと当該要求を単体表示受付へ接続する。
    * @responsibility 起動済みの同じOwner・設定・表示状態を渡し、入力や状態を複製しない。
@@ -775,7 +598,6 @@ async function startHttpServer(
       connectionState,
       presentation,
       aiRequests,
-      activityReader,
       configuration: request,
       assets,
       contract: CONTRACT,
@@ -783,8 +605,8 @@ async function startHttpServer(
       healthPath: HEALTH_PATH,
     });
   /**
-   * 表示・観測・通知消費と静的配信、未知入力の固定処置を実行する。
-   * @responsibility 移管済み操作を二重実行せず、表示・観測・通知消費と固定拒否を維持する。
+   * 表示・観測と静的配信、未知入力の固定処置を実行する。
+   * @responsibility 移管済み操作を二重実行せず、表示・観測と固定拒否を維持する。
    * @trace ARCH-000012
    * @input 当該要求の前段を完了した入力Context。
    * @returns 表示・観測と応答の終了を待つPromise。
@@ -850,7 +672,7 @@ async function startHttpServer(
           getOrigin,
           repositoryRoot,
           accessRoot,
-          readHostedSession,
+          readGitHostLinkedSession,
         }),
       ),
       executionDefinition: transport.handleRequest(
@@ -858,7 +680,7 @@ async function startHttpServer(
           getOrigin,
           capability: verification.capability,
           accessRoot,
-          readHostedSession,
+          readGitHostLinkedSession,
         }),
       ),
       view: bindRequest(handleRepositoryViewRequest),
@@ -867,7 +689,7 @@ async function startHttpServer(
           ...context,
           capability: verification.capability,
           localRepositoryId: initialProjectSurface?.context.repositoryId,
-          readHostedSession,
+          readGitHostLinkedSession,
           readManagementSession,
         }),
       ),
@@ -875,15 +697,16 @@ async function startHttpServer(
         handleAiRequestObservation({
           ...context,
           localRepositoryId: initialProjectSurface?.context.repositoryId,
-          openHostedAiSession: readHostedSession
-            ? (repositoryId, operation, signal) => {
-                const session = readHostedSession?.(context.incoming);
+          openGitHostLinkedAiSession: readGitHostLinkedSession
+            ? (repositoryId, operation, signal, observedRequestId) => {
+                const session = readGitHostLinkedSession?.(context.incoming);
                 return session
-                  ? openHostedAiSession(
+                  ? openGitHostLinkedAiSession(
                       session,
                       repositoryId,
                       operation,
                       signal,
+                      observedRequestId,
                     )
                   : Promise.resolve(null);
               }
@@ -896,11 +719,11 @@ async function startHttpServer(
         handleAiRequestWrite({
           ...context,
           localRepositoryId: initialProjectSurface?.context.repositoryId,
-          openHostedAiSession: readHostedSession
+          openGitHostLinkedAiSession: readGitHostLinkedSession
             ? (repositoryId, operation, signal) => {
-                const session = readHostedSession?.(context.incoming);
+                const session = readGitHostLinkedSession?.(context.incoming);
                 return session
-                  ? openHostedAiSession(
+                  ? openGitHostLinkedAiSession(
                       session,
                       repositoryId,
                       operation,
@@ -916,24 +739,20 @@ async function startHttpServer(
       repository: bindRequest((context) =>
         handleRepositoryAction({
           ...context,
-          readHostedSession,
+          readGitHostLinkedSession,
           localRepositoryId: initialProjectSurface?.context.repositoryId,
           capability: verification.capability,
           presentation,
         }),
       ),
-      ...(clientSession === undefined ? {} : { clientSession }),
-      ...(changeManagementSession === undefined
-        ? {}
-        : { changeManagementSession }),
-      ...(managementSession === undefined ? {} : { managementSession }),
-      ...(gitConnection === undefined ? {} : { gitConnection }),
+      ...shared?.routes,
       topicMeeting: transport.handleRequest(
         createTopicMeetingHandler({
           getOrigin,
           repositoryRoot,
           accessRoot,
-          readSession: readHostedSession,
+          localContext: initialProjectSurface?.context,
+          readSession: readGitHostLinkedSession,
           onLocalWrite: () => {
             presentation.pendingRecordRefresh = {};
           },
@@ -944,24 +763,66 @@ async function startHttpServer(
           getOrigin,
           repositoryRoot,
           accessRoot,
-          readSession: readHostedSession,
+          portfolio,
+          readSession: readGitHostLinkedSession,
+        }),
+      ),
+      artifact: transport.handleRequest(
+        createArtifactResourceHandler({
+          getOrigin,
+          repositoryRoot,
+          repository: verification.capability,
+          accessRoot,
+          localSurface: () => presentation.projectSurface,
+          readSession: readGitHostLinkedSession,
+        }),
+      ),
+      workbenchContext: transport.handleRequest(
+        createWorkbenchContextHandler({
+          getOrigin,
+          accessRoot,
+          localRepositoryId: initialProjectSurface?.context.repositoryId,
+          actionToken,
+          loginProviders: publicLoginProviders,
+          readSession: readGitHostLinkedSession,
         }),
       ),
       execution: bindRequest((context) =>
-        handleExecution({ ...context, readHostedSession, objectiveRuns }),
+        handleExecution({
+          ...context,
+          readGitHostLinkedSession,
+          objectiveRuns,
+        }),
       ),
       executionActivity: transport.handleRequest(
         createExecutionActivityHandler({
           getOrigin,
           repositoryRoot,
           accessRoot,
-          readSession: readHostedSession,
+          readSession: readGitHostLinkedSession,
+        }),
+      ),
+      repositoryFiles: transport.handleRequest(
+        createRepositoryFilesHandler({
+          getOrigin,
+          repositoryRoot,
+          localTarget: initialProjectSurface
+            ? {
+                repositoryId: initialProjectSurface.context.repositoryId,
+                projectId: initialProjectSurface.context.projectId,
+                allowMissingManifest:
+                  readRepositoryManifest(repositoryRoot).status === "missing",
+              }
+            : undefined,
+          accessRoot,
+          readSession: readGitHostLinkedSession,
         }),
       ),
       fallback: bindRequest(handleFallback),
     },
     publicOrigin,
-    browserAuthentication,
+    accessRoot !== undefined,
+    clearInvalidSessionCookies,
   );
   const documentation =
     request.apiDocumentation === true
@@ -969,28 +830,14 @@ async function startHttpServer(
           await import("./transport/api-document.ts")
         ).createApiDocumentation()
       : undefined;
-  if (
-    mcp === undefined &&
-    documentation === undefined &&
-    oauthEndpoint === undefined
-  )
+  if (shared === undefined && documentation === undefined)
     server.on("request", app);
-  else {
-    const handleMcp =
-      mcp === undefined ? undefined : transport.handleRequest(mcp.handle);
-    const handleOAuth =
-      oauthEndpoint === undefined
-        ? undefined
-        : transport.handleRequest(oauthEndpoint.handle);
+  else
     server.on("request", (incoming, response) => {
-      if (mcp !== undefined && handleMcp && incoming.url === mcp.endpoint)
-        handleMcp(incoming, response);
-      else if (handleOAuth && oauthEndpoint?.matches(incoming.url))
-        handleOAuth(incoming, response);
-      else if (documentation?.(incoming, response)) return;
-      else app(incoming, response);
+      if (shared?.dispatch(incoming, response)) return;
+      if (documentation?.(incoming, response)) return;
+      app(incoming, response);
     });
-  }
   beforeListen?.();
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -1021,6 +868,7 @@ async function startHttpServer(
       if (closeOperation) return closeOperation;
       closeOperation = (async () => {
         let primaryFailure: unknown = null;
+        objectiveRuns.stopAll();
         try {
           await transport.close();
         } catch (error) {
@@ -1028,7 +876,7 @@ async function startHttpServer(
         }
         const ownersClosed = await Promise.allSettled([
           aiRequests?.close?.(),
-          hostedAiSessions?.close(),
+          gitHostLinkedAiSessions?.close(),
         ]);
         if (primaryFailure !== null) throw primaryFailure;
         if (ownersClosed.some((result) => result.status === "rejected"))

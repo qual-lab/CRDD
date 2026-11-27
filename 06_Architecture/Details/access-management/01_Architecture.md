@@ -24,6 +24,8 @@ Rootは利用側が必要とする操作と型だけを既存実装から直接�
 
 外部ログインで認証済みの管理操作は、同じ保存排他内で現在の権限、操作対象、操作IDを検査してから、期待改訂が現在より古い場合を `management_revision_conflict` として区別する。競合では今回の保存を行わず、現在の改訂番号、対象、内部状態を返さない。不許可・対象不成立・現在の操作IDの再送・未来の期待改訂は通常の拒否、排他解放不明は競合と断定しない。共有リポジトリ登録では外部照会前に同じ条件を事前判定し、保存時にも再判定する。旧接続鍵経路の拒否の意味は変更しない。
 
+共有リポジトリの各登録行には、提供元・ホスト・提供元のリポジトリIDと提供元固有値からなる `hostedRepository` が必要である。登録、保存の読取り、認可済み対象のすべてで同じ契約を使う。第4版の保存でも欠けた行が一件あれば、管理状態全体を不適合として扱い、読めた行だけを利用しない。確認済みの登録行を持つ利用者がGitホストに未連携の場合は、管理状態の破損とは区別し、本人の実効権限が取れない内容操作だけを許さない。
+
 | 区分 | 操作・型 | 現在の配置と利用 |
 |---|---|---|
 | 撤去 | 旧接続鍵の発行・失効・交換・提示・初回確認・管理読取り | 公開CLIやServerに入口を残さない。現行保存形式は旧鍵の項目を持たない |
@@ -100,12 +102,12 @@ Contextの初回は一つの既存Lock内で現在状態読取り・KDFによる
 |---|---|
 | `registerUser`、`updateUserName`、`updateUserRole` | 非秘密の`ManagementOperationOutcome`。拒否と保存後不明を分離 |
 | `registerRepository`、`unregisterRepository` | 同じ公開管理結果。登録は本人の内容アクセスを保証しない |
-| `checkHostedRepositoryRegistration` | 外部照会前のServer内部向け事前判定。非秘密の可否・改訂競合のみを返し、許可でも保存時の再認可と改訂照合を省略しない。同改訂の準備時に限り既存の短命材料を確認・清掃する |
+| `checkGitHostLinkedRepositoryRegistration` | 外部照会前のServer内部向け事前判定。非秘密の可否・改訂競合のみを返し、許可でも保存時の再認可と改訂照合を省略しない。同改訂の準備時に限り既存の短命材料を確認・清掃する |
 | `readCurrentAccess`、`readManagementState` | `CurrentAccessOutcome`／`ManagementReadOutcome`。種類外情報・内部Bindingを除外 |
 | `evaluateManagementPermission` | 固定Role分担と操作別の管理可否 |
-| `readHostedAccessCandidates`、`resolveHostedAccessDirectories`、`resolveHostedAccessCollection` | 本人と登録の照合、Gitホストで確認済みの対象のディレクトリと集合。外部DTOではない |
+| `readGitHostLinkedAccessCandidates`、`resolveGitHostLinkedAccessDirectories`、`resolveGitHostLinkedAccessCollection` | 本人と登録の照合、Gitホストで確認済みの対象のディレクトリと集合。外部DTOではない |
 | `onAccessStatePublication` | 同じProcess・同じ保存ルートで管理状態の置換を試みたあと、現在認可を再照合する合図を同期の購読者へ渡す。保存成功・認可・取消完了を示さず、保存内容や資格を搬送しない |
-| `observeHostedExecutionBinding` | 開始済み実行の元の本人紐付けと登録を照合する。新しい要求の受付や本文の公開には使わない |
+| `observeGitHostLinkedExecutionBinding` | 開始済み実行の元の本人紐付けと登録を照合する。新しい要求の受付や本文の公開には使わない |
 | `initializeAdministratorFromHost`、`readHostInitializationState`、`resolveHostRootInput`、`readExistingHostRoot` | 外部本人確認による管理者設定と通常の保存先検証を分離する |
 
 これは未ReleaseのPackage内部APIの破壊的整理を含むため、旧内部SymbolのRoot importを利用側・試験で同時に変更する。通信／保存Schemaの移行とは区別し、互換aliasを新設しない。Source移管の回帰結果と初回実Host／人間UATの未完了は別に追跡する。

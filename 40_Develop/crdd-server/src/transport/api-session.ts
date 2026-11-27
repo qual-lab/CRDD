@@ -3,29 +3,52 @@
  * @trace ARCH-000012
  * @boundary HTTP専用。MCP資格・管理書込みの許可は発行しない。
  */
-import { createHash, randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type {
-  AccountAccessPrincipal,
-  AccessRole,
-} from "@qual-lab/crdd-access-management";
+import { describeManagementPermissions } from "@qual-lab/crdd-access-management";
+import type { GitHostLinkedAccessSession } from "../service/access.ts";
 import {
+  type AccountBinding,
+  type AccountObservation,
   clientSessionLifetimeSeconds,
-  createClientSessions,
-  openManagementSession,
-} from "../service/access.ts";
-import type {
-  createGitHostLinks,
-  GitHostConnection,
-  ReadGitHost,
-} from "../service/git-host.ts";
+  createBrowserSessions,
+  digestInvitation,
+  type InvitationProof,
+  type ManagementSessionChange,
+  type ManagementSessionObservation,
+  type SessionGitHost,
+  type VerifiedIdentity,
+} from "../service/session.ts";
+import type { GitHostLinkFlow, ReadGitHost } from "../service/git-host.ts";
 import {
   matchesRequestHost,
   matchesRequestOrigin,
   readActionForm,
+  readRouteMethod,
+  requestFailureStatus,
   sendResponseBody,
   setResponseHeaders,
 } from "./api-http.ts";
+import type { LoginFlow, LoginStart } from "./login.ts";
+
+/** HTTP側が利用するセッションの読取り・切替・Cookie処置。 */
+export interface ClientSessionAccess {
+  readonly readGitHostLinkedAccessSession: (
+    request: IncomingMessage,
+  ) => GitHostLinkedAccessSession | null;
+  readonly readManagement: (
+    request: IncomingMessage,
+  ) => ManagementSessionObservation | null;
+  readonly changeManagement: (
+    request: IncomingMessage,
+    operation: "open" | "close",
+    isActive: () => boolean,
+  ) => ManagementSessionChange;
+  readonly clearInvalidCookies: (
+    request: IncomingMessage,
+    response: ServerResponse,
+    callback?: { path: string; provider: string },
+  ) => void;
+}
 
 const sessionPath = "/api/session";
 export const clientSessionPaths = Object.freeze({
@@ -53,28 +76,18 @@ const sessionCookie = "crdd-client-session";
 export const managementCookie = "crdd-management-session";
 const opaqueToken = /^[A-Za-z0-9_-]{43}$/u;
 
-type VerifiedIdentity = Readonly<{ issuer: string; subject: string }>;
-type InvitationProof = Readonly<{
-  digest: string;
-  email: string;
-  emailVerified: true;
-}>;
-type AccountBinding = Readonly<{ userId: string; bindingId: string }>;
-type AccountObservation =
-  | {
-      status: "completed";
-      account: AccountBinding & { username: string; role: AccessRole };
-    }
-  | { status: "rejected" }
-  | { status: "unavailable" };
+function secureCookieName(origin: URL, name: string): string {
+  return origin.protocol === "https:" ? `__Host-${name}` : name;
+}
 
-function readCookie(request: IncomingMessage, name: string) {
+function readCookie(request: IncomingMessage, origin: URL, name: string) {
+  const expected = secureCookieName(origin, name);
   let value: string | undefined;
   for (const header of request.headersDistinct.cookie ?? []) {
     for (const field of header.split(";")) {
       const parameter = field.trim();
-      if (!parameter.startsWith(`${name}=`)) continue;
-      const candidate = parameter.slice(name.length + 1);
+      if (!parameter.startsWith(`${expected}=`)) continue;
+      const candidate = parameter.slice(expected.length + 1);
       if (value !== undefined || !opaqueToken.test(candidate)) return null;
       value = candidate;
     }
@@ -82,38 +95,19 @@ function readCookie(request: IncomingMessage, name: string) {
   return value;
 }
 
-type BrowserLogin = {
-  start(
-    returnTo: string,
-    invitationDigest?: string,
-  ): Promise<{ location: URL; browserBinding: string }>;
-  complete(
-    search: URLSearchParams,
-    browserBinding: string | undefined,
-    signal: AbortSignal,
-  ): Promise<{
-    identity: VerifiedIdentity;
-    returnTo: string;
-    invitation?: InvitationProof;
-  } | null>;
-};
-
 /** 固定Originへ外部ログインと短命のサーバー側セッションを登録する。 @trace ARCH-000012 */
 export function createClientSessionHandler(
   origin: URL,
-  logins: Readonly<Record<string, BrowserLogin>>,
+  logins: Readonly<Record<string, LoginFlow>>,
   readAccount: (
     identity: VerifiedIdentity,
     session?: AccountBinding,
   ) => AccountObservation,
-  gitHostOptions?: readonly {
-    host: string;
+  gitHostOptions?: readonly (Omit<SessionGitHost, "cancelPending"> & {
     id: string;
     displayName: string;
-    connection: GitHostConnection;
-    links: ReturnType<typeof createGitHostLinks>;
-    observePermission?: import("../service/access.ts").HostedExecutionClientAccess["observePermission"];
-  }[],
+    linkFlow: GitHostLinkFlow;
+  })[],
   acceptInvitation?: (
     identity: VerifiedIdentity,
     proof: InvitationProof,
@@ -122,6 +116,7 @@ export function createClientSessionHandler(
   readGitHost: ReadGitHost = () => undefined,
   repositoryScope: import("../service/repository-scope.ts").RepositoryScope = () =>
     false,
+  isAdditionalReturnPath: (path: string) => boolean = () => false,
 ) {
   const providers = new Map(Object.entries(logins));
   const gitHosts = new Map(gitHostOptions?.map((host) => [host.host, host]));
@@ -130,29 +125,63 @@ export function createClientSessionHandler(
     gitHosts.size !== gitHostsById.size ||
     gitHosts.size !== (gitHostOptions?.length ?? 0) ||
     new Set(gitHostOptions?.map(({ links }) => links)).size !== gitHosts.size ||
-    new Set(gitHostOptions?.map(({ connection }) => connection)).size !==
+    new Set(gitHostOptions?.map(({ linkFlow }) => linkFlow)).size !==
       gitHosts.size
   )
     throw new Error("git_host_configuration_invalid");
-  const {
-    sessions,
-    read,
-    start,
-    remove: removeSession,
-  } = createClientSessions((id, discarded) => {
-    for (const host of gitHosts.values()) {
-      host.connection.cancel(id);
-      const reference = discarded?.gitHostReferences.get(host.host);
-      if (reference) host.links.discard(reference);
-    }
+  const browser = createBrowserSessions({
+    readAccount,
+    acceptInvitation,
+    invalidateMcpAccount,
+    readGitHost,
+    repositoryScope,
+    gitHosts: new Map(
+      [...gitHosts].map(([name, { linkFlow, ...host }]) => [
+        name,
+        {
+          host: host.host,
+          links: host.links,
+          cancelPending: (id: string) => linkFlow.cancel(id),
+          ...(host.observePermission && {
+            observePermission: host.observePermission,
+          }),
+        },
+      ]),
+    ),
   });
   const cookie = (name: string, value: string, path: string, seconds: number) =>
-    sessionCookieHeader(origin, name, value, path, seconds);
-  const reject = (response: ServerResponse, status: number) =>
+    createSessionCookieHeader(origin, name, value, path, seconds);
+  const providerBindingCookie = (provider: string) =>
+    origin.protocol === "https:"
+      ? `${bindingCookie}-${provider}`
+      : bindingCookie;
+  const clearInvalidCookies = (
+    request: IncomingMessage,
+    response: ServerResponse,
+    callback?: { path: string; provider: string },
+  ) => {
+    if (!matchesRequestHost(request, origin.host)) return;
+    const invalid = [sessionCookie, managementCookie]
+      .filter((name) => readCookie(request, origin, name) === null)
+      .map((name) => cookie(name, "", "/api", 0));
+    if (callback) {
+      const binding = providerBindingCookie(callback.provider);
+      if (readCookie(request, origin, binding) === null)
+        invalid.push(cookie(binding, "", callback.path, 0));
+    }
+    if (invalid.length) response.setHeader("Set-Cookie", invalid);
+  };
+  const reject = (
+    response: ServerResponse,
+    status: number,
+    reason:
+      | "session_unavailable"
+      | "git_host_revocation_unconfirmed" = "session_unavailable",
+  ) =>
     sendResponseBody(
       response,
       "text/plain; charset=utf-8",
-      "session_unavailable\n",
+      `${reason}\n`,
       false,
       status,
     );
@@ -164,7 +193,7 @@ export function createClientSessionHandler(
   };
 
   const safeReturn = (path: string) =>
-    path === "/" || /^\/api\/session\/mcp\/[A-Za-z0-9_-]{1,128}$/u.test(path);
+    path === "/" || isAdditionalReturnPath(path);
   const begin = async (
     provider: string | undefined,
     request: IncomingMessage,
@@ -184,7 +213,7 @@ export function createClientSessionHandler(
     const login = provider === undefined ? undefined : providers.get(provider);
     if (!login || provider === undefined) return reject(response, 404);
     const { callback } = clientLoginPaths(provider);
-    let started: Awaited<ReturnType<BrowserLogin["start"]>>;
+    let started: LoginStart;
     try {
       started = await login.start(returnTo, invitationDigest);
     } catch {
@@ -194,145 +223,23 @@ export function createClientSessionHandler(
     if (signal.aborted || response.destroyed) return;
     response.setHeader(
       "Set-Cookie",
-      cookie(bindingCookie, started.browserBinding, callback, 300),
+      cookie(
+        providerBindingCookie(provider),
+        started.browserBinding,
+        callback,
+        300,
+      ),
     );
     redirect(response, started.location.href);
   };
-  const readSession = (request: IncomingMessage) => {
-    if (!matchesRequestHost(request, origin.host)) return null;
-    const token = readCookie(request, sessionCookie);
-    return token ? read(token) : null;
-  };
-  const readManagement = (
-    request: IncomingMessage,
-  ): {
-    principal: AccountAccessPrincipal;
-    formToken: string;
-    readGitHost: ReadGitHost;
-    readHostToken: (host: string) => string | null;
-  } | null => {
-    const entry = readSession(request);
-    const management = entry?.session.management;
-    if (
-      !entry ||
-      !management ||
-      management.expiresAt <= Date.now() ||
-      readCookie(request, managementCookie) !== management.id
-    )
-      return null;
-    const references = new Map(entry.session.gitHostReferences);
-    return {
-      principal: {
-        kind: "account",
-        ...entry.session.binding,
-        expiresAt: management.expiresAt,
-      },
-      formToken: management.formToken,
-      readGitHost,
-      readHostToken: (host) =>
-        sessions.get(entry.token) === entry.session &&
-        entry.session.management === management &&
-        management.expiresAt > Date.now() &&
-        references.has(host) &&
-        entry.session.gitHostReferences.get(host) === references.get(host)
-          ? activeHostToken(entry.session, host)
-          : null,
-    };
-  };
-  const changeManagement = (
-    request: IncomingMessage,
-    operation: "open" | "close",
-    isActive: () => boolean,
-  ) => {
-    const entry = readSession(request);
-    if (!entry) return { status: "no_session" } as const;
-    if (operation === "close") {
-      if (!isActive()) return { status: "cancelled" } as const;
-      delete entry.session.management;
-      return { status: "closed" } as const;
-    }
-    const current = readAccount(entry.session.identity, entry.session.binding);
-    if (current.status !== "completed") return current;
-    if (!isActive()) return { status: "cancelled" } as const;
-    const management = openManagementSession(
-      current.account.role,
-      entry.session.expiresAt,
-    );
-    if (!management) return { status: "rejected" } as const;
-    entry.session.management = management;
-    return { status: "opened", id: management.id } as const;
-  };
+  const sessionToken = (request: IncomingMessage) =>
+    matchesRequestHost(request, origin.host)
+      ? (readCookie(request, origin, sessionCookie) ?? undefined)
+      : undefined;
   const readCurrent = (
     request: IncomingMessage,
     discardRejectedSession = true,
-  ): AccountObservation => {
-    const entry = readSession(request);
-    if (!entry) return { status: "rejected" };
-    const { token, session } = entry;
-    const current = readAccount(session.identity, session.binding);
-    if (current.status === "rejected" && discardRejectedSession)
-      removeSession(token);
-    return current;
-  };
-  const activeHostToken = (
-    session: NonNullable<ReturnType<typeof sessions.get>>,
-    host: string,
-  ) => {
-    const reference = session.gitHostReferences.get(host);
-    const gitHost = gitHosts.get(host);
-    return session.expiresAt > Date.now() && reference && gitHost
-      ? gitHost.links.read(reference, session.binding)
-      : null;
-  };
-  const readHostedAccessSession = (request: IncomingMessage) => {
-    const entry = readSession(request);
-    if (!entry) return null;
-    const references = new Map(entry.session.gitHostReferences);
-    const isCurrent = () =>
-      sessions.get(entry.token) === entry.session &&
-      entry.session.expiresAt > Date.now();
-    return {
-      principal: {
-        kind: "account" as const,
-        ...entry.session.binding,
-        expiresAt: entry.session.expiresAt,
-      },
-      browserSessionKey: entry.session,
-      isCurrent,
-      readGitHost,
-      repositoryScope,
-      readHostToken: (host: string) =>
-        isCurrent() &&
-        references.has(host) &&
-        entry.session.gitHostReferences.get(host) === references.get(host)
-          ? activeHostToken(entry.session, host)
-          : null,
-      openExecution: (host: string) => {
-        const reference = references.get(host);
-        const gitHost = gitHosts.get(host);
-        if (
-          !isCurrent() ||
-          !reference ||
-          entry.session.gitHostReferences.get(host) !== reference ||
-          !gitHost?.observePermission
-        )
-          return null;
-        const link = gitHost.links.open(reference, entry.session.binding);
-        return (
-          link && { ...link, observePermission: gitHost.observePermission }
-        );
-      },
-    };
-  };
-  const readMcpReferences = (request: IncomingMessage) => {
-    const entry = readSession(request);
-    const references = new Map<string, string>();
-    if (entry)
-      for (const [host, reference] of entry.session.gitHostReferences)
-        if (activeHostToken(entry.session, host))
-          references.set(host, reference);
-    return references;
-  };
+  ) => browser.readCurrent(sessionToken(request), discardRejectedSession);
   const handleGitConnection = async (
     request: IncomingMessage,
     response: ServerResponse,
@@ -340,7 +247,8 @@ export function createClientSessionHandler(
   ) => {
     const url = new URL(request.url ?? "/", origin);
     const list =
-      url.pathname === gitConnectionsRoute && request.method === "GET";
+      url.pathname === gitConnectionsRoute &&
+      readRouteMethod(request.method) === "GET";
     const matched = /^\/api\/session\/git\/([a-z0-9.-]+)(?:\/callback)?$/u.exec(
       url.pathname,
     );
@@ -355,19 +263,20 @@ export function createClientSessionHandler(
         ((!list && url.pathname !== paths?.connection) || url.search))
     )
       return reject(response, 400);
-    const method = request.method;
+    const method =
+      paths?.callback === url.pathname
+        ? request.method
+        : readRouteMethod(request.method);
     if (
       (method === "POST" || method === "DELETE") &&
       !matchesRequestOrigin(request, origin.origin)
     )
       return reject(response, 403);
-    const account = readCurrent(request);
+    clearInvalidCookies(request, response);
+    const account = browser.readGitAccount(sessionToken(request));
     if (account.status !== "completed")
       return reject(response, account.status === "unavailable" ? 503 : 401);
     if (signal.aborted) return;
-    const token = readCookie(request, sessionCookie);
-    const session = token && sessions.get(token);
-    if (!token || !session) return reject(response, 401);
     if (list)
       return sendResponseBody(
         response,
@@ -378,54 +287,47 @@ export function createClientSessionHandler(
               id,
               host,
               displayName,
-              connected: activeHostToken(session, host) !== null,
+              connected: account.connected(host),
             }),
           ),
         }),
       );
     if (!gitHost || !paths) return reject(response, 404);
     if (url.pathname === paths.callback && method === "GET") {
-      const approved = await gitHost.connection.complete(
+      const approved = await gitHost.linkFlow.complete(
         url.searchParams,
-        token,
-        () =>
-          sessions.get(token) === session &&
-          readCurrent(request).status === "completed",
+        account.id,
+        account.isCurrent,
         signal,
       );
       if (signal.aborted || response.destroyed) return;
-      if (
-        !approved ||
-        sessions.get(token) !== session ||
-        session.expiresAt <= Date.now() ||
-        approved.expiresAt <= Date.now()
-      )
-        return reject(response, 403);
-      const reference = gitHost.links.save(session.binding, approved);
-      if (!reference) return reject(response, 403);
-      const previous = session.gitHostReferences.get(gitHost.host);
-      if (previous) gitHost.links.discard(previous);
-      session.gitHostReferences.set(gitHost.host, reference);
+      if (!account.save(gitHost.host, approved)) return reject(response, 403);
       return redirect(response, "/");
     }
     if (url.pathname !== paths.connection) return reject(response, 405);
     if (method === "POST") {
-      const location = gitHost.connection.begin(token);
+      const location = gitHost.linkFlow.begin(account.id);
       if (!location) return reject(response, 503);
       return redirect(response, location.href);
     }
     if (method === "DELETE") {
-      gitHost.connection.cancel(token);
-      const reference = session.gitHostReferences.get(gitHost.host);
-      if (reference) gitHost.links.disconnect(reference, session.binding);
-      session.gitHostReferences.delete(gitHost.host);
+      const result = await account.disconnect(gitHost.host);
+      if (signal.aborted || response.destroyed) return;
+      if (result === "unconfirmed")
+        return reject(response, 502, "git_host_revocation_unconfirmed");
+      if (result === "absent")
+        return sendResponseBody(
+          response,
+          "text/plain; charset=utf-8",
+          "git_host_link_absent\n",
+        );
       setResponseHeaders(response);
       response.statusCode = 204;
       response.end();
       return;
     }
     if (method !== "GET") return reject(response, 405);
-    const connected = activeHostToken(session, gitHost.host) !== null;
+    const connected = account.connected(gitHost.host);
     return sendResponseBody(
       response,
       "application/json; charset=utf-8",
@@ -440,7 +342,10 @@ export function createClientSessionHandler(
     signal: AbortSignal,
   ) => {
     const url = new URL(request.url ?? "/", origin);
-    const method = request.method;
+    const method =
+      url.pathname === sessionPath
+        ? readRouteMethod(request.method)
+        : request.method;
     const route =
       /^\/api\/session\/login\/([a-z0-9-]+)(?:\/(invitation|callback))?$/u.exec(
         url.pathname,
@@ -462,6 +367,13 @@ export function createClientSessionHandler(
       !matchesRequestOrigin(request, origin.origin)
     )
       return reject(response, 403);
+    clearInvalidCookies(
+      request,
+      response,
+      endpoint === "callback" && provider
+        ? { path: url.pathname, provider }
+        : undefined,
+    );
 
     if (route && !login) return reject(response, 404);
     if (route && endpoint === undefined && method === "POST")
@@ -471,8 +383,9 @@ export function createClientSessionHandler(
       let form: URLSearchParams;
       try {
         form = await readActionForm(request, 256);
-      } catch {
-        if (!signal.aborted && !response.destroyed) reject(response, 400);
+      } catch (error) {
+        if (!signal.aborted && !response.destroyed)
+          reject(response, requestFailureStatus(error, response));
         return;
       }
       if (signal.aborted || response.destroyed) return;
@@ -485,55 +398,46 @@ export function createClientSessionHandler(
         response,
         signal,
         "/",
-        createHash("sha256").update(token).digest("hex"),
+        digestInvitation(token),
       );
     }
 
-    const token = readCookie(request, sessionCookie);
-    if (token === null) return reject(response, 400);
-    if (endpoint === "callback" && method === "GET" && login) {
-      const binding = readCookie(request, bindingCookie);
-      if (binding === null) return reject(response, 400);
+    const token = sessionToken(request);
+    if (endpoint === "callback" && method === "GET" && provider && login) {
+      const bindingName = providerBindingCookie(provider);
+      const binding = readCookie(request, origin, bindingName) ?? undefined;
       const loggedIn = await login.complete(url.searchParams, binding, signal);
       if (signal.aborted || response.destroyed) return;
       if (!loggedIn || !safeReturn(loggedIn.returnTo))
         return reject(response, 403);
       const { identity, returnTo, invitation } = loggedIn;
-      const id = randomBytes(32).toString("base64url");
-      if (sessions.has(id)) return reject(response, 503);
-      const account = invitation
-        ? acceptInvitation?.(identity, invitation)
-        : readAccount(identity);
-      if (!account) return reject(response, 403);
-      if (account.status !== "completed")
-        return reject(response, account.status === "unavailable" ? 503 : 403);
-      start(id, identity, account.account, token);
+      const completed = browser.completeLogin(identity, invitation, token);
+      if (completed.status !== "started")
+        return reject(response, completed.status === "unavailable" ? 503 : 403);
       response.setHeader("Set-Cookie", [
-        cookie(bindingCookie, "", url.pathname, 0),
-        cookie(sessionCookie, id, "/api", clientSessionLifetimeSeconds),
+        cookie(bindingName, "", url.pathname, 0),
+        cookie(
+          sessionCookie,
+          completed.id,
+          "/api",
+          clientSessionLifetimeSeconds,
+        ),
         cookie(managementCookie, "", "/api", 0),
       ]);
       return redirect(response, returnTo);
     }
     if (url.pathname !== sessionPath) return reject(response, 405);
     if (method === "DELETE") {
-      const account = readCurrent(request, false);
-      if (account.status === "unavailable") return reject(response, 503);
-      if (account.status === "completed") {
-        invalidateMcpAccount?.(account.account.userId);
-        for (const gitHost of gitHosts.values()) {
-          for (const [id, session] of sessions)
-            if (session.binding.userId === account.account.userId)
-              gitHost.connection.cancel(id);
-          gitHost.links.signOut(account.account.userId);
-        }
-      }
-      if (token) removeSession(token, "ended");
+      const status = await browser.signOut(token);
+      if (signal.aborted || response.destroyed) return;
+      if (status === "unavailable") return reject(response, 503);
       response.setHeader("Set-Cookie", [
         cookie(sessionCookie, "", "/api", 0),
         cookie(managementCookie, "", "/api", 0),
       ]);
-      if (account.status === "rejected") return reject(response, 401);
+      if (status === "rejected") return reject(response, 401);
+      if (status === "revocation_unavailable")
+        return reject(response, 502, "git_host_revocation_unconfirmed");
       setResponseHeaders(response);
       response.statusCode = 204;
       response.end();
@@ -549,33 +453,42 @@ export function createClientSessionHandler(
       JSON.stringify({
         username: current.account.username,
         role: current.account.role,
+        management: describeManagementPermissions(current.account.role),
       }),
     );
-  };
-  const close = () => {
-    for (const id of sessions.keys()) removeSession(id);
-    for (const host of gitHosts.values()) host.links.close();
   };
   return Object.freeze({
     handle,
     handleGitConnection,
     readCurrent,
-    readManagement,
-    changeManagement,
-    readHostedAccessSession,
-    readMcpReferences,
+    readManagement: (request: IncomingMessage) =>
+      browser.readManagement(
+        sessionToken(request),
+        readCookie(request, origin, managementCookie),
+      ),
+    changeManagement: (
+      request: IncomingMessage,
+      operation: "open" | "close",
+      isActive: () => boolean,
+    ) => browser.changeManagement(sessionToken(request), operation, isActive),
+    readGitHostLinkedAccessSession: (request: IncomingMessage) =>
+      browser.readGitHostLinkedAccessSession(sessionToken(request)),
+    readMcpReferences: (request: IncomingMessage) =>
+      browser.readMcpReferences(sessionToken(request)),
+    clearInvalidCookies,
     begin,
-    close,
+    close: browser.close,
   });
 }
 
 /** 同じCookie属性を通常ログイン・管理セッション・ログアウトで使う。 */
-export function sessionCookieHeader(
+export function createSessionCookieHeader(
   origin: URL,
   name: string,
   value: string,
   path: string,
   seconds: number,
 ) {
-  return `${name}=${value}; Path=${path}; Max-Age=${seconds}; HttpOnly; SameSite=Lax${origin.protocol === "https:" ? "; Secure" : ""}`;
+  const secure = origin.protocol === "https:";
+  return `${secureCookieName(origin, name)}=${value}; Path=${secure ? "/" : path}; Max-Age=${seconds}; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
 }

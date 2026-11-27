@@ -9,6 +9,15 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### Unreleased
+
+- Test catalog revision 11 declares owner roots, environments, execution profiles, and shared paths. Optional registration checks use the Git index. There is no revision 10 reader and no migration for adopters that do not use their own catalog.
+- Shared CRDD uses external sign-in for Workbench and OAuth for MCP. Repository content access follows each user's effective permission at the Git host. The legacy connection-key flow and route-dispatched Workbench view endpoint are removed. Use the resource endpoints or MCP `2026-07-28`. MCP accepts the standard progress token on requests without sending progress notifications. See the [MCP workflow](19_Workflows/04_MCP_Server.md) for the Codex stdio settings.
+- Workbench reads project lists, execution activity, file trees, and file diffs through dedicated resources. The shared connection screen no longer embeds the project list or treats sign-in as repository access.
+- MCP ignores unknown fields at the top level of ordinary JSON-RPC requests and in `_meta`. The method's `params` object still rejects unsupported keys. The tool list returns all currently authorized tools in one page without a next cursor. Invalid tool arguments return the fixed message `Invalid arguments` rather than SDK validation details.
+- Signing out of Workbench also revokes shared MCP access, including requests still waiting for their body. Signing out does not cancel runs whose first task has already been authorized.
+- The CRDD Server development benchmark measures execution-definition requests through local HTTP and MCP stdio using synthetic repositories.
+
 <a id="changelog-v0210-en"></a>
 
 ### v0.21.0 — 2026-09-24
@@ -968,6 +977,15 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+### 未リリース
+
+- 試験台帳を改訂11へ変更。所有者ルート・実行環境・実行プロファイル・共有パスを宣言でき、任意の登録漏れ検査はGitインデックスを使う。改訂10の互換読込みはなく、独自の台帳を置いていない採用先の移行は不要。
+- 共有CRDDはWorkbenchの外部ログインとMCPのOAuthを使い、リポジトリの内容はGitホストでの本人の実効権限で認可する。旧接続鍵と、処理を切り替えるWorkbench表示入口は廃止。利用側はリソース別の入口かMCP `2026-07-28` を使う。MCPの通常要求は標準の進捗項目を受け流し、進捗通知は行わない。Codexのstdio設定は[MCPの利用案内](19_Workflows/04_MCP_Server.md)を参照する。
+- MCPは通常のJSON-RPC要求の最上位と `_meta` の未知の項目を無視する。メソッドの `params` にある非対応の項目は引き続き拒否する。Tool一覧は現在の認可で得た全件を一度に返し、次のカーソルは発行しない。不正なTool引数はSDKの検査詳細ではなく固定文言 `Invalid arguments` で知らせる。
+- Workbenchからログアウトすると、本文を待っている要求を含め、共有MCPの認可が失効する。最初のTaskが認可済みの実行は、ログアウトだけでは取り消さない。
+- CRDD Serverの開発計測では、合成リポジトリでHTTP APIとMCP stdioの実行定義操作を比較できる。
+- WorkbenchのProject一覧・実行活動・ファイルツリー・差分は専用のリソースから取得する。共有の接続画面にProject一覧を埋め込まず、ログインとリポジトリの閲覧許可を区別する。
 
 <a id="changelog-v0210-ja"></a>
 

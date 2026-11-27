@@ -14,21 +14,83 @@ import crypto, { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { readManagementStateSnapshot } from "../../../src/authorization/management.ts";
-import { createRetiredCredentialFixture } from "../../support/retired-credential.ts";
+import {
+  readManagementState,
+  readManagementStateSnapshot,
+  readManagementUsersForDisplay,
+} from "../../../src/authorization/management.ts";
+import { describeManagementPermissions } from "../../../src/permission/validation.ts";
 import { saveUserRole } from "../../../src/role/assign.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
 import { saveUserName } from "../../../src/user/crud.ts";
 import {
   bytes,
-  fixture,
   managementFixture,
+  observeFixtureDirectory,
   prepare,
   saveUserRegistrationFixture,
-  seedRetiredInitialCredential,
   removeKnownStoppedTestLock,
 } from "../storage/fixture.ts";
+
+test("管理画面には操作許可を同じ改訂で返し、通常一覧には加えない", (t) => {
+  const f = managementFixture(t);
+  const newUser = {
+    userId: crypto.randomUUID(),
+    username: "未紐付け",
+    role: "developer" as const,
+  };
+  f.state.users.push(newUser);
+  fs.writeFileSync(
+    path.join(f.directory, "access-management.json"),
+    bytes(f.state),
+  );
+  assert.equal(describeManagementPermissions("developer").openSession, false);
+  assert.deepEqual(describeManagementPermissions("manager").registerRoles, [
+    "developer",
+    "manager",
+  ]);
+  const manager = readManagementUsersForDisplay(f.root, f.principals.manager);
+  const administrator = readManagementUsersForDisplay(
+    f.root,
+    f.principals.administrator,
+  );
+  assert.ok(
+    manager.status === "completed" && "users" in manager && manager.users,
+  );
+  assert.ok(
+    administrator.status === "completed" &&
+      "users" in administrator &&
+      administrator.users,
+  );
+  assert.equal(administrator.revision, manager.revision);
+  assert.ok(!manager.users.some(({ role }) => role === "administrator"));
+  for (const [view, canRenew] of [
+    [manager, false],
+    [administrator, true],
+  ] as const) {
+    const pending = view.users.find(({ userId }) => userId === newUser.userId);
+    assert.deepEqual(pending && "actions" in pending && pending.actions, {
+      rename: true,
+      changeRoles: canRenew ? ["manager", "administrator"] : ["manager"],
+      renewInvitation: canRenew,
+    });
+    const linked = view.users.find(
+      ({ userId }) => userId === f.principals.developer.userId,
+    );
+    assert.ok(linked && "actions" in linked && linked.actions);
+    assert.equal(linked.actions.renewInvitation, false);
+  }
+  const ordinary = readManagementState(
+    f.root,
+    f.principals.administrator,
+    "users",
+  );
+  assert.ok(
+    ordinary.status === "completed" && "users" in ordinary && ordinary.users,
+  );
+  assert.ok(ordinary.users.every((user) => !Object.hasOwn(user, "actions")));
+});
 
 /**
  * 二つの管理対象のRole別表示を完全なDTOへ照合する。
@@ -50,6 +112,7 @@ test("管理readは利用者と登録済みリポジトリの現在一覧だけ�
     f.state.registeredRepositories.push({
       repositoryId: id,
       repositoryRoot: root,
+      hostedRepository: observeFixtureDirectory(root).hostedRepository,
       bindingId: `binding-${createHash("sha256").update(`${id}\n${normalized}`).digest("hex").slice(0, 32)}`,
     });
   }
@@ -205,11 +268,7 @@ test("管理read拒否は材料保持と不正kindの観測0を守る", (t) => {
   assert.equal(converted, 0);
   fs.openSync = open;
   assert.deepEqual(
-    readManagementStateSnapshot(
-      f.root,
-      createRetiredCredentialFixture().token as never,
-      "users",
-    ),
+    readManagementStateSnapshot(f.root, "invalid-principal" as never, "users"),
     {
       status: "unavailable",
       reason: "management_state_authentication_rejected",
@@ -229,26 +288,6 @@ test("管理read拒否は材料保持と不正kindの観測0を守る", (t) => {
       status: "unavailable",
       reason: "management_state_cleanup_pending",
     },
-  );
-  const initial = fixture(t);
-  const issued = seedRetiredInitialCredential(initial);
-  fs.writeFileSync(
-    path.join(initial.directory, "access-management.pending.json"),
-    "{",
-  );
-  assert.deepEqual(
-    readManagementStateSnapshot(initial.root, issued.token as never, "users"),
-    {
-      status: "unavailable",
-      reason: "management_state_authentication_rejected",
-    },
-  );
-  assert.equal(
-    fs.readFileSync(
-      path.join(initial.directory, "access-management.pending.json"),
-      "utf8",
-    ),
-    "{",
   );
 });
 

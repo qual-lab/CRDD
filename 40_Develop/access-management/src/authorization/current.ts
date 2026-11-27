@@ -7,7 +7,10 @@
 
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import type { AccessActor, AccountAccessPrincipal } from "./types.ts";
-import { acceptsAccessPrincipal, resolveAccessPrincipal } from "./principal.ts";
+import {
+  isUnexpiredAccountPrincipal,
+  resolveAccessPrincipal,
+} from "./principal.ts";
 import type {
   CurrentAccessOutcome,
   CurrentAccessResult,
@@ -17,7 +20,7 @@ import type { AccessRole } from "../role/types.ts";
 import { locked } from "../storage/lock.ts";
 import { readCurrent, settlePending } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
-import { evaluateManagementPermission } from "./management.ts";
+import { evaluateManagementPermission } from "../permission/validation.ts";
 
 /**
  * 検査・認証済み同一改訂を本人表示用の所有値へ変換する。
@@ -34,7 +37,7 @@ import { evaluateManagementPermission } from "./management.ts";
  * @security 他User・内部Path・秘密材料を列挙しない。
  * @concurrency 呼出元の同じLock区間だけ。後続要求には再認証が必要。
  */
-export function projectCurrentAccess(
+function projectCurrentAccess(
   state: AccessManagementState,
   actor: AccessActor,
 ): CurrentAccessSnapshot {
@@ -133,7 +136,7 @@ export function readCurrentAccessState(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
 ): CurrentAccessResult {
-  if (!acceptsAccessPrincipal(principal))
+  if (!isUnexpiredAccountPrincipal(principal))
     return {
       status: "unavailable",
       reason: "current_access_authentication_rejected",

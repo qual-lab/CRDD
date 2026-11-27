@@ -7,6 +7,7 @@
  */
 import type { AiSelectionSaveResult } from "@qual-lab/crdd-configuration-model";
 import { requestWorkbench } from "./connection.ts";
+import { workbenchPath } from "./path.ts";
 import {
   validateAiSelectionResponse,
   validateAiSelectionSnapshot,
@@ -19,7 +20,9 @@ export async function requestAiSelection(
   browserSession: boolean,
 ) {
   const response = await requestWorkbench(
-    `/api/repositories/${encodeURIComponent(repositoryId)}/ai-selection`,
+    workbenchPath(["GET", "/api/repositories/:repositoryId/ai-selection"], {
+      repositoryId,
+    }),
     { signal },
     browserSession,
   );
@@ -45,6 +48,7 @@ export async function requestAiSelection(
 export function inspectWorkbenchSelectionResult(
   config: unknown,
   value: unknown,
+  status?: number,
 ): AiSelectionSaveResult {
   const ordered = (entry: unknown): unknown =>
     Array.isArray(entry)
@@ -59,6 +63,11 @@ export function inspectWorkbenchSelectionResult(
   if (
     !isRecord(value) ||
     !["saved", "conflict", "blocked", "unknown"].includes(String(value.status))
+  )
+    throw new Error("workbench_selection_response_invalid");
+  if (
+    status !== undefined &&
+    status !== (value.status === "conflict" ? 409 : 200)
   )
     throw new Error("workbench_selection_response_invalid");
   if (value.status === "saved") {

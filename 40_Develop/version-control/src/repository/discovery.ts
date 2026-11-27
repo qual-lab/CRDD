@@ -179,6 +179,7 @@ export function readRepositoryEntries(scopeRoot: string):
       status: "completed";
       entries: readonly RepositoryEntryObservation[];
       nestedRepositoryObservationComplete: boolean;
+      trackedFilePaths: readonly string[] | null;
       repositoryPathReported: false;
     }>
   | Readonly<{
@@ -248,12 +249,17 @@ export function readRepositoryEntries(scopeRoot: string):
       status: "completed",
       entries: Object.freeze([...result.values()]),
       nestedRepositoryObservationComplete: false,
+      trackedFilePaths: null,
       repositoryPathReported: false,
     });
   const nested = new Map<
     string,
     { contentIdentity: string | null; conflicted: boolean }
   >();
+  const trackedFilePaths = new Set<string>();
+  const scopePrefix = relativeScope
+    ? `${relativeScope.split(path.sep).join("/")}/`
+    : "";
   for (const entry of staged.stdout.split("\0").filter(Boolean)) {
     const separator = entry.indexOf("\t");
     const metadata =
@@ -267,10 +273,20 @@ export function readRepositoryEntries(scopeRoot: string):
         status: "completed",
         entries: Object.freeze([...result.values()]),
         nestedRepositoryObservationComplete: false,
+        trackedFilePaths: null,
         repositoryPathReported: false,
       });
-    if (metadata[1] !== "160000") continue;
-    const absolute = path.resolve(repositoryRoot, entry.slice(separator + 1));
+    const gitPath = entry.slice(separator + 1);
+    if (metadata[1] !== "160000") {
+      const prefix = gitPath.slice(0, scopePrefix.length);
+      const withinScope =
+        process.platform === "win32"
+          ? prefix.toLowerCase() === scopePrefix.toLowerCase()
+          : prefix === scopePrefix;
+      if (withinScope) trackedFilePaths.add(gitPath.slice(scopePrefix.length));
+      continue;
+    }
+    const absolute = path.resolve(repositoryRoot, gitPath);
     const scopeRelative = path
       .relative(path.resolve(scopeRoot), absolute)
       .replaceAll("\\", "/");
@@ -299,6 +315,7 @@ export function readRepositoryEntries(scopeRoot: string):
       ),
     ),
     nestedRepositoryObservationComplete: true,
+    trackedFilePaths: Object.freeze([...trackedFilePaths].sort()),
     repositoryPathReported: false,
   });
 }

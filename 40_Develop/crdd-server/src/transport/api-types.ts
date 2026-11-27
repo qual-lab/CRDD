@@ -3,43 +3,69 @@
  * @responsibility 共有する構成・起動ハンドルと公開入力の形を所有する。
  * @trace ARCH-000012
  */
-import type { AiSelectionSnapshot } from "@qual-lab/crdd-configuration-model";
-import type {
-  TopicMeetingPage,
-  TopicMeetingListQuery,
-} from "@qual-lab/crdd-document-model";
-import type { TreePage, FileDiff } from "@qual-lab/crdd-version-control";
-import type { AccessViewResponse } from "../service/access.ts";
-import type {
-  ProjectDetailResponse,
-  ArtifactViewResponse,
-} from "../service/project-context.ts";
-import type {
-  RecordDocumentView,
-  RecordDetailResponse,
-} from "../service/topic.ts";
-import type { AiSelectionSaveResult } from "@qual-lab/crdd-configuration-model";
-import type { AiSelectionView } from "../service/configuration.ts";
-import type {
-  AiRequestSnapshot,
-  WorkbenchExecutionActivityObservation,
-} from "../service/execution.ts";
-import type { ProjectViewData } from "../service/project-context.ts";
-import type { FilesystemStoreRoot } from "@qual-lab/crdd-access-management";
-import type { PortfolioProjection } from "@qual-lab/crdd-document-model";
-import type { Repository } from "@qual-lab/crdd-version-control";
-import type { WorkbenchActivityReader } from "../service/execution.ts";
-import type { AiRequests } from "../service/execution.ts";
-import type { RepositoryActionRequest } from "../service/repository.ts";
-import type { createMcpOAuthProvider } from "./mcp-oauth.ts";
-import type { LoginProviderConfiguration } from "./login-providers.ts";
-import type { GitHostConfiguration } from "../service/git-host.ts";
 
-/** 共有起動の信頼済み構成。署名材料を明示し、一時状態は発行側が所有する。 @trace ARCH-000012 */
-export type EmbeddedMcpOAuthOptions = Omit<
-  Parameters<typeof createMcpOAuthProvider>[0],
-  "issuer" | "resource"
->;
+import type { FilesystemStoreRoot } from "@qual-lab/crdd-access-management";
+import type {
+  AiSelectionSaveResult,
+  AiSelectionSnapshot,
+} from "@qual-lab/crdd-configuration-model";
+import type {
+  PortfolioProjection,
+  TopicMeetingListQuery,
+  TopicMeetingPage,
+} from "@qual-lab/crdd-document-model";
+import type { Repository } from "@qual-lab/crdd-version-control";
+import type { AccessViewResponse } from "../service/access.ts";
+import type { AiSelectionView } from "../service/configuration.ts";
+import type { AiRequestSnapshot, AiRequests } from "../service/execution.ts";
+import type { GitHostConfiguration } from "../service/git-host.ts";
+import type { LoginProviderConfiguration } from "../service/login-providers.ts";
+import type {
+  ArtifactViewResponse,
+  ProjectDetailResponse,
+  ProjectViewData,
+} from "../service/project-context.ts";
+import type { RepositoryActionRequest } from "../service/repository.ts";
+import type {
+  RecordDetailResponse,
+  RecordDocumentView,
+} from "../service/topic.ts";
+import type { EmbeddedMcpOAuthOptions } from "./mcp-types.ts";
+
+/** REST受付が返す固定エラーコード。下位の例外本文や処置結果とは別契約。 */
+type ApiErrorCode =
+  | "ai_request_outcome_unconfirmed"
+  | "ai_request_rejected"
+  | "artifact_access_unavailable"
+  | "artifact_input_invalid"
+  | "artifact_unavailable"
+  | "execution_activity_unavailable"
+  | "repository_files_unavailable"
+  | "execution_definition_unavailable"
+  | "git_host_connection_required"
+  | "invalid_content_type"
+  | "invalid_request"
+  | "login_required"
+  | "management_result_unavailable"
+  | "management_session_required"
+  | "project_context_unavailable"
+  | "record_unavailable"
+  | "request_body_too_large"
+  | "request_rejected"
+  | "workbench_context_unavailable"
+  | "workspace_outcome_unconfirmed"
+  | "workspace_request_unavailable"
+  | "workspace_unavailable";
+
+export type ApiErrorResponse = Readonly<{ error: ApiErrorCode }>;
+
+/** 実行入口の既存 `{status: "blocked", reason}` に載るHTTP受付の拒否理由。 */
+export type ExecutionHttpFailureCode =
+  | "execution_access_unavailable"
+  | "execution_input_invalid"
+  | "execution_owner_unavailable"
+  | "execution_result_unconfirmed"
+  | "request_body_too_large";
 
 /** Workbenchの公開先とRepository接続・任意の利用側機能の構成。 */
 export type WorkbenchStartRequest = Readonly<{
@@ -59,7 +85,6 @@ export type WorkbenchStartRequest = Readonly<{
     principalId: string,
     authorize: () => boolean,
   ) => AiRequests;
-  activityReader?: WorkbenchActivityReader;
 }>;
 
 /** 共有でHTTPとMCPを同じ待受へ接続する構成。 @trace ARCH-000012 */
@@ -95,23 +120,18 @@ export type WorkbenchConnectionState = "repository" | "cros_available";
  * 一つの起動中だけ共有する表示値と直前結果。
  * @responsibility 既存変数の読取り・更新時点を変えず、操作受付と表示の間で保持する。
  * @trace ARCH-000012
- * @shape 現在投影、Repository別AI選択表示、単体操作結果、単体AI表示ID・Snapshot・Notice、既存の活動観測。
+ * @shape 現在投影、Repository別AI選択表示、単体操作結果、単体AI表示ID・Snapshot・Notice。
  * @invariant 保存・clone・汎用更新APIを追加せず、共有AI Sessionと混在しない。
  * @boundary Server内の実Consumerだけで共有する型。
  * @security 認証資格や許可済みRootを表示状態のAuthorityとして保持しない。
  * @compatibility 既存のメモリ内変数だけをまとめ、通信・永続Schemaを変更しない。
  */
 export type WorkbenchPresentationState = {
-  executionActivityObservation:
-    | WorkbenchExecutionActivityObservation
-    | undefined;
   projectSurface: ProjectViewData | undefined;
   aiSelection: AiSelectionView;
   pendingRecordRefresh?: object;
   currentAiRequestId: string | null;
   aiRequestSnapshot: AiRequestSnapshot | null;
-  aiRequestNotice: string | null;
-  aiSelectionManagementResult: AiSelectionSaveResult | null;
 };
 
 /**
@@ -131,7 +151,7 @@ export type WorkbenchPresentationState = {
  * @compatibility Client Model revision 1内で使用する。
  * @concurrency N/A: 不変Snapshotである。
  */
-export type WorkbenchConnectionView = Readonly<{
+type WorkbenchConnectionView = Readonly<{
   state: "repository" | "cros_available";
 }>;
 
@@ -150,11 +170,7 @@ export type MainViewResponse = Readonly<{
   view: "main";
   actionToken: string;
   projectData: ProjectViewData;
-  portfolio: PortfolioProjection | null;
-  portfolioPage: Readonly<{
-    nextCursor: string | null;
-    cursorInvalid: boolean;
-  }>;
+  portfolioAvailable: boolean;
   connection: WorkbenchConnectionView;
   topicPage: TopicMeetingPage;
   topicQuery: TopicMeetingListQuery;
@@ -165,11 +181,6 @@ export type MainViewResponse = Readonly<{
   recordActionsConfigured: boolean;
   repositoryActions: readonly RepositoryActionRequest["operation"][];
   workspaceAccess?: "read" | "write" | "unavailable";
-  worktree: Readonly<{
-    state: "available" | "unknown";
-    tree: TreePage | null;
-    diff: FileDiff | null;
-  }>;
   aiSelection: AiSelectionView | null;
   aiSelectionManagement: Readonly<{
     snapshot: AiSelectionSnapshot | null;
@@ -182,7 +193,6 @@ export type MainViewResponse = Readonly<{
     snapshot: AiRequestSnapshot | null;
     notice: string | null;
   }>;
-  executionActivity: WorkbenchExecutionActivityObservation | null;
 }>;
 
 /**
@@ -201,97 +211,3 @@ export type ViewResponse =
   | MainViewResponse
   | ProjectDetailResponse
   | RecordDetailResponse;
-/** REST文書とMCP Toolの、操作を決めた後の公開入力欄。 @trace ARCH-000012 */
-export function workspaceInputSchema(operation: string) {
-  const actions: Record<string, string[]> = {
-    list: ["cursor", "limit"],
-    get: [],
-    inspect: ["path"],
-    "candidate-diff": ["path"],
-    create: [
-      "baseBranch",
-      "baseCommit",
-      "name",
-      "acceptUncommittedChangesExcluded",
-    ],
-    select: [],
-    rename: ["name"],
-    hold: ["until"],
-    discard: ["expectedHead", "discardChanges"],
-    freeze: [
-      "operationId",
-      "baseCommit",
-      "expectedHead",
-      "selection",
-      "candidateName",
-      "relatedChangeIds",
-    ],
-    adopt: ["candidateCommit", "targetBranch", "expectedTargetHead"],
-    "close-candidate": ["expectedCommit", "disposition"],
-  };
-  const keys = [
-    "repositoryId",
-    "projectId",
-    ...(operation === "list" ? [] : ["queueId", "workspaceId"]),
-    ...(!["list", "get", "inspect", "candidate-diff"].includes(operation)
-      ? ["expectedGeneration"]
-      : []),
-    ...(actions[operation] ?? []),
-  ];
-  const properties = Object.fromEntries(
-    keys.map((key) => [
-      key,
-      key === "repositoryId"
-        ? { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }
-        : key === "expectedGeneration"
-          ? { type: "integer", minimum: 0 }
-          : key === "limit"
-            ? { type: "integer", minimum: 1, maximum: 50 }
-            : key === "acceptUncommittedChangesExcluded"
-              ? {
-                  type: "boolean",
-                  description:
-                    "未コミット変更は引き継がれないことを利用者が了承した場合だけtrue。変更があり未了承ならworkspace_creation_confirmation_requiredで作成前に停止します。",
-                }
-              : key === "discardChanges"
-                ? { type: "boolean" }
-                : key === "relatedChangeIds"
-                  ? {
-                      type: "array",
-                      items: { type: "string", pattern: "^CHG-[0-9]{6}$" },
-                    }
-                  : key === "selection"
-                    ? {
-                        type: "array",
-                        minItems: 1,
-                        items: {
-                          type: "object",
-                          additionalProperties: false,
-                          required: ["path", "blobId", "mode"],
-                          properties: {
-                            path: { type: "string" },
-                            blobId: {
-                              anyOf: [{ type: "string" }, { type: "null" }],
-                            },
-                            mode: { enum: ["100644", "100755", null] },
-                          },
-                        },
-                      }
-                    : [
-                          "cursor",
-                          "name",
-                          "until",
-                          "candidateName",
-                          "expectedCommit",
-                        ].includes(key)
-                      ? { anyOf: [{ type: "string" }, { type: "null" }] }
-                      : { type: "string" },
-    ]),
-  );
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: keys.filter((key) => key !== "acceptUncommittedChangesExcluded"),
-    properties,
-  };
-}

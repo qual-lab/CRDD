@@ -1,9 +1,10 @@
 /** 実Browserで本番の活動Panelへ異なる取得断面を渡す。 @trace ERB-ST-022 */
+
+import type { ExecutionActivityObservation } from "@qual-lab/crdd-server";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { ExecutionActivity } from "../../src/components/activity-panel.tsx";
-import type { MainViewResponse } from "../../src/api/response.ts";
 
 const container = document.getElementById("activity-fixture");
 if (!container) throw Error("activity_fixture_missing");
@@ -22,19 +23,19 @@ const graph = (id: string, repositoryId: string) => ({
 const a = graph("workspace-a", "repository-a");
 const b = graph("workspace-b", "repository-b");
 const render = (graphs: (typeof a)[]) => {
-  const model = {
-    executionActivity: {
-      state: "unknown",
-      reason: "fixture_multiple_graphs",
-      projection: null,
-      graphs,
-      singleTasks: [],
-      eventState: "observed",
-      events: [],
-      nextCursor: null,
-    },
-  } as unknown as MainViewResponse;
-  flushSync(() => root.render(createElement(ExecutionActivity, { model })));
+  const observation = {
+    state: "unknown",
+    reason: "fixture_multiple_graphs",
+    projection: null,
+    graphs,
+    singleTasks: [],
+    eventState: "observed",
+    events: [],
+    eventContinuation: null,
+  } as unknown as ExecutionActivityObservation;
+  flushSync(() =>
+    root.render(createElement(ExecutionActivity, { observation })),
+  );
 };
 const choose = (repositoryId: string) => {
   const input = container.querySelector("select");

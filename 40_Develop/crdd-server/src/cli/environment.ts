@@ -6,14 +6,15 @@
 import { createPrivateKey, randomBytes } from "node:crypto";
 import {
   configuredGitHosts,
+  type GitHostConfiguration,
   isGitHostCredentialEnvironment,
 } from "../service/git-host.ts";
-import type { EmbeddedMcpOAuthOptions } from "../transport/api-types.ts";
+import type { EmbeddedMcpOAuthOptions } from "../transport/mcp-types.ts";
 import {
   isLoginProviderId,
   type LoginProviderConfiguration,
   loginProviderProfiles,
-} from "../transport/login-providers.ts";
+} from "../service/login-providers.ts";
 import { parseUnambiguousJsonDocument } from "../transport/parse-json.ts";
 
 const oauthEnvironment = [
@@ -23,9 +24,6 @@ const oauthEnvironment = [
   ),
   "CRDD_GIT_HOSTS",
   "CRDD_SHARED_REPOSITORY_ROOTS",
-  "CRDD_GITHUB_CLIENT_ID",
-  "CRDD_GITHUB_CLIENT_SECRET",
-  "CRDD_GITHUB_APP_PRIVATE_KEY",
   "CRDD_MCP_OAUTH_CLIENTS",
   "CRDD_MCP_OAUTH_SIGNING_KEY",
 ] as const;
@@ -133,8 +131,18 @@ function readSharedRepositoryRoots(environment: NodeJS.ProcessEnv): string[] {
   throw new Error("shared_repository_roots_invalid");
 }
 
+/** 共有モードに必要な起動設定だけをCLIへ渡す。 @trace ARCH-000012 */
+export interface SharedOAuthConfiguration {
+  readonly loginProviders: LoginProviderConfiguration;
+  readonly mcpOAuth: EmbeddedMcpOAuthOptions;
+  readonly gitHosts: readonly GitHostConfiguration[];
+  readonly sharedRepositoryRoots: readonly string[];
+}
+
 /** 全設定が揃った場合だけOAuthを選ぶ。一部設定を旧方式へ読み替えない。 @trace ARCH-000012 */
-export function readSharedOAuthConfiguration(environment: NodeJS.ProcessEnv) {
+export function readSharedOAuthConfiguration(
+  environment: NodeJS.ProcessEnv,
+): SharedOAuthConfiguration | undefined {
   const rawProviders = environment.CRDD_LOGIN_PROVIDERS;
   const hasLoginConfiguration = Object.values(loginProviderProfiles).some(
     ({ environmentNames }) =>
@@ -214,7 +222,7 @@ export function readSharedOAuthConfiguration(environment: NodeJS.ProcessEnv) {
 export function consumeOAuthEnvironment(
   environment: NodeJS.ProcessEnv,
   shared: boolean,
-) {
+): SharedOAuthConfiguration | undefined {
   try {
     return shared ? readSharedOAuthConfiguration(environment) : undefined;
   } finally {

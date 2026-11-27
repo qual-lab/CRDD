@@ -283,7 +283,7 @@ test("単体Repository操作は起動Rootと現在Targetへ一度だけ配送す
   syncBuiltinESMExports();
   try {
     const model = (await (
-      await fetch(`${handle.baseUrl}/api/workbench/view`)
+      await fetch(`${handle.baseUrl}/api/workbench/overview`)
     ).json()) as { actionToken: string };
     assert.equal(typeof model.actionToken, "string");
     /**

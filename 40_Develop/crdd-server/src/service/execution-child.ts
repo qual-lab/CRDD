@@ -6,7 +6,8 @@
  */
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { loginProviderProfiles } from "../transport/login-providers.ts";
+import type { CoordinatorObjectiveRequest } from "@qual-lab/crdd-coordinator";
+import { loginProviderProfiles } from "./login-providers.ts";
 import { isGitHostCredentialEnvironment } from "./git-host.ts";
 
 type ObjectiveTarget = Readonly<{ projectId: string; workspaceId?: string }>;
@@ -33,10 +34,10 @@ function isMessage(value: unknown): value is Record<string, unknown> {
 
 /** 元要求に一対一で子を割り当て、応答と正常終了の両方を確認する。 @trace ARCH-000012 */
 export function runObjectiveInChild(
-  request: unknown,
+  request: CoordinatorObjectiveRequest,
   signal: AbortSignal,
   authorize: Authorize,
-  confirm: () => boolean | Promise<boolean>,
+  confirm: (purpose?: "task") => boolean | Promise<boolean>,
 ): Promise<unknown> {
   if (signal.aborted) return Promise.resolve(undefined);
   return new Promise((resolve) => {
@@ -46,7 +47,7 @@ export function runObjectiveInChild(
         ([key]) =>
           !loginEnvironmentNames.has(key.toUpperCase()) &&
           !isGitHostCredentialEnvironment(key) &&
-          !/^(?:NODE_OPTIONS|NODE_PATH|CRDD_GIT_HOSTS|CRDD_(?:GOOGLE_|GITHUB_|MCP_OAUTH_).*)$/iu.test(
+          !/^(?:NODE_OPTIONS|NODE_PATH|CRDD_GIT_HOSTS|CRDD_MCP_OAUTH_.*)$/iu.test(
             key,
           ),
       ),
@@ -58,6 +59,7 @@ export function runObjectiveInChild(
     });
     let phase: "initial" | "authorized" | "confirmed" | "result" = "initial";
     let grantSent = false;
+    let taskConfirmation = false;
     let allowed = false;
     let everAllowed = false;
     let confirmationPending = false;
@@ -146,6 +148,7 @@ export function runObjectiveInChild(
         }
         if (signal.aborted) grant = null;
         grantSent = grant !== null;
+        taskConfirmation = grant?.confirmBeforeTask === true;
         send({ kind: "grant", grant });
         return;
       }
@@ -155,6 +158,13 @@ export function runObjectiveInChild(
         !confirmationPending &&
         (phase === "authorized" || (phase === "confirmed" && allowed))
       ) {
+        if (
+          message.purpose !== undefined &&
+          (message.purpose !== "task" ||
+            !taskConfirmation ||
+            phase !== "confirmed")
+        )
+          return terminate();
         clearTimeout(startup);
         phase = "confirmed";
         allowed = false;
@@ -168,7 +178,9 @@ export function runObjectiveInChild(
           send({ kind: "confirmed", allowed });
         };
         try {
-          const decision = confirm();
+          const decision = confirm(
+            message.purpose === "task" ? "task" : undefined,
+          );
           if (typeof decision === "boolean") complete(decision);
           else void decision.then(complete, () => complete(false));
         } catch {
@@ -212,104 +224,15 @@ export function runObjectiveInChild(
   });
 }
 
-/** 一度受けた要求を既存Coordinatorへ配送する。子側で新しい受付台帳は持たない。 @trace ARCH-000012 */
-function serveObjective(): void {
-  if (!process.send) throw Error("objective_child_requires_ipc");
-  const send = process.send.bind(process);
-  const cancellation = new AbortController();
-  let received = false;
-  let pending:
-    | {
-        kind: "grant" | "confirmed";
-        resolve: (message: Record<string, unknown> | null) => void;
-      }
-    | undefined;
-  const stop = () => {
-    cancellation.abort();
-    pending?.resolve(null);
-    pending = undefined;
-  };
-  const ask = (kind: "grant" | "confirmed", message: object) =>
-    new Promise<Record<string, unknown> | null>((resolve) => {
-      if (cancellation.signal.aborted || !process.connected)
-        return resolve(null);
-      pending = { kind, resolve };
-      send(message, (error: Error | null) => {
-        if (error) stop();
-      });
-    });
-  const run = async (request: unknown) => {
-    const coordinator = await import("@qual-lab/crdd-coordinator");
-    const result = await coordinator.runObjective(
-      request,
-      cancellation.signal,
-      async (target) => {
-        const message = await ask("grant", { kind: "authorize", ...target });
-        const grant = message?.grant;
-        if (
-          !isMessage(grant) ||
-          typeof grant.directory !== "string" ||
-          typeof grant.principalId !== "string" ||
-          cancellation.signal.aborted
-        )
-          return () => null;
-        const { directory, principalId } = grant;
-        const prepareWorkspaceTarget = target.workspaceId
-          ? (await import("./workspace.ts")).observeWorkspaceExecutionTarget
-          : null;
-        const confirmed = await ask("confirmed", { kind: "confirm" });
-        const revalidate = async () =>
-          (await ask("confirmed", { kind: "confirm" }))?.allowed === true;
-        return () =>
-          confirmed?.allowed === true && !cancellation.signal.aborted
-            ? {
-                directory,
-                principalId,
-                ...(prepareWorkspaceTarget
-                  ? {
-                      prepareWorkspaceTarget: () =>
-                        prepareWorkspaceTarget(
-                          directory,
-                          target.projectId,
-                          target.workspaceId,
-                        ),
-                    }
-                  : {}),
-                revalidate,
-                ...(grant.confirmBeforeTask === true && {
-                  beforeTask: revalidate,
-                }),
-              }
-            : null;
-      },
-    );
-    if (process.connected)
-      await new Promise<void>((resolve) =>
-        send({ kind: "result", value: result }, () => resolve()),
-      );
-  };
-  process.on("disconnect", stop);
-  process.on("message", (message: unknown) => {
-    if (!isMessage(message)) return stop();
-    if (message.kind === "cancel") {
-      stop();
-      if (!received && process.connected) process.disconnect();
-    } else if (!received && message.kind === "execute") {
-      received = true;
-      void run(message.request)
-        .catch(() => {
-          process.exitCode = 1;
-        })
-        .finally(() => {
-          if (process.connected) process.disconnect();
-        });
-    } else if (pending && message.kind === pending.kind) {
-      const waiting = pending;
-      pending = undefined;
-      waiting.resolve(message);
-    } else stop();
-  });
+if (
+  process.argv[1] &&
+  pathToFileURL(process.argv[1]).href === import.meta.url
+) {
+  const { serveObjectiveChild } = await import(
+    "@qual-lab/crdd-coordinator/objective-child"
+  );
+  serveObjectiveChild(
+    async () =>
+      (await import("./workspace.ts")).observeWorkspaceExecutionTarget,
+  );
 }
-
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url)
-  serveObjective();

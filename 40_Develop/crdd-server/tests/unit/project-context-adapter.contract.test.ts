@@ -9,47 +9,63 @@
  * @boundary PPR-UT-006=N/A: Adapterの決定論的RoutingとProjectionをProcess内で検証する。
  */
 import assert from "node:assert/strict";
-import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
+import { invokeMcpRequest, mcpToolErrorText } from "../fixtures/sdk-request.ts";
 import type { McpServerDependencies } from "../../src/transport/mcp-server.ts";
 import { createMcpServerFactory } from "../../src/transport/mcp-server.ts";
 import test from "node:test";
 
 import type { PortfolioProjection } from "@qual-lab/crdd-document-model";
 import {
-  handleMcpProjectContextRequest,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
 } from "../../src/transport/mcp-server.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
 
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 
-/** 公開の直接呼出しが従来の引数オブジェクト境界を維持する。 @trace PPR-UT-006 */
-test("Project Contextは公開直接呼出しの引数形を維持する", async () => {
-  const raw = call(MCP_PROJECT_CONTEXT_LIST_TOOL, {});
+/** 不正な項目は公開スキーマが読取り前に拒否する。 @trace PPR-UT-006 */
+test("Project ContextはSDKで単体と共有の入力を区別する", async () => {
   let reads = 0;
-  const dependencies = {
-    readPortfolio: async () => {
-      reads++;
-      return portfolio();
-    },
+  const readPortfolio: NonNullable<
+    McpServerDependencies["projectContext"]
+  >["readPortfolio"] = async (target) => {
+    reads++;
+    assert.deepEqual(target, {
+      projectId: "PRJ-001",
+      repositoryId: "REPO-001",
+    });
+    return portfolio();
   };
-  const invalid = {
-    ...raw,
-    params: Object.assign(Object.create(null), raw.params),
-  };
-  const result = await handleMcpProjectContextRequest(invalid, dependencies);
-  assert.equal(result.error?.code, -32602);
+  const shared = { projectContext: { readPortfolio, requireRepository: true } };
+  const single = { projectContext: { readPortfolio } };
+  for (const [tool, args, dependencies] of [
+    [MCP_PROJECT_CONTEXT_LIST_TOOL, { projectId: "PRJ-001" }, single],
+    [MCP_PROJECT_CONTEXT_GET_TOOL, { projectId: "invalid/id" }, single],
+    [
+      MCP_PROJECT_CONTEXT_GET_TOOL,
+      { projectId: "PRJ-001", repositoryId: "REPO-001" },
+      single,
+    ],
+    [MCP_PROJECT_CONTEXT_GET_TOOL, { projectId: "PRJ-001" }, shared],
+    [
+      MCP_PROJECT_CONTEXT_GET_TOOL,
+      { projectId: "PRJ-001", repositoryId: "invalid/id" },
+      shared,
+    ],
+  ] as const) {
+    const result = await invokeMcpRequest(call(tool, args), dependencies);
+    assert.equal(mcpToolErrorText(result), "Invalid arguments");
+  }
   assert.equal(reads, 0);
-
-  const params = { ...raw.params };
-  Object.defineProperty(params, "arguments", { enumerable: false });
-  const accepted = await handleMcpProjectContextRequest(
-    { ...raw, params },
-    dependencies,
+  const accepted = await invokeMcpRequest(
+    call(MCP_PROJECT_CONTEXT_GET_TOOL, {
+      projectId: "PRJ-001",
+      repositoryId: "REPO-001",
+    }),
+    shared,
   );
   assert.equal(accepted.error, undefined);
   assert.equal(reads, 1);
@@ -170,12 +186,14 @@ function portfolio(): PortfolioProjection {
  */
 test("Project Context MCP preserves the five canonical scenes", async () => {
   let reads = 0;
-  const response = await handleMcpProjectContextRequest(
+  const response = await invokeMcpRequest(
     call(MCP_PROJECT_CONTEXT_GET_TOOL, { projectId: "PRJ-001" }),
     {
-      readPortfolio: async () => {
-        reads += 1;
-        return portfolio();
+      projectContext: {
+        readPortfolio: async () => {
+          reads += 1;
+          return portfolio();
+        },
       },
     },
   );
@@ -205,14 +223,14 @@ test("Project Context MCP preserves the five canonical scenes", async () => {
  * @precondition 許可済みPortfolio Fixtureを使用する。
  * @stimulus crdd.list_projectsを呼び出す。
  * @observation structuredContent.projectsを取得する。
- * @oracle Project ID、状態、許可済みSource数だけを返す。
+ * @oracle Project ID、状態、許可済みSourceのID・状態だけを返す。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("Project Context MCP lists only the supplied portfolio", async () => {
-  const response = await handleMcpProjectContextRequest(
+  const response = await invokeMcpRequest(
     call(MCP_PROJECT_CONTEXT_LIST_TOOL, {}),
-    { readPortfolio: async () => portfolio() },
+    { projectContext: { readPortfolio: async () => portfolio() } },
   );
   const content = response.result as {
     structuredContent: {
@@ -225,12 +243,14 @@ test("Project Context MCP lists only the supplied portfolio", async () => {
       state: "complete",
       sourceCount: 1,
       repositoryIds: ["PRJ-001-DEV"],
+      sources: [{ repositoryId: "PRJ-001-DEV", state: "complete" }],
     },
     {
       projectId: "PRJ-002",
       state: "partial",
       sourceCount: 1,
       repositoryIds: ["PRJ-002-DEV"],
+      sources: [{ repositoryId: "PRJ-002-DEV", state: "missing" }],
     },
   ]);
 });
@@ -354,9 +374,9 @@ test("MCPのFactoryは未使用の起動設定を読まない", () => {
  * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("Project Context MCP does not disclose unavailable projects", async () => {
-  const response = await handleMcpProjectContextRequest(
+  const response = await invokeMcpRequest(
     call(MCP_PROJECT_CONTEXT_GET_TOOL, { projectId: "PRJ-HIDDEN" }),
-    { readPortfolio: async () => portfolio() },
+    { projectContext: { readPortfolio: async () => portfolio() } },
   );
   const serialized = JSON.stringify(response);
   assert.match(serialized, /project_context_not_available/u);

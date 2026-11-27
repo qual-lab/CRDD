@@ -4,7 +4,7 @@
  * @responsibility obligationを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import {
   type CoverageObligation,
   parseExactTsCoverageLcov,
+  requireCoverageProcessOutput,
 } from "./coverage.ts";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
@@ -34,7 +35,6 @@ export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
   "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
 ]);
 
@@ -176,49 +176,6 @@ export function isSupportedProviderHomeCoverageNodeVersion(value: unknown) {
 }
 
 /**
- * 計測子Processの完了と既知の型除去警告を区別する。
- * @responsibility 正常終了と、空のstderr又はNode.jsが出す固定の一件だけを受け付ける。
- * @trace ARCH-000010
- * @input result: 固定コマンドの終了結果。
- * @returns 検査前のLCOV本文。
- * @effect N/A: 終了結果の検査だけ。
- * @failure 非0、起動不能、Signal、未知・重複警告は拒否する。
- * @boundary Node.jsの終了結果とLCOV構文検査。
- */
-export function requireProviderHomeCoverageOutput(
-  result: Pick<
-    SpawnSyncReturns<string>,
-    "error" | "signal" | "status" | "stdout" | "stderr"
-  >,
-): string {
-  if (
-    result.error ||
-    result.signal !== null ||
-    result.status !== 0 ||
-    typeof result.stdout !== "string" ||
-    typeof result.stderr !== "string"
-  ) {
-    throw new Error("Provider Home coverage command failed");
-  }
-  if (result.stderr !== "") {
-    const [warning, help, end, ...extra] = result.stderr.split(/\r?\n/u);
-    if (
-      warning === undefined ||
-      !/^\(node:[1-9][0-9]*\) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time$/u.test(
-        warning,
-      ) ||
-      help !==
-        "(Use `node --trace-warnings ...` to show where the warning was created)" ||
-      end !== "" ||
-      extra.length !== 0
-    ) {
-      throw new Error("Provider Home coverage command failed");
-    }
-  }
-  return result.stdout;
-}
-
-/**
  * Onceを観測する。
  *
  * @responsibility Onceの観測対象、取得根拠、観測不能結果の境界を所有する。
@@ -256,7 +213,7 @@ function inspectOnce() {
     },
   );
   const coverage = parseExactTsCoverageLcov(
-    requireProviderHomeCoverageOutput(result),
+    requireCoverageProcessOutput(result, "Provider Home"),
     {
       sources: PROVIDER_HOME_COVERAGE_SOURCES,
       obligations: coverageObligations,

@@ -27,8 +27,11 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { invokeMcpCoordinatorRequest } from "../fixtures/sdk-request.ts";
-import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-server.ts";
+import {
+  invokeMcpCoordinatorRequest,
+  isMcpInvalidArguments,
+} from "../fixtures/sdk-request.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
 import { inspectTaskStageDiagnostic } from "../../../coordinator/tests/support/task-diagnostic.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
@@ -1395,7 +1398,11 @@ test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を�
       { ...request, params: { ...request.params, arguments: invalid } },
       dependencies,
     );
-    assert.equal(response.error?.code, -32602);
+    assert.equal(response.error, undefined);
+    assert.equal(
+      isMcpInvalidArguments(response, MCP_COORDINATOR_STATE_TOOL),
+      true,
+    );
     assert.equal(reads, before);
   }
 });

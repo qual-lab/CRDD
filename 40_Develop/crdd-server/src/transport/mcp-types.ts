@@ -9,10 +9,45 @@
  * @concurrency Requestごとの取消SignalをHandlerへ渡す。
  * @security Transport認証後の要求だけをHandlerへ渡すのはTransportの責務である。
  */
-import type { Server } from "@modelcontextprotocol/server";
 
-const accountSubject =
-  /^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/u;
+import type { AuthInfo, Server } from "@modelcontextprotocol/server";
+import type { Configuration } from "oidc-provider";
+import { UUID_V4_SOURCE } from "../service/identity.ts";
+
+/** 起動時に発行側へ与える、非公開のOAuth構成。 */
+export interface EmbeddedMcpOAuthOptions {
+  readonly clients: readonly Readonly<{
+    id: string;
+    redirects: readonly string[];
+  }>[];
+  readonly verifier: Readonly<{ id: string; secret: string }>;
+  readonly jwks: NonNullable<Configuration["jwks"]>;
+  readonly cookieKeys: readonly string[];
+}
+
+/** 資源サーバーが発行側の状態を参照せずに使うトークン照会契約。 */
+export type McpTokenVerifier = (
+  token: string,
+  signal: AbortSignal,
+) => Promise<
+  | Readonly<{ status: "completed"; subject: string; expiresAt: number }>
+  | Readonly<{ status: "rejected" | "unavailable" }>
+>;
+
+/** 現在の同意とその連携参照を観測する。発行側の保存型は公開しない。 */
+export interface McpGrantAccess {
+  hasCurrentToken(token: string, subject: string): boolean;
+  readGrantHostReference(
+    token: string,
+    subject: string,
+    host: string,
+  ): string | null;
+}
+
+const accountSubject = new RegExp(
+  `^(${UUID_V4_SOURCE}):(${UUID_V4_SOURCE})$`,
+  "u",
+);
 
 /** MCP主体の結合を読み取る。発行、トークン照会、認可は行わない。 @trace ARCH-000012 */
 export function readMcpAccountSubject(subject: string) {
@@ -33,67 +68,58 @@ export const objectiveRunTools = {
   cancel: "crdd.cancel_objective",
 } as const;
 
+/** 通信入口で検査したJSON-RPC要求の外枠。 @trace ARCH-000012 */
+export type McpProtocolRequest = Readonly<{
+  id: JsonRpcId;
+  method: string;
+  params: unknown;
+}>;
+
+/** CRDDが公開するメソッドとして受付済みの要求。 @trace ARCH-000012 */
+export type McpPublicRequest = McpProtocolRequest &
+  Readonly<{ method: "server/discover" | "tools/list" | "tools/call" }>;
+
+/** 共通受付を通った要求。Tool引数のスキーマ検査はSDKが行う。 @trace ARCH-000012 */
+export type McpAcceptedRequest = Readonly<{ id: JsonRpcId }> &
+  (
+    | Readonly<{
+        method: "server/discover" | "tools/list";
+        params: Readonly<Record<string, unknown>>;
+      }>
+    | Readonly<{
+        method: "tools/call";
+        params: Readonly<{ name: string; arguments: unknown; _meta: unknown }>;
+      }>
+  );
+
 /**
  * 要求別SDK Serverを生成する本番接続を定義する。
- * @responsibility 元入力・取消・Owner Promiseの観測を一要求へ閉じる。
+ * @responsibility 検査済み入力・取消・Owner Promiseの観測を一要求へ閉じる。
  * @trace ARCH-000012
  * @shape createServerだけを持ち、Serverと認可結果を後続要求へ共有しない。
  * @invariant observeは開始済みOwnerのjoin用であり、実行権限を発行しない。
  * @boundary 認証済み構成と公式SDKの要求別Server。
  * @security 資格・保存Rootを公開結果へ含めない。
- * @compatibility 単純Handler注入はTransportの限定検証用に利用できる。
+ * @compatibility HTTPとstdioは同じ要求別Factoryを使う。
  */
 export type McpServerFactory = Readonly<{
   createServer(
-    request: unknown,
+    request: McpAcceptedRequest,
     signal: AbortSignal,
     observe?: (pending: Promise<McpResponse>, signal: AbortSignal) => void,
+    authInfo?: AuthInfo,
   ): Promise<Server>;
 }>;
 
-/**
- * 公式Server構成または要求HandlerをTransportへ渡す。
- * @responsibility 本番Factoryと局所検証用Handlerを型で区別する。
- * @trace ARCH-000012
- * @shape Factoryか一要求Handler。
- * @invariant 本番のTool dispatchはFactoryだけが所有する。
- * @boundary Transport構成とSDK登録。
- * @security 要求ごとの認証結果を共有しない。
- * @compatibility 外部通信の入出力を変えない。
- */
-export type McpRequestSource = McpRequestHandler | McpServerFactory;
-
-/**
- * MCP Request Handlerを定義する。
- *
- * @responsibility Transportから独立した一Requestの意味処理契約を所有する。
- * @trace ARCH-000012
- * @shape rawRequestとAbortSignalからMcpResponseを返す関数を表す。
- * @invariant 一Requestにつき一つの最終応答へ収束する。
- * @boundary TransportとApplication Adapterの型境界。
- * @security 認証前要求を渡さないことは呼出しTransportが保証する。
- * @compatibility Protocol応答型変更時は全Transportを再評価する。
- */
-export type McpRequestHandler = (
-  rawRequest: unknown,
-  signal: AbortSignal,
-) => Promise<McpResponse>;
-
-/**
- * Bearer Credentialごとに利用可能なMCP Handlerを解決する。
- *
- * @responsibility Transport認証材料をApplication固有のRequest Handlerへ変換するPortを定義する。
- * @trace ARCH-000012
- * @shape Bearer TokenからHandlerまたは認証拒否のnullを返す関数。
- * @invariant TokenをHandlerの応答、Errorまたは永続状態へ含めない。
- * @boundary HTTP Transport認証とApplication Request Access Contextの境界。
- * @security Requestごとに現在Credentialを再検証する実装を許容する。
- * @compatibility 固定Token入口は同じPortへAdapterできる。
- */
-export type McpAuthenticatedRequestHandlerResolver = (
-  bearerToken: string,
-  signal?: AbortSignal,
-) => Promise<McpRequestSource | null> | McpRequestSource | null;
+/** 共有HTTPの入場と、SDKが要求ごとに呼ぶ固定の構成を分離する。 */
+export type McpOAuthHttpAccess = Readonly<{
+  authenticate(
+    header: string | undefined,
+    signal: AbortSignal,
+  ): Promise<AuthInfo>;
+  admit(auth: AuthInfo): boolean;
+  factory: McpServerFactory;
+}>;
 
 /**
  * protocolで使用するJson Rpc Idの値契約を定義する。

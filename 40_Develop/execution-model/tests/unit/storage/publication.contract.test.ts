@@ -47,7 +47,7 @@ test("保存調停は四用途の証拠を一回接続し全終了で失効す�
         live = true;
       let observedContext: object | null = null;
       let revalidate: (() => boolean) | null = null;
-      const execute = runInNewContext(recovery + "; publishRecoveryState", {
+      const execute = runInNewContext(`${recovery}; publishRecoveryState`, {
         settlements,
         initializations,
         prepareStateInitialization: (context: object) => {
@@ -156,7 +156,7 @@ test("保存調停は四用途の証拠を一回接続し全終了で失効す�
  * @boundary Storage内部受付。Root公開は追加しない。
  */
 test("保存調停は不明用途と用途混在をEffect前に拒否する", () => {
-  const execute = runInNewContext(recovery + "; publishRecoveryState", {
+  const execute = runInNewContext(`${recovery}; publishRecoveryState`, {
     settlements: { set: () => assert.fail("proof issued") },
     prepareStateInitialization: () => assert.fail("initialization issued"),
     writeStateSnapshot: (_owner: unknown, repository: unknown) => {

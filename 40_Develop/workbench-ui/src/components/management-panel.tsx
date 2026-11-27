@@ -1,5 +1,5 @@
 /**
- * 現在本人と非鍵管理の四投影・明示操作を描画する。
+ * 現在の本人と管理操作の表示・受付を描画する。
  * @responsibility 対象・個別改訂・結果と再観測を同じ画面へ接続する。
  * @trace ARCH-000013
  * @boundary Workbench管理JSONとReact DOM。
@@ -20,16 +20,18 @@ import {
   type ManagementResult,
 } from "../api/response.ts";
 import { requestSessionManagementChange } from "../api/mutations.ts";
+import {
+  inspectWorkbenchManagementUsers,
+  type ManagementPermissions,
+  readManagementPermissions,
+  requestManagementView,
+  type WorkbenchManagementUsers,
+} from "../api/access.ts";
 
 const ROLE_LABELS = {
   developer: "開発者",
   manager: "マネージャー",
   administrator: "管理者",
-} as const;
-const sessionViews = {
-  current: "/api/access/me",
-  users: "/api/users",
-  repositories: "/api/repositories",
 } as const;
 
 /**
@@ -50,15 +52,26 @@ const sessionViews = {
 export function ManagementPanel({
   actionToken,
   onSessionUsers,
+  onPermissions,
   onSessionUnavailable,
 }: {
   actionToken: string;
-  onSessionUsers?: (result: ManagementResult) => void;
-  onSessionUnavailable?: (developer?: boolean, resultNotice?: string) => void;
+  onSessionUsers?: (result: WorkbenchManagementUsers) => void;
+  onPermissions?: (permissions: ManagementPermissions) => void;
+  onSessionUnavailable?: (
+    permissionDenied?: boolean,
+    resultNotice?: string,
+  ) => void;
 }): ReactElement {
   const [data, setData] = useState<
     Partial<Record<ManagementView, ManagementResult>>
   >({});
+  const [usersView, setUsersView] = useState<WorkbenchManagementUsers | null>(
+    null,
+  );
+  const [permissions, setPermissions] = useState<ManagementPermissions | null>(
+    null,
+  );
   const [notice, setNotice] = useState("現在の接続を確認しています。");
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState(0);
@@ -85,18 +98,19 @@ export function ManagementPanel({
     async (signal: AbortSignal, resultNotice?: string): Promise<void> => {
       if (!actionToken) throw new Error("management_unavailable");
       setData({});
+      setUsersView(null);
+      setPermissions(null);
       const next: Partial<Record<ManagementView, ManagementResult>> = {};
-      for (const [key, path] of Object.entries(sessionViews)) {
-        const view = key as keyof typeof sessionViews;
-        const response = await fetch(path, {
-          cache: "no-store",
-          credentials: "same-origin",
-          signal,
-        });
+      let currentUsers: WorkbenchManagementUsers | null = null;
+      let currentPermissions: ManagementPermissions | null = null;
+      for (const view of ["current", "users", "repositories"] as const) {
+        const response = await requestManagementView(view, signal);
+        if (signal.aborted) return;
         if (response.status === 401 || response.status === 403)
           onSessionUnavailable?.(false, resultNotice);
         if (!response.ok) throw new Error("management_unavailable");
         const value: unknown = await response.json();
+        if (signal.aborted) return;
         if (
           !value ||
           typeof value !== "object" ||
@@ -104,13 +118,24 @@ export function ManagementPanel({
           value.formToken !== actionToken
         )
           throw new Error("management_unavailable");
+        if (view === "users") {
+          currentUsers = inspectWorkbenchManagementUsers(value);
+          continue;
+        }
         const { formToken: _token, ...projection } = value;
-        const result = validateManagementResponse(projection, view);
+        const { management, ...ordinary } = projection as Record<
+          string,
+          unknown
+        >;
+        if (view !== "current" && Object.hasOwn(projection, "management"))
+          throw new Error("management_unavailable");
+        const result = validateManagementResponse(ordinary, view);
         next[view] = result;
         if (view === "current") {
           if (result.status !== "completed" || !("user" in result))
             throw new Error("management_unavailable");
-          if (result.user.role === "developer") {
+          currentPermissions = readManagementPermissions(management);
+          if (!currentPermissions.openSession) {
             onSessionUnavailable?.(true, resultNotice);
             return;
           }
@@ -118,10 +143,13 @@ export function ManagementPanel({
       }
       if (signal.aborted) return;
       setData(next);
-      if (next.users) onSessionUsers?.(next.users);
+      setUsersView(currentUsers);
+      setPermissions(currentPermissions);
+      if (currentUsers) onSessionUsers?.(currentUsers);
+      if (currentPermissions) onPermissions?.(currentPermissions);
       setPage(0);
     },
-    [actionToken, onSessionUnavailable, onSessionUsers],
+    [actionToken, onSessionUnavailable, onSessionUsers, onPermissions],
   );
 
   useEffect(() => {
@@ -230,21 +258,14 @@ export function ManagementPanel({
   const current = data.current;
   const actor =
     current?.status === "completed" && "user" in current ? current.user : null;
-  const usersResult = data.users,
-    repositoriesResult = data.repositories;
-  const users =
-    usersResult?.status === "completed" && "users" in usersResult
-      ? (usersResult.users ?? [])
-      : [];
+  const usersResult = usersView;
+  const repositoriesResult = data.repositories;
+  const users = usersResult?.users ?? [];
   const repositories =
     repositoriesResult?.status === "completed" &&
     "repositories" in repositoriesResult
       ? (repositoriesResult.repositories ?? [])
       : [];
-  const availableRoles =
-    actor?.role === "administrator"
-      ? (["developer", "manager", "administrator"] as const)
-      : (["developer", "manager"] as const);
   return (
     <WorkbenchPanel
       id="access-management"
@@ -268,7 +289,7 @@ export function ManagementPanel({
           <p>
             管理ロールは内容の権限を付与しません。共有リポジトリの読み書きは本人のGitホスト権限で決まります。
           </p>
-          {actor.role === "developer" ? (
+          {!permissions?.openSession ? (
             <EmptyState>
               このロールには管理操作を提供しません。本人表示と許可内の利用は可能です。
             </EmptyState>
@@ -276,7 +297,7 @@ export function ManagementPanel({
             <>
               <section>
                 <h3>ユーザー</h3>
-                {usersResult?.status !== "completed" ? (
+                {!usersResult ? (
                   <EmptyState>ユーザー一覧を取得できません。</EmptyState>
                 ) : (
                   <>
@@ -291,44 +312,43 @@ export function ManagementPanel({
                           {user.username}（{ROLE_LABELS[user.role]}）
                         </h4>
                         <code>{user.userId}</code>
-                        <form
-                          onSubmit={(event) => {
-                            void submitManagement(event);
-                          }}
-                        >
-                          <ActionTokenInput value={actionToken} />
-                          <input
-                            type="hidden"
-                            name="operation"
-                            value="updateUserName"
-                          />
-                          <input
-                            type="hidden"
-                            name="expectedRevision"
-                            value={usersResult.revision}
-                          />
-                          <input
-                            type="hidden"
-                            name="userId"
-                            value={user.userId}
-                          />
-                          <label>
-                            新しい表示名
+                        {user.actions.rename && (
+                          <form
+                            onSubmit={(event) => {
+                              void submitManagement(event);
+                            }}
+                          >
+                            <ActionTokenInput value={actionToken} />
                             <input
-                              required
-                              name="username"
-                              defaultValue={user.username}
-                              maxLength={256}
+                              type="hidden"
+                              name="operation"
+                              value="updateUserName"
                             />
-                          </label>
-                          <button type="submit" disabled={busy}>
-                            表示名を変更
-                          </button>
-                        </form>
-                        {actor.role !== "administrator" &&
-                        user.role === "administrator" ? (
-                          <p>管理者のロール変更は管理者だけが操作できます。</p>
-                        ) : (
+                            <input
+                              type="hidden"
+                              name="expectedRevision"
+                              value={usersResult.revision}
+                            />
+                            <input
+                              type="hidden"
+                              name="userId"
+                              value={user.userId}
+                            />
+                            <label>
+                              新しい表示名
+                              <input
+                                required
+                                name="username"
+                                defaultValue={user.username}
+                                maxLength={256}
+                              />
+                            </label>
+                            <button type="submit" disabled={busy}>
+                              表示名を変更
+                            </button>
+                          </form>
+                        )}
+                        {user.actions.changeRoles.length > 0 && (
                           <form
                             onSubmit={(event) => {
                               void submitManagement(event);
@@ -357,8 +377,11 @@ export function ManagementPanel({
                             />
                             <label>
                               変更先ロール
-                              <select name="nextRole" defaultValue={user.role}>
-                                {availableRoles.map((role) => (
+                              <select name="nextRole" defaultValue="" required>
+                                <option value="" disabled>
+                                  変更先を選択
+                                </option>
+                                {user.actions.changeRoles.map((role) => (
                                   <option key={role} value={role}>
                                     {ROLE_LABELS[role]}
                                   </option>
@@ -405,38 +428,39 @@ export function ManagementPanel({
                     <p>
                       登録はログインし、対象リポジトリのGitホストを連携した管理セッションから行います。
                     </p>
-                    {repositories.map((repository) => (
-                      <form
-                        key={repository.repositoryId}
-                        onSubmit={(event) => {
-                          void submitManagement(event);
-                        }}
-                      >
-                        <ActionTokenInput value={actionToken} />
-                        <input
-                          type="hidden"
-                          name="operation"
-                          value="unregisterRepository"
-                        />
-                        <input
-                          type="hidden"
-                          name="expectedRevision"
-                          value={repositoriesResult.revision}
-                        />
-                        <input
-                          type="hidden"
-                          name="repositoryId"
-                          value={repository.repositoryId}
-                        />
-                        <p>
-                          <code>{repository.repositoryId}</code> —
-                          CRDDの利用対象から外します。本体は削除しません。
-                        </p>
-                        <button type="submit" disabled={busy}>
-                          登録を解除
-                        </button>
-                      </form>
-                    ))}
+                    {permissions.unregisterRepository &&
+                      repositories.map((repository) => (
+                        <form
+                          key={repository.repositoryId}
+                          onSubmit={(event) => {
+                            void submitManagement(event);
+                          }}
+                        >
+                          <ActionTokenInput value={actionToken} />
+                          <input
+                            type="hidden"
+                            name="operation"
+                            value="unregisterRepository"
+                          />
+                          <input
+                            type="hidden"
+                            name="expectedRevision"
+                            value={repositoriesResult.revision}
+                          />
+                          <input
+                            type="hidden"
+                            name="repositoryId"
+                            value={repository.repositoryId}
+                          />
+                          <p>
+                            <code>{repository.repositoryId}</code> —
+                            CRDDの利用対象から外します。本体は削除しません。
+                          </p>
+                          <button type="submit" disabled={busy}>
+                            登録を解除
+                          </button>
+                        </form>
+                      ))}
                   </>
                 )}
               </section>

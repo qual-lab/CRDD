@@ -21,6 +21,7 @@ import {
 } from "@qual-lab/crdd-document-model";
 import { getRepository } from "@qual-lab/crdd-version-control";
 import { runChecker, runSemanticCoverage } from "../../src/index.ts";
+import { inspectRealityRepository } from "../../src/repository/reality.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../../src/report/reality.ts";
 import { mapSemanticDomainIssueToDiagnostic } from "../../src/report/semantic.ts";
@@ -249,7 +250,7 @@ test("文書不備とSemantic欠測は公開診断・終了値に届く", () => 
  *
  * @responsibility 合成Manifestの宣言だけを実測・成功とせず、実観測不能を本番Ruleで保持する。
  * @trace RCM-IT-011
- * @precondition 公式形態の専用RootにSourceが存在しないManifestを置く。
+ * @precondition 独自配置に台帳と、Sourceが存在しないManifestを置く。
  * @stimulus Domainの実観測と文書公開APIを呼ぶ。
  * @observation 中立Issue、公開診断全field、終了値、Source不存在を取得する。
  * @oracle 同じ欠測の診断を公開し終了1、Sourceを自動生成しない。
@@ -258,16 +259,90 @@ test("文書不備とSemantic欠測は公開診断・終了値に届く", () => 
  */
 test("Realityの実Source欠測は公開診断と終了1へ届く", () => {
   withRepository((root) => {
+    fs.rmdirSync(path.join(root, "40_Develop"));
     for (const folder of [
-      "template",
-      "06_Architecture/Definitions",
+      "06_Architecture/Definitions/ARCH-000001",
       "07_Quality/Definitions",
-      "40_Develop/sample",
+      "07_Quality/Registry",
+      "packages/sample/tests",
     ])
       fs.mkdirSync(path.join(root, folder), { recursive: true });
-    fs.writeFileSync(path.join(root, "01_Principles.md"), "# Synthetic\n");
+    const architecturePath =
+      "06_Architecture/Definitions/ARCH-000001/sample.md";
+    fs.writeFileSync(path.join(root, architecturePath), "# Sample\n");
+    const testPath = "packages/sample/tests/test_example.py";
+    fs.writeFileSync(path.join(root, testPath), "# A Python test\n");
+    const testIds = ["sample:integration:example"];
+    const architectureAnchor = `${architecturePath}#sample`;
     fs.writeFileSync(
-      path.join(root, "40_Develop/sample/symbol.json"),
+      path.join(root, "07_Quality/Registry/test-catalog.json"),
+      JSON.stringify({
+        contract: "crdd/test-catalog",
+        contractRevision: 11,
+        levels: [
+          "unit",
+          "integration",
+          "system",
+          "acceptance",
+          "performance",
+          "longevity",
+        ],
+        regressionIsSelection: true,
+        resourceIntensiveLevels: ["performance", "longevity"],
+        owners: [
+          {
+            id: "sample",
+            root: "packages/sample",
+            runner: "pytest",
+            coverage: {
+              implementation: ["src/**/*.py"],
+              tests: ["tests/**/test_?.py", "tests/**/test_example.py"],
+              exclude: ["src/ignored.py"],
+            },
+          },
+        ],
+        environments: ["local_python"],
+        executionProfiles: [],
+        sharedRuntimePaths: [],
+        integrationBlocks: ["read", "report"].map((id) => ({
+          id,
+          owner: "sample",
+          architectureAnchor,
+          responsibilities: [id],
+          externalBoundaries: ["filesystem"],
+          lifecycleProfile: "read_only_boundary",
+          testIds,
+          postconditions: ["observed"],
+        })),
+        integrationCorridors: [
+          {
+            id: "audit",
+            architectureAnchor,
+            blockPath: ["read", "report"],
+            testIds,
+            postconditions: ["observed"],
+          },
+        ],
+        consumerBindings: [],
+        tests: [
+          {
+            id: testIds[0],
+            owner: "sample",
+            path: testPath,
+            level: "integration",
+            kind: "contract",
+            semanticTags: ["observation"],
+            environment: "local_python",
+            externalProviderEffect: false,
+            humanInput: false,
+            mandatoryByDefault: true,
+            postconditions: ["observed"],
+          },
+        ],
+      }),
+    );
+    fs.writeFileSync(
+      path.join(root, "packages/sample/symbol.json"),
       JSON.stringify({
         contract: "crdd/reality-symbol-manifest",
         contractRevision: 1,
@@ -276,7 +351,7 @@ test("Realityの実Source欠測は公開診断と終了1へ届く", () => {
           {
             symbolId: "sample.entry",
             kind: "file",
-            path: "src/missing.ts",
+            path: "src/missing.py",
             archIds: ["ARCH-000001"],
           },
         ],
@@ -309,7 +384,7 @@ test("Realityの実Source欠測は公開診断と終了1へ届く", () => {
     );
     assert.equal(error, "");
     const report = JSON.parse(output);
-    assert.equal(report.repository_mode, "official");
+    assert.equal(report.repository_mode, "generic");
     assert.ok(
       report.findings.some(
         (finding: unknown) =>
@@ -318,9 +393,100 @@ test("Realityの実Source欠測は公開診断と終了1へ届く", () => {
       ),
     );
     assert.equal(
-      fs.existsSync(path.join(root, "40_Develop/sample/src/missing.ts")),
+      fs.existsSync(path.join(root, "packages/sample/src/missing.py")),
       false,
     );
+
+    const prefix = "packages/sample/";
+    const manifestPath = path.join(root, prefix, "symbol.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    const tracked = [
+      "src/missing.py",
+      "src/group/sub/m.py",
+      "src/grouped.py",
+      "src/ignored.py",
+      "src/not-python.PY",
+      "tests/test_example.py",
+      "tests/nested/test_a.py",
+      "tests/nested/test_ab.py",
+      "tests/support/data.py",
+    ];
+    for (const relative of [...tracked, "src/untracked.py"]) {
+      const file = path.join(root, prefix, relative);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, "# @crdd ARCH-000001\n");
+    }
+    manifest.symbols.push({
+      symbolId: "sample.group",
+      kind: "module",
+      path: "src/group",
+      archIds: ["ARCH-000001"],
+    });
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    execFileSync(
+      "git",
+      [
+        "-C",
+        root,
+        "add",
+        "--",
+        ...tracked.map((relative) => prefix + relative),
+      ],
+      { windowsHide: true },
+    );
+    const stated = observeRealitySymbolRepository(root);
+    assert.deepEqual(stated.domainIssues, []);
+    assert.deepEqual(stated.manifests[0]?.directoryPaths, ["src/group"]);
+    output = "";
+    runChecker({
+      arguments: ["--root", root, "--json", "--summary"],
+      cwd: root,
+      writeOutput: (value) => {
+        output += value;
+      },
+      writeError: (value) => {
+        error += value;
+      },
+    });
+    const findings: { code: string; path: string }[] =
+      JSON.parse(output).findings;
+    assert.deepEqual(
+      findings
+        .filter(
+          ({ code }) =>
+            code === "reality-implementation-unregistered" ||
+            code === "reality-test-unregistered",
+        )
+        .map(({ path }) => path)
+        .sort(),
+      [`${prefix}src/grouped.py`, `${prefix}tests/nested/test_a.py`],
+    );
+    const unobservable: string[] = [];
+    inspectRealityRepository(root, ({ code }) => unobservable.push(code));
+    assert.deepEqual(unobservable, ["reality-coverage-unobservable"]);
+    const catalogPath = path.join(
+      root,
+      "07_Quality/Registry/test-catalog.json",
+    );
+    const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
+    delete catalog.owners[0].coverage;
+    fs.writeFileSync(catalogPath, JSON.stringify(catalog));
+    const disabled: string[] = [];
+    inspectRealityRepository(root, ({ code }) => disabled.push(code));
+    assert.deepEqual(disabled, []);
+  });
+});
+
+test("台帳の不存在だけを実装照合の適用外にする", () => {
+  withRepository((root) => {
+    const findings: string[] = [];
+    const inspect = () =>
+      inspectRealityRepository(root, ({ code }) => findings.push(code));
+    inspect();
+    assert.deepEqual(findings, []);
+    fs.writeFileSync(path.join(root, "07_Quality", "Registry"), "");
+    inspect();
+    assert.deepEqual(findings, ["reality-symbol-test-catalog-unobservable"]);
   });
 });
 

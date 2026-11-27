@@ -12,31 +12,26 @@
 import assert from "node:assert/strict";
 import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
-import { isDeepStrictEqual } from "node:util";
-import { runInThisContext } from "node:vm";
-import * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import type * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as isolation from "@qual-lab/crdd-docker-isolation";
+import type * as executor from "@qual-lab/crdd-executor";
 import * as model from "@qual-lab/crdd-execution-model";
 import * as domain from "@qual-lab/crdd-execution-model";
 import * as stateStore from "@qual-lab/crdd-execution-model";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   historyRepositoryInput,
-  recoveryStorageInput,
-  observeRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
   withHistoryRetention,
 } from "../../src/lifecycle/host.ts";
 import * as bindings from "../../src/lifecycle/host.ts";
-import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
@@ -330,100 +325,77 @@ const isolationModule = {
 };
 
 /**
- * 実修復関数の本文だけを、実Writerと明示的な模擬技術境界へ接続する。
- * @responsibility Moduleの先行評価順に依存せず、実Docker処理を呼出し対象から除外する。
+ * 本番の修復操作を実Writerと明示的な模擬技術境界へ接続する。
+ * @responsibility 本番モジュールを読む前に、許可した三つの技術操作を代役へ結合する。
  * @trace ERB-IT-014
- * @precondition Repository内の固定Sourceと既存の保存・技術fixtureだけを使用する。
- * @stimulus 実関数本文を型除去し、有限な名前付き依存へ結合する。
+ * @precondition 実保存と有限な技術fixtureだけを使用する。
+ * @stimulus 本番モジュールを正規パスから読み込む。
  * @observation 実Writerの保存・故障注入と模擬技術処理への到達数。
  * @oracle 技術三操作は同じ明示fixtureのみ。欠落依存を実処理で補完しない。
  * @cleanup N/A: 組立て自体はメモリだけ。試験Rootは各Caseの終了hookが回収する。
  * @boundary 実Filesystem保存と模擬Docker。公開API全体の実境界成立とは区別する。
  */
-function createRepairOwnerFixture() {
-  const body = sourceDeclaration(
-    fs.readFileSync(
-      new URL("../../src/lifecycle/environment.ts", import.meta.url),
-      "utf8",
+async function loadRepairOperation() {
+  const unexpected = () => {
+    throw new Error("unexpected_external_operation");
+  };
+  const fixtures = [
+    mock.module(
+      import.meta.resolve("@qual-lab/crdd-execution-model"),
+      storeModule,
     ),
-    "executeDockerRepair",
-  );
-  const dependencies = {
-    ...model,
-    ...storeModule.namedExports,
-    Date,
-    isDeepStrictEqual,
-    snapshotJsonValue,
-    createHash,
-    randomBytes,
-    randomUUID,
-    historyRepositoryInput,
-    recoveryStorageInput,
-    withHistoryRetention,
-    observeRepositoryExecutionDataArea,
-    getRepository,
-    borrowCoordinatorRecoveryRepository:
-      bindings.borrowCoordinatorRecoveryRepository,
-    canonicalJson,
-    runRepairSession: isolationModule.namedExports.runRepairSession,
-    observeRepairDirectories:
-      isolationModule.namedExports.observeRepairDirectories,
-    cleanupRepairDirectory: isolationModule.namedExports.cleanupRepairDirectory,
-  };
-  const names = [
-    "Date",
-    "isDeepStrictEqual",
-    "snapshotJsonValue",
-    "createHash",
-    "randomBytes",
-    "randomUUID",
-    "historyRepositoryInput",
-    "recoveryStorageInput",
-    "withHistoryRetention",
-    "observeRepositoryExecutionDataArea",
-    "getRepository",
-    "runRepairSession",
-    "borrowCoordinatorRecoveryRepository",
-    "canonicalJson",
-    "observeRepairDirectories",
-    "readState",
-    "readExecutionStorageBinding",
-    "saveRecoveryHistory",
-    "completeRecovery",
-    "resumeRepairRecordSave",
-    "saveRepairRecord",
-    "cleanupRepairDirectory",
-  ] as const;
-  const realOperations = {
-    runRepairSession: directoryOperations.runRepairSession,
-    observeRepairDirectories: directoryOperations.observeRepairDirectories,
-    cleanupRepairDirectory: directoryOperations.cleanupRepairDirectory,
-  };
-  for (const name of [
-    "runRepairSession",
-    "observeRepairDirectories",
-    "cleanupRepairDirectory",
-  ] as const) {
-    assert.notEqual(
-      dependencies[name],
-      realOperations[name],
-      `real Docker dependency rejected: ${name}`,
-    );
+    mock.module(import.meta.resolve("@qual-lab/crdd-docker-isolation"), {
+      namedExports: {
+        describeIsolationConfiguration:
+          isolation.describeIsolationConfiguration,
+        initializeIsolation: () => ({
+          windowsDirectory: "C:/Windows",
+          userHomeDirectory: "C:/Users/test",
+        }),
+      },
+    }),
+    mock.module(import.meta.resolve("@qual-lab/crdd-executor"), {
+      namedExports: {
+        createExecutor: unexpected,
+        startDockerEnvironment: unexpected,
+        restartDockerEnvironment: (
+          request: Parameters<typeof executor.restartDockerEnvironment>[0],
+        ) => {
+          assert.equal(request.mode, "repair");
+          return isolationModule.namedExports.runRepairSession(request.input);
+        },
+        inspectResources: (
+          target: Parameters<typeof executor.inspectResources>[0],
+        ) => {
+          assert.equal(target.kind, "docker_runtime_directory");
+          return isolationModule.namedExports.observeRepairDirectories(
+            target.input,
+          );
+        },
+        cleanupResources: (
+          target: Parameters<typeof executor.cleanupResources>[0],
+        ) => {
+          assert.equal(target.kind, "docker_runtime_directory");
+          return isolationModule.namedExports.cleanupRepairDirectory(
+            target.input,
+          );
+        },
+      },
+    }),
+  ];
+  try {
+    const environment = await import("../../src/lifecycle/environment.ts");
+    assert.deepEqual(environment.getIsolationSettings(), {
+      windowsDirectory: "C:/Windows",
+      userHomeDirectory: "C:/Users/test",
+    });
+    return environment.executeDockerRepair;
+  } finally {
+    for (const fixture of fixtures.reverse()) fixture.restore();
   }
-  for (const name of names)
-    assert.notEqual(
-      dependencies[name],
-      undefined,
-      `missing fixture dependency: ${name}`,
-    );
-  return runInThisContext(
-    `(function(deps){ const {${names.join(",")}} = deps; const getIsolationSettings = () => ({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return executeDockerRepair; })`,
-  )(
-    dependencies,
-  ) as typeof import("../../src/lifecycle/environment.ts").executeDockerRepair;
 }
 
-const executeDockerRepair = createRepairOwnerFixture();
+const executeDockerRepair = await loadRepairOperation();
 
 /**
  * 保存故障ごとに独立したRepositoryを用意する。

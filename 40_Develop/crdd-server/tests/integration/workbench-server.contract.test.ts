@@ -19,7 +19,7 @@
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import childProcess, { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import {
@@ -37,15 +37,7 @@ import { syncBuiltinESMExports } from "node:module";
 import { connect } from "node:net";
 import path from "node:path";
 import test from "node:test";
-import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
-import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
-import {
-  executionSelection,
-  selectionConfig,
-} from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
@@ -54,16 +46,23 @@ import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "@qual-lab/crdd-version-control";
-import { requestRaw, requestTransport } from "../support/workbench-http.ts";
+import { prepareAccessStore } from "../support/access-store.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import {
-  createRepositoryWorkbenchActivityReader,
-  readProjectViewData,
-  startWorkbench,
-  type WorkbenchActivityReader,
+  executionSelection,
+  selectionConfig,
+} from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
+import {
   type AiRequestCommand,
   type AiRequests,
+  readProjectViewData,
+  startWorkbench,
 } from "../../src/app.ts";
+import { readRepositoryExecutionActivity } from "../../src/service/execution.ts";
 import type { ViewResponse } from "../../src/transport/api-types.ts";
+import { startSharedFixture } from "../support/shared-sign-in.ts";
+import { requestRaw, requestTransport } from "../support/workbench-http.ts";
 import { assertViewResponse } from "../support/workbench-wire.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
@@ -108,7 +107,7 @@ async function requestClientModel(
   );
   const response = await requestTransport(
     baseUrl,
-    `/api/workbench/view?${parameters.toString()}`,
+    `/api/workbench/overview?${parameters.toString()}`,
   );
   assert.equal(response.status, 200);
   return assertViewResponse(JSON.parse(response.body.toString("utf8")));
@@ -262,7 +261,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     );
     assert.match(serializedModel, /今どうなっているか/u);
     assert.match(serializedModel, /何が危ない、または止まっているか/u);
-    assert.notEqual(model.executionActivity, undefined);
+    assert.equal(Object.hasOwn(model, "executionActivity"), false);
     assert.equal(model.projectData.plan.projection?.targetVersion, "v0.22.0");
     assert.equal(
       model.projectData.plan.projection?.targetReleaseDate,
@@ -368,13 +367,16 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     assert.equal(roadmap.status, 200);
     assert.equal(roadmap.headers["content-type"], "text/html; charset=utf-8");
     assert.match(roadmap.body.toString("utf8"), /data-workbench-react-root/u);
-    const roadmapModel = await requestClientModel(
+    const home = await requestMainModel(handle.baseUrl);
+    const artifacts = `/api/repositories/${home.projectData.context.repositoryId}/artifacts`;
+    const roadmapResource = await requestRaw(
       handle.baseUrl,
-      "/owner-artifact?path=99_Roadmap%2F01_Roadmap.md",
+      `${artifacts}?path=99_Roadmap%2F01_Roadmap.md`,
     );
-    assert.equal(roadmapModel.view, "artifact");
-    if (roadmapModel.view === "artifact")
-      assert.match(roadmapModel.artifact.markdown, /^# CRDD Roadmap/mu);
+    assert.equal(roadmapResource.status, 200);
+    const roadmapModel = JSON.parse(roadmapResource.body.toString("utf8"));
+    assert.equal(roadmapModel.scope, "single");
+    assert.match(roadmapModel.markdown, /^# CRDD Roadmap/mu);
 
     const filteredDocuments = await requestClientModel(
       handle.baseUrl,
@@ -396,25 +398,31 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       "/owner-artifact?path=99_Roadmap%2F03_Releases.md",
     );
     assert.equal(releaseProjection.status, 200);
-    const releaseModel = await requestClientModel(
+    const releaseResource = await requestRaw(
       handle.baseUrl,
-      "/owner-artifact?path=99_Roadmap%2F03_Releases.md",
+      `${artifacts}?path=99_Roadmap%2F03_Releases.md`,
     );
-    assert.equal(releaseModel.view, "artifact");
-    if (releaseModel.view === "artifact")
-      assert.match(releaseModel.artifact.markdown, /^# CRDD Releases/mu);
+    assert.equal(releaseResource.status, 200);
+    const releaseModel = JSON.parse(releaseResource.body.toString("utf8"));
+    assert.equal(releaseModel.scope, "single");
+    assert.match(releaseModel.markdown, /^# CRDD Releases/mu);
 
     const arbitraryDocument = await requestRaw(
       handle.baseUrl,
-      "/api/workbench/view?route=%2Fowner-artifact&path=package.json",
+      `${artifacts}?path=package.json`,
     );
     assert.equal(arbitraryDocument.status, 400);
 
     const traversal = await requestRaw(
       handle.baseUrl,
-      "/api/workbench/view?route=%2Fowner-artifact&path=..%2Foutside.md",
+      `${artifacts}?path=..%2Foutside.md`,
     );
     assert.equal(traversal.status, 400);
+    const retired = await requestClientModel(
+      handle.baseUrl,
+      "/owner-artifact?path=99_Roadmap%2F03_Releases.md",
+    );
+    assert.equal(retired.view, "main");
 
     const health = await requestRaw(
       handle.baseUrl,
@@ -447,11 +455,11 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
  * @precondition localhost Serverだけを起動し、処置前拒否に使う不正Workspace Formを用意する。
  * @stimulus 正規化を要するraw Path、管理GETとHEAD、旧Candidate入口、二重slashを含む絶対URLを逐次要求する。
  * @observation HTTP状態・固定本文・管理の非秘密な未構成結果を取得する。
- * @oracle Workspace不正入力は400、管理HEADは404。撤去した候補操作の正規化URLも一般の未対応POST（405）となる。二重slash Pathは404／405のままで正常入口へ変化せず、操作を発行しない。
+ * @oracle Workspace不正入力は400、未登録APIはHEADも含め404。二重slash Pathは正常入口へ変化せず、操作を発行しない。
  * @cleanup finallyで所有Serverをjoinし、終了後の接続拒否を確認する。
  * @boundary raw HTTPと現在のURL解釈・操作別Handler。外部AI・Docker・保存は使用しない。
  */
-test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", async () => {
+test("Route分割はraw URLを正規化し、未登録APIと既知経路の非対応メソッドを区別する", async () => {
   const handle = await startWorkbench({ workingDirectory: repositoryRoot });
   try {
     const model = await requestMainModel(handle.baseUrl);
@@ -520,7 +528,7 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
         `/${operation}/`,
         "POST",
       );
-      assert.equal(trailing.status, 405, operation);
+      assert.equal(trailing.status, 404, operation);
     }
     const normalized = await requestRaw(
       handle.baseUrl,
@@ -537,19 +545,19 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
       "http://synthetic.invalid/x/../api/repository",
       "POST",
     );
-    assert.equal(retiredRepository.status, 405);
+    assert.equal(retiredRepository.status, 404);
     const obsolete = await requestRaw(
       handle.baseUrl,
       "http://synthetic.invalid/x/../api/records",
       "POST",
     );
-    assert.equal(obsolete.status, 405);
+    assert.equal(obsolete.status, 404);
     const retiredSelection = await requestRaw(
       handle.baseUrl,
       "http://synthetic.invalid/x/../api/ai-selection",
       "POST",
     );
-    assert.equal(retiredSelection.status, 405);
+    assert.equal(retiredSelection.status, 404);
   } finally {
     await handle.close();
   }
@@ -615,53 +623,75 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
     const model = await requestClientModel(handle.baseUrl);
     assert.equal(model.view, "main");
     if (model.view !== "main") return;
-    assert.notEqual(model.portfolio, null);
-    assert.notEqual(model.portfolioPage.nextCursor, null);
-    const filtered = await requestClientModel(
-      handle.baseUrl,
-      `/?portfolioQuery=${encodeURIComponent(surface.context.projectId)}&portfolioState=partial`,
+    assert.equal(model.portfolioAvailable, true);
+    assert.equal(Object.hasOwn(model, "portfolio"), false);
+    const readProjects = async (query: string) => {
+      const reply = await requestRaw(handle.baseUrl, `/api/projects?${query}`);
+      assert.equal(reply.status, 200);
+      return JSON.parse(reply.body.toString("utf8"));
+    };
+    const page = await readProjects("limit=20");
+    assert.equal(page.projects.length, 20);
+    assert.notEqual(page.nextCursor, null);
+    const next = await readProjects(
+      `limit=20&cursor=${encodeURIComponent(page.nextCursor)}`,
     );
-    assert.equal(filtered.view, "main");
-    if (filtered.view !== "main") return;
+    assert.equal(next.projects.length, 2);
+    assert.equal(next.nextCursor, null);
+    const q = `q=${encodeURIComponent(surface.context.projectId)}&state=partial`;
+    const filtered = await readProjects(q);
     assert.deepEqual(
-      filtered.portfolio?.projects.map((project) => project.projectId),
+      filtered.projects.map(
+        (project: { projectId: string }) => project.projectId,
+      ),
       [surface.context.projectId],
     );
-    assert.equal(filtered.portfolio?.projects[0]?.state, "partial");
-    assert.equal(filtered.portfolio?.projects[0]?.sources.length, 2);
+    assert.equal(filtered.projects[0]?.state, "partial");
+    assert.equal(filtered.projects[0]?.sources.length, 2);
     assert.equal(
-      filtered.portfolio?.projects[0]?.sources[1]?.repositoryId,
+      filtered.projects[0]?.sources[1]?.repositoryId,
       "visible-missing-source",
     );
-    assert.equal(filtered.portfolio?.projects[0]?.sources[1]?.state, "missing");
+    assert.equal(filtered.projects[0]?.sources[1]?.state, "missing");
+    assert.equal(
+      Object.hasOwn(filtered.projects[0]?.sources[0], "context"),
+      false,
+    );
     const mismatchedCursor = Buffer.from(
-      JSON.stringify(["different-query", "partial", surface.context.projectId]),
+      JSON.stringify([
+        "different-query",
+        "partial",
+        "",
+        surface.context.projectId,
+      ]),
       "utf8",
     ).toString("base64url");
-    const rejectedCursor = await requestClientModel(
-      handle.baseUrl,
-      `/?portfolioQuery=${encodeURIComponent(surface.context.projectId)}&portfolioState=partial&portfolioCursor=${encodeURIComponent(mismatchedCursor)}`,
+    const rejectedCursor = await readProjects(
+      `${q}&cursor=${encodeURIComponent(mismatchedCursor)}`,
     );
-    assert.equal(rejectedCursor.view, "main");
-    if (rejectedCursor.view === "main")
-      assert.equal(rejectedCursor.portfolioPage.cursorInvalid, true);
-    const detail = await requestClientModel(
+    assert.equal(rejectedCursor.cursorInvalid, true);
+    assert.deepEqual(rejectedCursor.projects, []);
+    const detail = await requestRaw(
+      handle.baseUrl,
+      `/api/projects/${encodeURIComponent(surface.context.projectId)}`,
+    );
+    assert.equal(detail.status, 200);
+    const project = JSON.parse(detail.body.toString("utf8"));
+    assert.equal(project.projectId, surface.context.projectId);
+    assert.equal(project.sources.length, 2);
+    assert.equal(
+      project.sources[0]?.context?.scenes[0]?.title,
+      "今どうなっているか",
+    );
+    assert.equal(project.sources[1]?.context, null);
+    const oldSelector = await requestClientModel(
       handle.baseUrl,
       `/project?id=${encodeURIComponent(surface.context.projectId)}`,
     );
-    assert.equal(detail.view, "project-detail");
-    if (detail.view === "project-detail") {
-      assert.equal(detail.project.projectId, surface.context.projectId);
-      assert.equal(detail.project.sources.length, 2);
-      assert.equal(
-        detail.project.sources[0]?.context?.scenes[0]?.title,
-        "今どうなっているか",
-      );
-      assert.equal(detail.project.sources[1]?.context, null);
-    }
+    assert.equal(oldSelector.view, "main");
     const undisclosed = await requestRaw(
       handle.baseUrl,
-      "/api/workbench/view?route=%2Fproject&id=PRJ-UNDISCLOSED",
+      "/api/projects/PRJ-UNDISCLOSED",
     );
     assert.equal(undisclosed.status, 404);
   } finally {
@@ -670,9 +700,9 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
 });
 
 /**
- * 旧鍵処置のURLは、以前の管理者に有効だった資格でも保存を行わない。 @trace ARCH-000013
+ * 共有の未認証要求はリポジトリ操作やAI依頼を開始しない。 @trace ARCH-000013
  */
-test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を読まず保存しない", async (t) => {
+test("共有の未認証要求はリポジトリ操作とAI依頼で管理状態を読まず保存しない", async (t) => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   const directory = await mkdtemp(path.join(testRoot, "workbench-am-"));
@@ -686,7 +716,6 @@ test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を�
   });
   const adminId = "00000000-0000-4000-8000-000000000003";
   const developerId = "00000000-0000-4000-8000-000000000004";
-  const material = createRetiredCredentialFixture();
   const state: AccessManagementState = {
     contract: "crdd-access-management/state",
     schemaRevision: 4,
@@ -704,12 +733,11 @@ test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を�
       connection: "account_confirmed",
     },
   };
-  const current = path.join(directory, "access-management.json");
+  const { root, directory: store } = prepareAccessStore(directory);
+  const current = path.join(store, "access-management.json");
   await writeFile(current, JSON.stringify(state));
-  const root = createFilesystemStoreRoot(directory);
-  assert.ok(root);
   const before = await readFile(current);
-  const initialEntries = (await readdir(directory)).sort();
+  const initialEntries = (await readdir(store)).sort();
   const rename = fs.renameSync;
   let publications = 0;
   const observed = t.mock.method(
@@ -722,20 +750,19 @@ test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を�
   );
   t.after(() => observed.mock.restore());
   for (const configuration of [{}, { localAccessRoot: root }] as const) {
-    const handle = await startWorkbench({
+    const start =
+      "localAccessRoot" in configuration ? startSharedFixture : startWorkbench;
+    const handle = await start({
       workingDirectory: repositoryRoot,
       ...configuration,
     });
     try {
-      const runningEntries = (await readdir(directory)).sort();
+      const runningEntries = (await readdir(store)).sort();
       const model = await requestClientModel(handle.baseUrl);
       assert.ok("actionToken" in model);
       const headers = {
         Origin: handle.baseUrl,
         "Content-Type": "application/x-www-form-urlencoded",
-        ...(Object.keys(configuration).length > 0 && {
-          Authorization: `Bearer ${material.token}`,
-        }),
       };
       const open = fs.openSync;
       let managementReads = 0;
@@ -752,23 +779,6 @@ test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を�
         fs.closeSync(fs.openSync(current, "r"));
         assert.equal(managementReads, 1);
         managementReads = 0;
-        for (const target of [
-          "/api/access?view=users",
-          "/api/access/credentials",
-          "/api/access/connection",
-        ]) {
-          for (const method of ["GET", "HEAD", "POST"] as const) {
-            const retired = await requestTransport(
-              handle.baseUrl,
-              target,
-              method,
-              method === "POST" ? "operation=registerUser" : "",
-              headers,
-            );
-            assert.equal(retired.status, 404, `${method} ${target}`);
-            assert.equal(retired.body.byteLength, 0);
-          }
-        }
         if ("localAccessRoot" in configuration) {
           const stage = await requestTransport(
             handle.baseUrl,
@@ -819,44 +829,13 @@ test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を�
         syncBuiltinESMExports();
       }
       assert.equal(managementReads, 0);
-      for (const operation of [
-        "issue",
-        "revoke",
-        "exchange-user",
-        "exchange-all",
-      ]) {
-        const payload = new URLSearchParams({
-          actionToken: "retired-management-token",
-          operation,
-          userId: adminId,
-          expectedRevision: "1",
-        });
-        if (operation === "revoke")
-          payload.set("credentialId", material.credentialId);
-        if (operation.startsWith("exchange-")) {
-          payload.set(
-            "displayedOldCredentialIds",
-            JSON.stringify([material.credentialId]),
-          );
-          payload.set("confirmed", "true");
-        }
-        const reply = await requestTransport(
-          handle.baseUrl,
-          "/api/access/credentials",
-          "POST",
-          payload.toString(),
-          headers,
-        );
-        assert.equal(reply.status, 404, operation);
-        assert.equal(reply.body.byteLength, 0);
-        assert.equal(publications, 0);
-        assert.deepEqual(await readFile(current), before);
-        assert.deepEqual((await readdir(directory)).sort(), runningEntries);
-      }
+      assert.equal(publications, 0);
+      assert.deepEqual(await readFile(current), before);
+      assert.deepEqual((await readdir(store)).sort(), runningEntries);
     } finally {
       await handle.close();
     }
-    assert.deepEqual((await readdir(directory)).sort(), initialEntries);
+    assert.deepEqual((await readdir(store)).sort(), initialEntries);
   }
 });
 
@@ -872,7 +851,7 @@ test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を�
  * @cleanup Workbenchを閉じ、Fixtureを再帰削除する。
  * @boundary RFD-IT-014=Direct Boundary: workbench Test Source→対象契約
  */
-test("Token付きRepository操作で選択PathだけをStage・Commit・通常公開する", async () => {
+test("Token付きRepository操作で選択PathだけをStage・Commit・通常公開する", async (t) => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testRoot, "workbench-repository-"));
@@ -918,6 +897,101 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     const initial = await requestMainModel(handle.baseUrl);
     const token = initial.actionToken;
     const repositoryPath = `/api/repositories/${initial.projectData.context.repositoryId}`;
+    const readFiles = (suffix: string, method = "GET") =>
+      fetch(`${handle?.baseUrl}${repositoryPath}/worktree${suffix}`, {
+        method,
+      });
+    const dedicatedTree = await readFiles("/tree");
+    assert.equal(dedicatedTree.status, 200);
+    const tree = await dedicatedTree.json();
+    assert.equal(tree.repositoryId, initial.projectData.context.repositoryId);
+    assert.equal(tree.kind, "tree");
+    assert.ok(
+      tree.tree.entries.some(
+        (entry: { path: string }) => entry.path === "work.txt",
+      ),
+    );
+    assert.equal(Object.hasOwn(tree, "diff"), false);
+    const dedicatedDiff = await readFiles("/diff?path=work.txt");
+    assert.equal(dedicatedDiff.status, 200);
+    const patch = await dedicatedDiff.json();
+    assert.equal(patch.repositoryId, initial.projectData.context.repositoryId);
+    assert.equal(patch.kind, "diff");
+    assert.equal(patch.diff.path, "work.txt");
+    assert.match(patch.diff.workingPatch, /\+changed/u);
+    assert.equal(Object.hasOwn(patch, "tree"), false);
+    const head = await readFiles("/tree", "HEAD");
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), "");
+    const methodNotAllowed = await readFiles("/diff", "POST");
+    assert.equal(methodNotAllowed.status, 405);
+    assert.equal(methodNotAllowed.headers.get("allow"), "GET, HEAD");
+    assert.equal(
+      (await readFiles("/diff?path=work.txt&path=elsewhere")).status,
+      400,
+    );
+    assert.equal((await readFiles("/tree?directory=..%2Foutside")).status, 503);
+    assert.equal(
+      (
+        await fetch(
+          `${handle.baseUrl}/api/repositories/repository.other/worktree/tree`,
+        )
+      ).status,
+      404,
+    );
+    const manifestPath = path.join(
+      fixture,
+      ".crdd",
+      "config",
+      "repository-manifest.json",
+    );
+    await mkdir(path.dirname(manifestPath), { recursive: true });
+    const manifest = {
+      schema: "crdd/repository-manifest/v2",
+      repositoryId: initial.projectData.context.repositoryId,
+      projectId: initial.projectData.context.projectId,
+      displayName: "試験リポジトリ",
+      repositoryRole: "development",
+      capabilities: [],
+      contextSurfaces: [],
+      externalSendPolicy: null,
+    };
+    const replaceManifest = (repositoryId: string) =>
+      fs.writeFileSync(
+        manifestPath,
+        JSON.stringify({ ...manifest, repositoryId }),
+      );
+    replaceManifest("repository.changed");
+    assert.equal((await readFiles("/diff?path=work.txt")).status, 404);
+    replaceManifest(manifest.repositoryId);
+    const originalSpawn = childProcess.spawnSync;
+    let changedDuringDiff = false;
+    const spawned = t.mock.method(
+      childProcess,
+      "spawnSync",
+      (...args: Parameters<typeof originalSpawn>) => {
+        const outcome = originalSpawn(...args);
+        if (!changedDuringDiff && args[1]?.includes("--unified=3")) {
+          changedDuringDiff = true;
+          replaceManifest("repository.changed");
+        }
+        return outcome;
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      const interrupted = await readFiles("/diff?path=work.txt");
+      assert.equal(changedDuringDiff, true);
+      assert.equal(interrupted.status, 503);
+      assert.deepEqual(await interrupted.json(), {
+        error: "repository_files_unavailable",
+      });
+    } finally {
+      spawned.mock.restore();
+      syncBuiltinESMExports();
+      replaceManifest(manifest.repositoryId);
+    }
+    assert.equal((await readFiles("/diff?path=work.txt")).status, 200);
     const writeGit = (path: string, body: object, actionToken = token) =>
       fetch(`${handle?.baseUrl}${path}`, {
         method: "POST",
@@ -928,21 +1002,16 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
         },
         body: JSON.stringify(body),
       });
-    assert.ok(
-      initial.worktree.tree?.entries.some((entry) => entry.path === "work.txt"),
+    const overview = await requestMainModel(
+      handle.baseUrl,
+      "/?diffPath=work.txt&treeDirectory=.",
     );
-    const diff = await requestMainModel(handle.baseUrl, "/?diffPath=work.txt");
-    assert.match(diff.worktree.diff?.workingPatch ?? "", /\+changed/u);
+    assert.equal(Object.hasOwn(overview, "worktree"), false);
     assert.ok(
-      diff.projectData.repository.changeSet?.workingChanges.includes(
+      overview.projectData.repository.changeSet?.workingChanges.includes(
         "work.txt",
       ),
     );
-    const invalidTree = await requestMainModel(
-      handle.baseUrl,
-      "/?treeDirectory=..%2Foutside",
-    );
-    assert.equal(invalidTree.worktree.state, "unknown");
     const rejected = await writeGit(
       `${repositoryPath}/staging`,
       { path: "work.txt" },
@@ -1089,7 +1158,7 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
  * @boundary CPR-IT-010=Direct Boundary: workbench Test Source→対象契約
  * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
-test("WorkbenchからTopicを登録・表示・編集・削除する", async () => {
+test("WorkbenchからTopicを登録・表示・編集・削除する", async (t) => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   for (const directory of [path.join(repositoryRoot, ".crdd"), testRoot]) {
     try {
@@ -1180,8 +1249,11 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       "kind=topic&operation=create",
       { Origin: base },
     );
-    assert.equal(retired.status, 405);
-    const created = await requestMainModel(handle.baseUrl);
+    assert.equal(retired.status, 404);
+    const [created, concurrent] = await Promise.all([
+      requestMainModel(base),
+      requestMainModel(base),
+    ]);
     assert.match(
       JSON.stringify(created.topicPage.records[0]),
       /"topicId":"TOPIC-000042"/u,
@@ -1191,6 +1263,13 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       "Workbench CRUDを確認する。",
     );
     assert.equal(created.recordDocuments[0]?.id, "TOPIC-000042");
+    // 更新印の消費順にかかわらず、同じ保存済み内容を返す。
+    const cached = await requestMainModel(base);
+    for (const model of [concurrent, cached]) {
+      assert.deepEqual(model.projectData.topics, created.projectData.topics);
+      assert.deepEqual(model.topicPage, created.topicPage);
+      assert.deepEqual(model.recordDocuments, created.recordDocuments);
+    }
     const filtered = await requestMainModel(
       handle.baseUrl,
       "/?topicQuery=Workbench&topicState=open&topicOwner=Project%20Operator&topicSort=title_asc",
@@ -1200,35 +1279,54 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       JSON.stringify(filtered.topicPage.records[0]),
       /"topicId":"TOPIC-000042"/u,
     );
-    const detail = await requestClientModel(
-      handle.baseUrl,
-      "/topic?id=TOPIC-000042",
+    const source = path.join(fixture, "22_Topics", "TOPIC-000042", "topic.md");
+    const readFileSync = fs.readFileSync;
+    let sourceReads = 0;
+    const observeSource = t.mock.method(
+      fs,
+      "readFileSync",
+      (...args: Parameters<typeof fs.readFileSync>) => {
+        if (args[0] === source) sourceReads++;
+        return readFileSync(...args);
+      },
     );
-    assert.equal(detail.view, "record-detail");
-    if (detail.view === "record-detail") {
-      assert.equal(detail.record.id, "TOPIC-000042");
-      assert.equal(detail.record.relations[0]?.id, "CHG-000010");
-      assert.equal(detail.record.relations[0]?.state, "available");
-      assert.match(detail.record.document.markdown, /Workbench CRUD/u);
-    }
+    syncBuiltinESMExports();
+    const detail = await requestRaw(handle.baseUrl, topicPath).finally(() => {
+      observeSource.mock.restore();
+      syncBuiltinESMExports();
+    });
+    assert.equal(sourceReads, 1);
+    assert.equal(detail.status, 200);
+    const recordDetail = JSON.parse(detail.body.toString("utf8"));
+    assert.equal(recordDetail.record.topicId, "TOPIC-000042");
+    assert.equal(
+      recordDetail.repositoryId,
+      created.projectData.context.repositoryId,
+    );
+    assert.equal(recordDetail.writable, true);
+    assert.equal(recordDetail.relations[0]?.id, "CHG-000010");
+    assert.equal(recordDetail.relations[0]?.state, "available");
+    assert.match(recordDetail.markdown, /Workbench CRUD/u);
     const change = await requestRaw(handle.baseUrl, "/change?id=CHG-000010");
     assert.equal(change.status, 200);
     assert.match(change.body.toString("utf8"), /data-workbench-react-root/u);
-    const changeModel = await requestClientModel(
+    const changes = `/api/repositories/${created.projectData.context.repositoryId}/changes`;
+    const changeResource = await requestRaw(
       handle.baseUrl,
-      "/change?id=CHG-000010",
+      `${changes}/CHG-000010`,
     );
-    assert.equal(changeModel.view, "artifact");
-    if (changeModel.view === "artifact")
-      assert.match(changeModel.artifact.markdown, /Workbench Relation Change/u);
+    assert.equal(changeResource.status, 200);
+    const changeModel = JSON.parse(changeResource.body.toString("utf8"));
+    assert.equal(changeModel.scope, "single");
+    assert.match(changeModel.markdown, /Workbench Relation Change/u);
     const missingChange = await requestRaw(
       handle.baseUrl,
-      "/api/workbench/view?route=%2Fchange&id=CHG-999999",
+      `${changes}/CHG-999999`,
     );
     assert.equal(missingChange.status, 404);
     const missingDetail = await requestRaw(
       handle.baseUrl,
-      "/api/workbench/view?route=%2Ftopic&id=TOPIC-999999",
+      `${topics}/TOPIC-999999`,
     );
     assert.equal(missingDetail.status, 404);
     const update = await writeRecord(topicPath, "PATCH", {
@@ -1256,19 +1354,15 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       remainingResponsibility: "CHG完了後にCloseを判断する",
     });
     assert.equal(promote.status, 200);
-    const promoted = await requestClientModel(
-      handle.baseUrl,
-      "/topic?id=TOPIC-000042",
+    const promoted = await requestRaw(handle.baseUrl, topicPath);
+    assert.equal(promoted.status, 200);
+    const promotedRecord = JSON.parse(promoted.body.toString("utf8"));
+    assert.equal(promotedRecord.record.state, "promoted");
+    assert.ok(
+      promotedRecord.relations.some(
+        (relation: { id: string }) => relation.id === "CHG-000010",
+      ),
     );
-    assert.equal(promoted.view, "record-detail");
-    if (promoted.view === "record-detail") {
-      assert.equal(promoted.record.document.record.state, "promoted");
-      assert.ok(
-        promoted.record.relations.some(
-          (relation) => relation.id === "CHG-000010",
-        ),
-      );
-    }
     const removal = { expectedRevision: 3, reason: "mistaken_registration" };
     const unconfirmedDelete = await writeRecord(topicPath, "DELETE", {
       ...removal,
@@ -1313,7 +1407,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     const invalidRoute = await writeRecord(`${repository}/unknown`, "POST", {
       markdown: topic(1),
     });
-    assert.equal(invalidRoute.status, 405);
+    assert.equal(invalidRoute.status, 404);
     for (const [target, method, body] of [
       [topics, "POST", { operation: "unknown", markdown: topic(1) }],
       [`${topics}/bad`, "PATCH", { expectedRevision: 1, markdown: topic(2) }],
@@ -1481,21 +1575,29 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
       JSON.stringify(filtered.meetingPage.records[0]),
       /"meetingId":"MTG-000042"/u,
     );
-    const detail = await requestClientModel(
-      handle.baseUrl,
-      "/meeting?id=MTG-000042",
+    const detail = await requestRaw(handle.baseUrl, `${meetings}/MTG-000042`);
+    assert.equal(detail.status, 200);
+    const meetingDetail = JSON.parse(detail.body.toString("utf8"));
+    assert.equal(meetingDetail.record.meetingId, "MTG-000042");
+    assert.equal(meetingDetail.record.pendingOutcomeCount, 0);
+    assert.equal(meetingDetail.record.occurredAt, "2026-09-27 10:00 JST");
+    const manifestPath = path.join(
+      fixture,
+      ".crdd",
+      "config",
+      "repository-manifest.json",
     );
-    assert.equal(detail.view, "record-detail");
-    if (
-      detail.view === "record-detail" &&
-      "pendingOutcomeCount" in detail.record.document.record
-    ) {
-      assert.equal(detail.record.document.record.pendingOutcomeCount, 0);
-      assert.equal(
-        detail.record.document.record.occurredAt,
-        "2026-09-27 10:00 JST",
-      );
-    }
+    await rm(manifestPath);
+    const readOnly = await requestRaw(handle.baseUrl, `${meetings}/MTG-000042`);
+    assert.equal(readOnly.status, 200);
+    const readOnlyMeeting = JSON.parse(readOnly.body.toString("utf8"));
+    assert.deepEqual(readOnlyMeeting.record, meetingDetail.record);
+    assert.equal(readOnlyMeeting.writable, false);
+    const unavailableList = await requestRaw(handle.baseUrl, meetings);
+    assert.equal(unavailableList.status, 404);
+    await writeFile(manifestPath, "invalid", "utf8");
+    const blocked = await requestRaw(handle.baseUrl, `${meetings}/MTG-000042`);
+    assert.equal(blocked.status, 404);
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });
@@ -1614,6 +1716,10 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
       assert.equal(result.aiRequest.snapshot?.mode, mode);
       assert.equal(result.aiRequest.snapshot?.candidate, null);
       assert.equal(result.aiRequest.snapshot?.facts[0]?.text, "<fact>");
+      assert.equal(result.aiRequest.notice, null);
+      const refreshed = await requestMainModel(handle.baseUrl);
+      assert.equal(refreshed.aiRequest.notice, null);
+      assert.equal(refreshed.aiRequest.snapshot?.mode, mode);
     }
     assert.equal(calls, 2);
     const legacy = await requestRaw(
@@ -1683,75 +1789,29 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
  * @cleanup Workbench Handleを閉じる。
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
-test("WorkbenchはOrchestratorの現在投影を実行状況として表示する", async () => {
-  const application: WorkbenchActivityReader = Object.freeze({
-    observe: async (projectId) =>
-      Object.freeze({
-        state: "observed" as const,
-        reason: "coordinator_state_observed",
-        projection: Object.freeze({
-          projectId,
-          milestoneId: "MILESTONE-000001",
-          generation: 3,
-          milestoneState: "in_progress",
-          objectiveCounts: Object.freeze({ running: 1, completed: 2 }),
-          taskCounts: Object.freeze({ queued: 2, running: 1 }),
-          objectiveTaskSummaries: Object.freeze([
-            Object.freeze({
-              objectiveId: "OBJ-000003",
-              objectiveState: "running",
-              taskCounts: Object.freeze({ queued: 2, running: 1 }),
-            }),
-          ]),
-          workProgress: "in_progress",
-          qualityState: "integration_pending",
-          humanDecisionRequired: true,
-          recoveryRequired: false,
-          nextAction: "human_decision",
-        }),
-        eventState: "observed" as const,
-        eventReason: "execution_events_observed",
-        events: Object.freeze([
-          Object.freeze({
-            eventId: `execution-${"a".repeat(64)}`,
-            occurredAt: "2026-09-27T23:50:00.000Z",
-            objectiveId: "OBJ-000003",
-            taskId: "TASK-000004",
-            attemptId: "ATTEMPT-000001",
-            status: "completed" as const,
-            reason: "task_completed",
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-          }),
-        ]),
-        eventContinuation: null,
-      }),
-  });
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-    activityReader: application,
-  });
+test("Workbench概要は実行状態を含めず、専用活動APIが対象を確認する", async () => {
+  const handle = await startWorkbench({ workingDirectory: repositoryRoot });
   try {
     const model = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      model.executionActivity?.projection?.milestoneId,
-      "MILESTONE-000001",
+    assert.equal(Object.hasOwn(model, "executionActivity"), false);
+    const wrong = await requestRaw(
+      handle.baseUrl,
+      "/api/repositories/nonexistent.fixture/activity",
     );
-    assert.equal(
-      model.executionActivity?.projection?.objectiveTaskSummaries[0]
-        ?.objectiveId,
-      "OBJ-000003",
+    assert.equal(wrong.status, 404);
+    const activity = await requestRaw(
+      handle.baseUrl,
+      `/api/repositories/${model.projectData.context.repositoryId}/activity`,
     );
-    assert.equal(
-      model.executionActivity?.projection?.nextAction,
-      "human_decision",
+    assert.equal(activity.status, 200);
+    const observed = JSON.parse(activity.body.toString("utf8"));
+    assert.equal(observed.projectId, model.projectData.context.projectId);
+    assert.deepEqual(
+      observed.sources.map(
+        (source: { repositoryId: string }) => source.repositoryId,
+      ),
+      [model.projectData.context.repositoryId],
     );
-    assert.equal(
-      model.executionActivity?.projection?.humanDecisionRequired,
-      true,
-    );
-    assert.equal(model.executionActivity?.events[0]?.taskId, "TASK-000004");
-    assert.equal(model.executionActivity?.events[0]?.reason, "task_completed");
   } finally {
     await handle.close();
   }
@@ -1870,40 +1930,59 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
       ],
       { windowsHide: true },
     );
-    const identity = {
-      projectId: "project-a",
-      repositoryId: "repository.fixture",
-    };
-    const application = createRepositoryWorkbenchActivityReader(
+    await copyRecordFixtureManifest(fixture);
+    const manifest = path.join(
       fixture,
-      identity,
+      ".crdd",
+      "config",
+      "repository-manifest.json",
     );
-    identity.projectId = "project-b";
-    const first = await application.observe("project-a", { limit: 1 });
+    const seed = JSON.parse(await readFile(manifest, "utf8"));
+    await writeFile(
+      manifest,
+      JSON.stringify({
+        ...seed,
+        projectId: "project-a",
+        repositoryId: "repository.fixture",
+      }),
+      "utf8",
+    );
+    const readActivity = (
+      page: { limit: number; cursor?: string },
+      expectedProjectId = "project-a",
+    ) =>
+      readRepositoryExecutionActivity(
+        "repository.fixture",
+        page,
+        { scope: "local", repositoryRoot: fixture },
+        new AbortController().signal,
+        expectedProjectId,
+      );
+    const first = await readActivity({ limit: 1 });
+    assert.ok(first);
     assert.equal(first.state, "absent");
     assert.equal(first.eventState, "observed");
     assert.equal(first.events[0]?.taskId, "task-new");
     assert.ok(first.eventContinuation);
     if (first.eventContinuation === null)
       throw new Error("runtime_event_continuation_missing");
-    const second = await application.observe("project-a", {
+    const second = await readActivity({
       cursor: first.eventContinuation,
       limit: 1,
     });
+    assert.ok(second);
     assert.equal(second.events[0]?.taskId, "task-old");
     assert.equal(second.eventContinuation, null);
     assert.notEqual(second.events[0]?.eventId, first.events[0]?.eventId);
     assert.doesNotMatch(JSON.stringify([first, second]), /task-hidden/u);
-    const mismatch = await application.observe("project-b");
-    assert.equal(mismatch.state, "unknown");
-    assert.equal(mismatch.eventState, "unknown");
-    assert.equal(mismatch.events.length, 0);
+    assert.equal(await readActivity({ limit: 1 }, "project-b"), null);
     await assert.rejects(
-      application.observe("project-a", { cursor: "invalid" }),
+      readActivity({ limit: 1, cursor: "invalid" }),
+      /runtime_activity_cursor_invalid/u,
     );
-    await assert.rejects(application.observe("project-a", { limit: 51 }));
     await assert.rejects(
-      application.observe("project-a", {
+      readActivity({
+        limit: 1,
         cursor: Buffer.from(
           JSON.stringify([
             "2026-09-28T00:01:00.000Z",
@@ -1911,6 +1990,7 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
           ]),
         ).toString("base64url"),
       }),
+      /runtime_activity_cursor_invalid/u,
     );
     assert.equal(
       fs.existsSync(path.join(fixture, ".crdd", "orchestrator")),
@@ -2233,6 +2313,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     ]);
     assert.deepEqual(fs.readdirSync(path.join(area, "lock")), []);
     const conflict = await put(input);
+    assert.equal(conflict.status, 409);
     assert.equal(JSON.parse(conflict.body.toString("utf8")).status, "conflict");
     const afterCreate = await requestMainModel(handle.baseUrl);
     assert.equal(
@@ -2318,11 +2399,20 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
         bytes,
       );
     }
-    const oversized = {
-      expectedIdentity: identity,
-      config: { text: "x".repeat(3 * 1024 * 1024 + 16 * 1024) },
-    };
-    assert.equal((await put(oversized)).status, 400);
+    const oversized = await requestTransport(
+      baseUrl,
+      selectionPath,
+      "PUT",
+      undefined,
+      {
+        Origin: baseUrl,
+        "Content-Type": "application/json",
+        "Content-Length": String(3 * 1024 * 1024 + 16 * 1024 + 1),
+        "X-CRDD-Action-Token": initial.actionToken,
+      },
+    );
+    assert.equal(oversized.status, 413);
+    assert.equal(oversized.headers.connection, "close");
     assert.equal(
       readRepositoryAiSelection(fixture, getModelCatalog().catalog).snapshot
         ?.identity,

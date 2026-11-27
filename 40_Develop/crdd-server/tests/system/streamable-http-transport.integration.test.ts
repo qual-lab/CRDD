@@ -9,41 +9,44 @@
  * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import {
-  Client,
-  StreamableHTTPClientTransport,
-} from "@modelcontextprotocol/client";
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
 import { type FileHandle, open } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
 import { createConnection } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { prepareHostInitializationRoot } from "../../../access-management/src/initialization/root.ts";
+import {
+  Client,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
-
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { createMcpHttpRequestHandler } from "../../src/transport/mcp-http.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
 import {
   createMcpServerFactory,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
-  createMcpHttpRequestHandler,
-} from "../../src/transport/mcp-server.ts";
-import { startMcpHttpFixture } from "../fixtures/sdk-request.ts";
-import {
   type McpCoordinatorDependencies,
   readMcpServerConfiguration,
 } from "../../src/transport/mcp-server.ts";
 import {
-  startMcpAuthenticatedStreamableHttp,
+  startCoordinatorHttpFixture,
+  startMcpHttpFixture,
+} from "../fixtures/sdk-request.ts";
+import {
+  prepareAccessStore,
+  syntheticSharedEnvironment,
+} from "../support/access-store.ts";
+import { asMcpFixtureFactory } from "../support/mcp-factory.ts";
+import {
   closeMcpHttpOnProcessSignal,
+  fixtureMcpHttpAccess,
+  startMcpAuthenticatedStreamableHttp,
 } from "../support/mcp-http-listener.ts";
-
-import { startCoordinatorHttpFixture } from "../fixtures/sdk-request.ts";
 
 const TOKEN = "local-development-token-0123456789abcdef";
 const revision = "a".repeat(40);
@@ -102,6 +105,39 @@ test("公式SDK ClientはHTTPのdiscover・一覧・実行と旧名拒否を維�
       client.callTool({ name: "crdd.get_runtime_activity", arguments: {} }),
     );
     assert.equal(reads, 1);
+    const invalidArguments = await client.callTool({
+      name: "crdd.list_projects",
+      arguments: { unusedArgumentMarker: true },
+    });
+    assert.equal(invalidArguments.isError, true);
+    assert.deepEqual(invalidArguments.content, [
+      { type: "text", text: "Invalid arguments" },
+    ]);
+    assert.equal(invalidArguments.structuredContent, undefined);
+    assert.equal(reads, 1);
+    const rawCall = (level: string) =>
+      fetch(`http://${server.host}:${server.port}${server.endpoint}`, {
+        method: "POST",
+        headers: headers("tools/call", "crdd.list_projects"),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "legacy-log-level",
+          method: "tools/call",
+          params: {
+            _meta: { ...META, "io.modelcontextprotocol/logLevel": level },
+            name: "crdd.list_projects",
+            arguments: {},
+          },
+        }),
+      });
+    const compatible = await rawCall("warning");
+    assert.equal(compatible.status, 200);
+    assert.ok("result" in (await compatible.json()));
+    assert.equal(reads, 2);
+    const invalid = await rawCall("unused");
+    assert.equal(invalid.status, 400);
+    await invalid.arrayBuffer();
+    assert.equal(reads, 2);
   } finally {
     await client.close();
     await server.close();
@@ -322,10 +358,10 @@ test("共有MCPはHTTPS Origin以外の構成を拒否する", () => {
     assert.throws(
       () =>
         createMcpHttpRequestHandler(
-          () => {
+          fixtureMcpHttpAccess(() => {
             calls++;
             return null;
-          },
+          }),
           { publicOrigin },
         ),
       { message: "mcp_http_configuration_invalid" },
@@ -352,10 +388,10 @@ test("共有MCPはTLS配置不一致を認証前に拒否する", async () => {
     (token) => {
       authenticationCalls++;
       return token === TOKEN
-        ? async () => {
+        ? asMcpFixtureFactory(async () => {
             handlerCalls++;
             return { jsonrpc: "2.0" as const, id: 1, result: { tools: [] } };
-          }
+          })
         : null;
     },
     { port: 0, publicOrigin: "https://mcp.example" },
@@ -743,6 +779,7 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
   const entry = fileURLToPath(
     new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
+  const oauth = syntheticSharedEnvironment(parent);
   for (const mode of ["fresh", "corrupt", "pending", "replace"] as const) {
     const directory = fs.mkdtempSync(
       path.join(parent, "mcp-launch-invalid-state-"),
@@ -753,27 +790,7 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
       fs.rmSync(directory, { recursive: true });
       assert.equal(fs.existsSync(directory), false);
     });
-    const input =
-      process.platform === "win32"
-        ? {
-            platform: "win32" as const,
-            publisher: "qual-lab",
-            application: "cros" as const,
-            trustDomainId: "launch-test",
-            localAppData: directory,
-          }
-        : {
-            platform: "linux" as const,
-            publisher: "qual-lab",
-            application: "cros" as const,
-            trustDomainId: "launch-test",
-            homeDirectory: directory,
-            xdgStateHome: directory,
-          };
-    const prepared = prepareHostInitializationRoot(input);
-    assert.equal(prepared.status, "ready");
-    if (prepared.status !== "ready") continue;
-    const root = prepared.root.root;
+    const { directory: root } = prepareAccessStore(directory, "launch-test");
     if (mode !== "fresh") {
       const name =
         mode === "corrupt"
@@ -785,6 +802,7 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
     const bytes = names.map((name) => fs.readFileSync(path.join(root, name)));
     const environment: NodeJS.ProcessEnv = {
       ...process.env,
+      ...oauth,
       CROS_TRUST_DOMAIN_ID: "launch-test",
       LOCALAPPDATA: directory,
       HOME: directory,
@@ -804,7 +822,12 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
     );
     assert.equal(result.error, undefined);
     assert.equal(result.status, 2, mode);
-    assert.equal(result.stderr.includes("is listening"), false);
+    assert.equal(result.stdout, "", mode);
+    assert.match(
+      result.stderr,
+      /workbench_host_initialization_unavailable/u,
+      mode,
+    );
     assert.deepEqual(fs.readdirSync(root).sort(), names);
     assert.deepEqual(
       names.map((name) => fs.readFileSync(path.join(root, name))),
@@ -990,12 +1013,151 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
       body: JSON.stringify(body),
     });
     assert.equal(origin.status, 403);
-    const mismatch = await fetch(url, {
+    const correct = new Headers(headers(body.method, body.params.name));
+    for (const [name, value] of [
+      ["mcp-name", "private-marker"],
+      ["mcp-name", null],
+      ["mcp-method", "tools/list"],
+      ["mcp-method", null],
+      ["mcp-protocol-version", "private-marker"],
+      ["mcp-protocol-version", null],
+    ] as const) {
+      const changed = new Headers(correct);
+      if (value === null) changed.delete(name);
+      else changed.set(name, value);
+      const mismatch = await fetch(url, {
+        method: "POST",
+        headers: changed,
+        body: JSON.stringify(body),
+      });
+      assert.equal(mismatch.status, 400, `${name}: ${value}`);
+      assert.deepEqual(await mismatch.json(), {
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32020, message: "Header mismatch" },
+      });
+    }
+    const surplus = await fetch(url, {
       method: "POST",
-      headers: { ...headers(body.method, "crdd.start_objective") },
-      body: JSON.stringify(body),
+      headers: headers("tools/list", "private-marker"),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: META },
+      }),
     });
-    assert.equal(mismatch.status, 400);
+    assert.equal(surplus.status, 400);
+    assert.deepEqual(await surplus.json(), {
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32020, message: "Header mismatch" },
+    });
+    for (const claimed of ["private-marker", "2099-01-01", undefined]) {
+      const changed = new Headers(correct);
+      if (claimed) changed.set("mcp-protocol-version", claimed);
+      const wrongClaim = await fetch(url, {
+        method: "POST",
+        headers: changed,
+        body: JSON.stringify({
+          ...body,
+          params: {
+            ...body.params,
+            _meta: {
+              ...META,
+              "io.modelcontextprotocol/protocolVersion": claimed,
+            },
+          },
+        }),
+      });
+      assert.equal(wrongClaim.status, 400);
+      const rejected = await wrongClaim.json();
+      assert.equal(
+        rejected.error.code,
+        claimed === undefined ? -32602 : -32022,
+      );
+      if (claimed !== undefined) {
+        assert.equal(rejected.id, body.id);
+        assert.deepEqual(rejected.error.data.supported, ["2026-07-28"]);
+        assert.equal(
+          rejected.error.data.requested,
+          claimed === "2099-01-01" ? claimed : "unknown",
+        );
+        assert.doesNotMatch(JSON.stringify(rejected), /private-marker/u);
+      }
+    }
+    const legacy = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...headers("initialize"),
+        "mcp-protocol-version": "2025-06-18",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 23,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "fixture", version: "1" },
+        },
+      }),
+    });
+    assert.equal(legacy.status, 400);
+    assert.equal((await legacy.json()).error.code, -32022);
+    const malformed = await fetch(url, {
+      method: "POST",
+      headers: { ...headers("tools/list", body.params.name) },
+      body: JSON.stringify({
+        ...body,
+        params: {
+          ...body.params,
+          _meta: {
+            ...META,
+            "io.modelcontextprotocol/clientCapabilities": {
+              experimental: { "private-marker": 42 },
+            },
+          },
+        },
+      }),
+    });
+    assert.equal(malformed.status, 400);
+    assert.deepEqual(await malformed.json(), {
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32602, message: "Invalid params" },
+    });
+    const list = (params: Record<string, unknown>, extended = false) =>
+      fetch(url, {
+        method: "POST",
+        headers: headers("tools/list"),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 24,
+          method: "tools/list",
+          params,
+          ...(extended && { unusedEnvelopeField: true }),
+        }),
+      });
+    const plainResponse = await list({ _meta: META });
+    assert.equal(plainResponse.status, 200);
+    const plainList = await plainResponse.json();
+    assert.ok(Array.isArray(plainList.result.tools));
+    assert.equal(Object.hasOwn(plainList.result, "nextCursor"), false);
+    const extended = await list(
+      {
+        _meta: { ...META, "private-marker": true },
+        cursor: "ignored",
+      },
+      true,
+    );
+    assert.equal(extended.status, 200);
+    assert.deepEqual(await extended.json(), plainList);
+    const invalidParams = await list({ _meta: META, unusedParamsField: true });
+    assert.deepEqual((await invalidParams.json()).error, {
+      code: -32602,
+      message: "Invalid params",
+    });
     const get = await fetch(url, { method: "GET" });
     assert.equal(get.status, 405);
     assert.equal(effects, 0);

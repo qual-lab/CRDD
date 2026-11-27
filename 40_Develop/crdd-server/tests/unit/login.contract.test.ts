@@ -8,11 +8,24 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 import { createLogin } from "../../src/transport/login.ts";
-import { loginProviderProfiles } from "../../src/transport/login-providers.ts";
+import {
+  configuredLoginProviders,
+  defineLoginProvider,
+  isLoginProviderName,
+  type LoginProviderProfile,
+  loginProviderProfiles,
+} from "../../src/service/login-providers.ts";
 
 test("外部本人確認は同じブラウザーだけ、一度だけ完了し、署名を検証する", async (t) => {
   const issuer = "https://accounts.google.com";
-  const alternateIssuer = "https://login.example.test";
+  const alternateOrigin = "https://login.microsoftonline.com";
+  const alternateAuthority = `${alternateOrigin}/common/v2.0`;
+  const issuerTemplate = `${alternateOrigin}/{tenantid}/v2.0`;
+  const allowedTenant = "cf971aea-60bd-4bf7-bc25-0ef5d9b94b25";
+  const secondAllowedTenant = "0bd66095-25d0-4817-91dc-999146e28204";
+  let tenant = allowedTenant;
+  let tokenIssuerOverride: string | undefined;
+  let metadataIssuerOverride: string | undefined;
   const callback = new URL(
     "http://127.0.0.1:9999/api/session/login/google/callback",
   );
@@ -32,11 +45,15 @@ test("外部本人確認は同じブラウザーだけ、一度だけ完了し�
     async (url: string, init?: RequestInit) => {
       const endpoint = new URL(url);
       const origin = endpoint.origin;
-      assert.ok(origin === issuer || origin === alternateIssuer);
+      assert.ok(origin === issuer || origin === alternateOrigin);
       switch (url) {
+        case `${alternateAuthority}/.well-known/openid-configuration`:
         case `${origin}/.well-known/openid-configuration`:
           return Response.json({
-            issuer: origin,
+            issuer:
+              origin === alternateOrigin
+                ? (metadataIssuerOverride ?? issuerTemplate)
+                : origin,
             authorization_endpoint: `${origin}/authorize`,
             token_endpoint: `${origin}/token`,
             jwks_uri: `${origin}/jwks`,
@@ -54,7 +71,12 @@ test("外部本人確認は同じブラウザーだけ、一度だけ完了し�
             Buffer.from(JSON.stringify(value)).toString("base64url");
           const payload = `${encode({ alg: "RS256", kid: "synthetic" })}.${encode(
             {
-              iss: origin,
+              iss:
+                origin === alternateOrigin
+                  ? (tokenIssuerOverride ??
+                    issuerTemplate.replace("{tenantid}", tenant))
+                  : origin,
+              ...(origin === alternateOrigin && { tid: tenant }),
               sub: "google-subject",
               aud: audience,
               iat: now,
@@ -88,11 +110,13 @@ test("外部本人確認は同じブラウザーだけ、一度だけ完了し�
       }
     },
   );
-  const login = await createLogin(loginProviderProfiles.google, {
-    callback,
-    clientId,
-    clientSecret: "synthetic-client-secret",
-  });
+  const login = await createLogin(
+    loginProviderProfiles.google.configure({
+      clientId,
+      clientSecret: "synthetic-client-secret",
+    }),
+    { callback },
+  );
   const signal = new AbortController().signal;
   const start = async (invitationDigest?: string) => {
     const { location, browserBinding } = await login.start(
@@ -220,7 +244,7 @@ test("外部本人確認は同じブラウザーだけ、一度だけ完了し�
   );
   assert.equal(exchanges, 6);
   const oldest = await start();
-  for (let index = 0; index < 127; index++) await login.start();
+  for (let index = 0; index < 127; index++) await login.start("/");
   const newest = await start();
   assert.equal(
     await login.complete(oldest.reply, oldest.browserBinding, signal),
@@ -236,28 +260,99 @@ test("外部本人確認は同じブラウザーだけ、一度だけ完了し�
   );
   assert.equal(exchanges, 7);
 
-  // 別のプロファイルを同じOIDC往復に接続し、提供元固有の判定が適用されることだけを検証する。
-  let acceptsIssuer = false;
-  let acceptsTenant = false;
-  const alternate = await createLogin(
-    {
-      ...loginProviderProfiles.google,
-      id: "fixture-provider",
-      displayName: "Fixture provider",
-      discoveryUrl: alternateIssuer,
-      acceptsIssuer: (value) => acceptsIssuer && value === alternateIssuer,
-      acceptsTenant: () => acceptsTenant,
-      invitationScope: "openid email profile",
-      accountSelectionPrompt: "login",
-      readVerifiedEmail: () => "linked@example.test",
+  // Entraのひな形を模したローカル代役。製品の対応表には加えない。
+  type TenantSettings = { clientId: string; secret: string; tenants: string[] };
+  const fixture = defineLoginProvider({
+    id: "fixture-provider",
+    displayName: "Fixture provider",
+    environmentNames: ["FIXTURE_ID", "FIXTURE_SECRET", "FIXTURE_TENANTS"],
+    readConfiguration: (env) => ({
+      clientId: env.FIXTURE_ID ?? "",
+      secret: env.FIXTURE_SECRET ?? "",
+      tenants: env.FIXTURE_TENANTS?.split(",") ?? [],
+    }),
+    parseConfiguration(value) {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        !("clientId" in value) ||
+        !("secret" in value) ||
+        !("tenants" in value) ||
+        typeof value.clientId !== "string" ||
+        !value.clientId ||
+        typeof value.secret !== "string" ||
+        !value.secret ||
+        !Array.isArray(value.tenants) ||
+        !value.tenants.length ||
+        !value.tenants.every(
+          (id): id is string =>
+            typeof id === "string" && /^[0-9a-f-]{36}$/u.test(id),
+        )
+      )
+        return null;
+      return {
+        clientId: value.clientId,
+        secret: value.secret,
+        tenants: [...value.tenants],
+      };
     },
-    {
-      callback,
-      clientId,
-      clientSecret: "synthetic-client-secret",
-      chooseAccount: true,
-    },
+    discovery: (settings) => ({
+      issuer: new URL(alternateAuthority),
+      clientId: settings.clientId,
+      clientSecret: settings.secret,
+    }),
+    validateDiscoveryIssuer: (value) => value === issuerTemplate,
+    validateIssuer: (value, settings) =>
+      settings.tenants.some(
+        (id) => value === issuerTemplate.replace("{tenantid}", id),
+      ),
+    acceptsTenant: (claims, settings) =>
+      typeof claims.tid === "string" && settings.tenants.includes(claims.tid),
+    invitationScope: "openid email profile",
+    accountSelectionPrompt: "login",
+    readVerifiedEmail: () => "linked@example.test",
+  } satisfies LoginProviderProfile<TenantSettings, "fixture-provider">);
+  const registry = { ...loginProviderProfiles, [fixture.id]: fixture };
+  assert.equal(isLoginProviderName(fixture.id), true);
+  assert.equal(isLoginProviderName("bad/provider"), false);
+  assert.equal(isLoginProviderName("9fixture"), false);
+  const fixtureSettings = fixture.readConfiguration({
+    FIXTURE_ID: clientId,
+    FIXTURE_SECRET: "synthetic-client-secret",
+    FIXTURE_TENANTS: `${allowedTenant},${secondAllowedTenant}`,
+  });
+  assert.throws(
+    () =>
+      configuredLoginProviders(
+        { [fixture.id]: { ...fixtureSettings, tenants: [] } },
+        registry,
+      ),
+    /login_configuration_invalid/u,
   );
+  assert.throws(
+    () => configuredLoginProviders({ [fixture.id]: fixtureSettings }),
+    /login_configuration_invalid/u,
+  );
+  const [google, profile] = configuredLoginProviders(
+    {
+      google: { clientId, clientSecret: "synthetic-client-secret" },
+      [fixture.id]: fixtureSettings,
+    },
+    registry,
+  );
+  assert.equal(google?.displayName, "Google");
+  assert.equal(profile?.displayName, "Fixture provider");
+  assert.ok(profile);
+  metadataIssuerOverride = "https://invalid.example/{tenantid}/v2.0";
+  await assert.rejects(
+    createLogin(profile, { callback }),
+    /login_provider_unavailable/u,
+  );
+  metadataIssuerOverride = undefined;
+  const alternate = await createLogin(profile, {
+    callback,
+    chooseAccount: true,
+  });
   const completeAlternate = async () => {
     const { location, browserBinding } = await alternate.start("/", digest);
     nonce = location.searchParams.get("nonce");
@@ -271,13 +366,21 @@ test("外部本人確認は同じブラウザーだけ、一度だけ完了し�
       signal,
     );
   };
+  tenant = "dc8492e5-65a7-4c41-8683-de573439ed99";
   assert.equal(await completeAlternate(), null);
-  acceptsIssuer = true;
+  tenant = allowedTenant;
+  tokenIssuerOverride = `${alternateOrigin}/other/v2.0`;
   assert.equal(await completeAlternate(), null);
-  acceptsTenant = true;
-  assert.deepEqual(await completeAlternate(), {
-    identity: { issuer: alternateIssuer, subject: "google-subject" },
-    returnTo: "/",
-    invitation: { digest, email: "linked@example.test", emailVerified: true },
-  });
+  tokenIssuerOverride = undefined;
+  for (const allowed of [allowedTenant, secondAllowedTenant]) {
+    tenant = allowed;
+    assert.deepEqual(await completeAlternate(), {
+      identity: {
+        issuer: issuerTemplate.replace("{tenantid}", allowed),
+        subject: "google-subject",
+      },
+      returnTo: "/",
+      invitation: { digest, email: "linked@example.test", emailVerified: true },
+    });
+  }
 });

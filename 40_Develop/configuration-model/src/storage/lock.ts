@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   type ConfigurationStoreRoot,
-  resolveConfigurationFile,
+  requireConfigurationStoreRoot,
 } from "./store.ts";
 
 type ConfigurationLockResult<T> =
@@ -53,34 +53,15 @@ export function withConfigurationLock<T>(
   operation: () => T,
 ): ConfigurationLockResult<T> {
   const lockRelativePath = "ai-selection.lock";
-  const legacyLockFile = resolveConfigurationFile(capability, lockRelativePath);
-  const directory = path.join(path.dirname(capability.root), "lock");
+  const root = requireConfigurationStoreRoot(capability);
+  const directory = path.join(path.dirname(root), "lock");
   const lockFile = path.join(
     directory,
     "configuration-model.ai-selection.lock",
   );
-  // 旧清掃義務は読取り拒否だけに使い、自動変換・自動回収しない。
-  try {
-    fs.lstatSync(legacyLockFile + ".recovery-obligation");
-    return Object.freeze({
-      acquired: false,
-      reason: "filesystem_store_lock_observation_unknown",
-    });
-  } catch (error) {
-    if (
-      !error ||
-      typeof error !== "object" ||
-      !("code" in error) ||
-      error.code !== "ENOENT"
-    )
-      return Object.freeze({
-        acquired: false,
-        reason: "filesystem_store_lock_observation_unknown",
-      });
-  }
   const identity = createHash("sha256")
     .update("crdd-filesystem-store-lock-v2\0")
-    .update(capability.root)
+    .update(root)
     .update("\0")
     .update(lockRelativePath)
     .digest("hex");

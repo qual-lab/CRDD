@@ -9,6 +9,12 @@ import type { DocumentIssue } from "../artifact/types.ts";
 import { discoverRealitySymbols } from "../reality-traceability/discover.ts";
 import type { LoadedRealitySymbolManifest } from "../reality-traceability/manifest.ts";
 import { parseRealitySymbolManifest } from "../reality-traceability/manifest.ts";
+import {
+  inspectTestCatalog,
+  observeCatalogPath,
+  type TestCatalog,
+  testCatalogPath,
+} from "../test-catalog/inspect.ts";
 import { createFilesystemRepositoryObservationPort } from "./create-observer.ts";
 
 /**
@@ -41,6 +47,8 @@ export type RealityRepositoryObservationIssue = Readonly<{
  */
 export type RealitySymbolRepositoryObservation = Readonly<{
   manifests: readonly LoadedRealitySymbolManifest[];
+  catalog: TestCatalog | null;
+  catalogWarnings: readonly string[];
   knownArchIds: ReadonlySet<string>;
   knownQaIds: ReadonlySet<string>;
   knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>;
@@ -66,6 +74,7 @@ export type RealitySymbolRepositoryObservation = Readonly<{
  */
 export function observeRealitySymbolRepository(
   root: string | null,
+  includeArchitectureWithoutOwners = true,
 ): RealitySymbolRepositoryObservation {
   const repository = createFilesystemRepositoryObservationPort(root);
   const repositoryIssues: RealityRepositoryObservationIssue[] = [];
@@ -88,11 +97,51 @@ export function observeRealitySymbolRepository(
         .map(({ name }) => name),
     );
   };
-  const knownArchIds = identities(
-    "06_Architecture/Definitions",
-    /^ARCH-[0-9]{6}$/u,
-  );
-  const knownQaIds = identities("07_Quality/Definitions", /^QA-[0-9]{6}$/u);
+  const catalogFile = repository.observeFile(testCatalogPath);
+  let catalog: TestCatalog | null = null;
+  let catalogWarnings: readonly string[] = [];
+  if (catalogFile.status === "resolved" && root !== null) {
+    let candidate: unknown;
+    try {
+      candidate = JSON.parse(catalogFile.source);
+    } catch {
+      recordIssue(
+        "reality-symbol-test-catalog-json-invalid",
+        testCatalogPath,
+        "Invalid JSON.",
+      );
+    }
+    if (candidate !== undefined) {
+      const intake = inspectTestCatalog(root, candidate);
+      catalogWarnings = intake.warnings;
+      for (const failure of intake.failures)
+        recordIssue(
+          "reality-symbol-test-catalog-invalid",
+          testCatalogPath,
+          failure,
+        );
+      if (!intake.failures.length) catalog = candidate as TestCatalog;
+    }
+  } else if (
+    catalogFile.status !== "resolved" &&
+    (catalogFile.status === "invalid" ||
+      root === null ||
+      observeCatalogPath(root, testCatalogPath, new Map()) !== "missing")
+  ) {
+    recordIssue(
+      "reality-symbol-test-catalog-unobservable",
+      testCatalogPath,
+      catalogFile.reason,
+    );
+  }
+
+  const knownArchIds =
+    includeArchitectureWithoutOwners || catalog?.owners.length
+      ? identities("06_Architecture/Definitions", /^ARCH-[0-9]{6}$/u)
+      : new Set<string>();
+  const knownQaIds = catalog?.owners.length
+    ? identities("07_Quality/Definitions", /^QA-[0-9]{6}$/u)
+    : new Set<string>();
   const knownLocalTestIdsByQaId = new Map<string, ReadonlySet<string>>();
   for (const qaId of [...knownQaIds].sort()) {
     const definitionPath = `07_Quality/Definitions/${qaId}/quality_definition.md`;
@@ -120,85 +169,60 @@ export function observeRealitySymbolRepository(
     knownLocalTestIdsByQaId.set(qaId, localIds);
   }
 
-  const develop = repository.observeDirectory("40_Develop");
-  if (develop.status !== "resolved")
-    return {
-      manifests: [],
-      knownArchIds,
-      knownQaIds,
-      knownLocalTestIdsByQaId,
-      domainIssues: [],
-      repositoryIssues: [
-        ...repositoryIssues,
-        {
-          code: "reality-symbol-develop-unobservable",
-          path: "40_Develop",
-          reason: develop.reason,
-        },
-      ],
-    };
-
   const sources = [];
-  for (const entry of develop.entries) {
-    if (entry.kind === "symbolic-link") {
-      recordIssue(
-        "reality-symbol-subsystem-boundary-invalid",
-        `40_Develop/${entry.name}`,
-        "Subsystem is a symbolic link or junction.",
-      );
-      continue;
-    }
-    if (entry.kind !== "directory") continue;
-    const subsystemPath = `40_Develop/${entry.name}`;
-    const subsystem = repository.observeDirectory(subsystemPath);
-    if (subsystem.status !== "resolved") {
-      recordIssue(
-        "reality-symbol-subsystem-observation-failed",
-        subsystemPath,
-        subsystem.reason,
-      );
-      continue;
-    }
+  for (const owner of catalog?.owners ?? []) {
+    const subsystemPath = owner.root;
     const manifestPath = `${subsystemPath}/symbol.json`;
-    if (!subsystem.entries.some(({ name }) => name === "symbol.json")) {
-      recordIssue(
-        "reality-symbol-manifest-missing",
-        manifestPath,
-        `Subsystem ${entry.name} does not provide symbol.json.`,
-      );
-      continue;
-    }
     const manifest = repository.observeFile(manifestPath);
     if (manifest.status !== "resolved") {
+      const missing =
+        root !== null &&
+        manifest.status === "unobservable" &&
+        observeCatalogPath(root, manifestPath, new Map()) === "missing";
       recordIssue(
-        "reality-symbol-manifest-observation-failed",
+        missing
+          ? "reality-symbol-manifest-missing"
+          : "reality-symbol-manifest-observation-failed",
         manifestPath,
         manifest.reason,
       );
       continue;
     }
     const symbolSources = new Map<string, string>();
+    const symbolDirectories = new Set<string>();
+    const observedPaths = new Set<string>();
     try {
       const validated = parseRealitySymbolManifest(
         JSON.parse(manifest.source),
         manifestPath,
       );
       for (const symbol of validated.result?.symbols ?? []) {
-        const observed = repository.observeFile(
-          `${subsystemPath}/${symbol.path}`,
-        );
+        if (observedPaths.has(symbol.path)) continue;
+        observedPaths.add(symbol.path);
+        const target = `${subsystemPath}/${symbol.path}`;
+        const observed = repository.observeFile(target);
         if (observed.status === "resolved")
           symbolSources.set(symbol.path, observed.source);
+        else if (
+          validated.result?.symbols.some(
+            (entry) =>
+              entry.path === symbol.path &&
+              (entry.kind === "package" || entry.kind === "module"),
+          ) &&
+          repository.observeDirectory(target).status === "resolved"
+        )
+          symbolDirectories.add(symbol.path);
       }
     } catch {
       // Domain discovery reports malformed JSON without inventing symbols.
     }
     sources.push({
-      subsystem: entry.name,
+      subsystem: owner.id,
       subsystemPath,
       manifestPath,
       manifestSource: manifest.source,
       symbolSources,
+      symbolDirectories,
     });
   }
   const discovered = discoverRealitySymbols({
@@ -207,6 +231,8 @@ export function observeRealitySymbolRepository(
   });
   return {
     manifests: discovered.result?.manifests ?? [],
+    catalog,
+    catalogWarnings,
     knownArchIds,
     knownQaIds,
     knownLocalTestIdsByQaId,

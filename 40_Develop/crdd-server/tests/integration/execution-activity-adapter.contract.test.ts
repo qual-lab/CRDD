@@ -26,13 +26,13 @@ import {
 } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import { initializeExecutionStore } from "@qual-lab/crdd-execution-model";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { projectExecutionActivityForWorkbench } from "../../src/service/execution.ts";
+import { parseExecutionActivityObservation } from "@qual-lab/crdd-coordinator";
 import {
   getExecutionActivityToolDefinitions,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
   EXECUTION_ACTIVITY_TOOL,
 } from "../../src/transport/mcp-server.ts";
-import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
+import { invokeMcpRequest, mcpToolErrorText } from "../fixtures/sdk-request.ts";
 
 /** @trace EST-IT-014 Workbenchは認可済みの別実行を一つの投影に畳まない。 */
 test("Workbench活動応答は実行の出所と観測不能を保つ", () => {
@@ -56,7 +56,7 @@ test("Workbench活動応答は実行の出所と観測不能を保つ", () => {
       progress: null,
     },
   ] as const;
-  const view = projectExecutionActivityForWorkbench({
+  const view = parseExecutionActivityObservation({
     projectId: "project-a",
     state: "unknown",
     reason: "runtime_activity_state_unknown",
@@ -72,7 +72,14 @@ test("Workbench活動応答は実行の出所と観測不能を保つ", () => {
     eventContinuation: null,
     graphs,
   });
-  assert.deepEqual(view.graphs, graphs);
+  assert.ok(view);
+  assert.deepEqual(
+    view.graphs?.map((graph) => ({
+      ...graph,
+      progress: graph.progress && { ...graph.progress },
+    })),
+    graphs,
+  );
   assert.equal(view.projection, null);
   assert.equal(view.eventState, "observed");
 });
@@ -192,7 +199,7 @@ test("実行状況MCPは新Tool名だけを公開・受付する", async () => {
   ]) {
     const old = await invokeMcpRequest(request(oldName), dependencies, signal);
     assert.ok("error" in old);
-    assert.equal(old.error.code, -32601);
+    assert.equal(old.error.code, -32602);
     assert.equal(reads, 0);
   }
   const current = await invokeMcpRequest(
@@ -239,8 +246,7 @@ test("実行状況MCPは新Tool名だけを公開・受付する", async () => {
         "PRJ-MCP",
       );
     } else {
-      assert.ok("error" in result);
-      assert.equal(result.error.code, -32603);
+      assert.equal(mcpToolErrorText(result), "Tool execution failed");
     }
   }
 });
@@ -342,8 +348,7 @@ test("Runtime活動MCPは開始済みReaderをjoinしてから取消を返す", 
     release();
     const reply = await pending;
     assert.equal(readCompleted, true);
-    assert.ok("error" in reply);
-    assert.equal(reply.error.code, -32800);
+    assert.equal(mcpToolErrorText(reply), "Request cancelled");
   } finally {
     release();
     await pending;

@@ -6,24 +6,34 @@
  * @trace ARCH-000012
  * @boundary ServerのRepository操作とVersion Control。
  */
+
+import { lstatSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { setTimeout } from "node:timers/promises";
+import type { FilesystemStoreRoot } from "@qual-lab/crdd-access-management";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
+import { parseRepositoryProjectContextMarkdown } from "@qual-lab/crdd-document-model";
 import {
+  type ChangesResult,
+  commitChanges,
+  type FileDiff,
   getRepository,
+  pushRepositoryRevision,
+  type Repository,
   readFileDiff,
+  readRemoteTarget,
   readTree,
   readWorkingChanges,
-  type FileDiff,
-  type TreePage,
-} from "@qual-lab/crdd-version-control";
-import type { ProjectViewData } from "./project-context.ts";
-import {
+  resolveVerifiedRepositoryRoot,
   stagePaths,
+  type TreePage,
   unstagePaths,
-  commitChanges,
-  pushRepositoryRevision,
-  readRemoteTarget,
-  type Repository,
-  type ChangesResult,
 } from "@qual-lab/crdd-version-control";
+import {
+  type GitHostLinkedAccessSession,
+  resolveGitHostLinkedDevelopmentAccess,
+} from "./access.ts";
+import type { ProjectViewData } from "./project-context.ts";
 
 /**
  * 公開要求が現在の送信先・Branch・Revisionを指していることを確認する。
@@ -134,38 +144,137 @@ export function readRepositoryChangeSet(
   }
 }
 
-/**
- * 現在の変更集合から、画面向けのツリーと任意の差分を一度観測する。
- * @responsibility 単体・共有で同じGit操作と観測不能の扱いを使う。
- * @trace ARCH-000009
- * @trace ARCH-000012
- * @boundary 呼出し側が対象Repositoryを選択・認可し、公開前に現在性を確認する。
- */
-export function readWorktreeObservation(
-  repository: Repository,
-  observation: ProjectViewData["repository"],
-  directory: string,
-  cursor: string | undefined,
-  diffPath: string | null,
-): Readonly<{
-  state: "available" | "unknown";
-  tree: TreePage | null;
-  diff: FileDiff | null;
-}> {
-  const { state, changeSet } = observation;
-  if (state === "available" && changeSet !== null) {
-    try {
-      const tree = readTree(repository, changeSet, directory, cursor, 50);
-      const diff =
-        diffPath === null
-          ? null
-          : readFileDiff(repository, changeSet, diffPath);
-      return { state: "available", tree, diff };
-    } catch {
-      // 観測失敗を空の変更や部分的な成功へ変換しない。
-    }
-  }
-  return { state: "unknown", tree: null, diff: null };
+export type RepositoryFilesRequest =
+  | Readonly<{ kind: "tree"; directory: string; cursor?: string }>
+  | Readonly<{ kind: "diff"; path: string }>;
+
+export type RepositoryFilesResponse = Readonly<{ repositoryId: string }> &
+  (
+    | Readonly<{ kind: "tree"; tree: TreePage }>
+    | Readonly<{ kind: "diff"; diff: FileDiff }>
+  );
+
+export type LocalRepositoryFilesTarget = Readonly<{
+  repositoryId: string;
+  projectId: string;
+  allowMissingManifest: boolean;
+}>;
+
+function observeLocalRepositoryFilesIdentity(
+  root: string,
+  target: LocalRepositoryFilesTarget,
+): string | null {
+  const manifest = readRepositoryManifest(root);
+  if (manifest.status === "ready")
+    return manifest.manifest.repositoryId === target.repositoryId &&
+      manifest.manifest.projectId === target.projectId
+      ? `manifest:${manifest.identity}`
+      : null;
+  if (manifest.status !== "missing" || !target.allowMissingManifest)
+    return null;
+  // Manifestなしで起動した単体だけ、現在のProject Contextから同じ対象を解決する。
+  const file = path.join(root, "PROJECT_CONTEXT.md");
+  const before = lstatSync(file, { bigint: true });
+  if (!before.isFile() || before.ino === 0n) return null;
+  const source = readFileSync(file, "utf8");
+  const after = lstatSync(file, { bigint: true });
+  if (
+    before.dev !== after.dev ||
+    before.ino !== after.ino ||
+    before.mtimeNs !== after.mtimeNs ||
+    before.size !== after.size
+  )
+    return null;
+  const { result } = parseRepositoryProjectContextMarkdown(source);
+  return result?.repositoryId === target.repositoryId &&
+    result.projectId === target.projectId
+    ? "project-context"
+    : null;
+}
+
+/** 対象を認可してから、要求された作業ツリー資源だけを観測する。 @trace ARCH-000012 */
+export async function readRepositoryFiles(
+  repositoryId: string,
+  request: RepositoryFilesRequest,
+  input:
+    | {
+        scope: "local";
+        repositoryRoot: string;
+        target: LocalRepositoryFilesTarget | undefined;
+      }
+    | {
+        scope: "shared";
+        root: FilesystemStoreRoot;
+        session: GitHostLinkedAccessSession;
+      },
+  signal: AbortSignal,
+): Promise<RepositoryFilesResponse | null> {
+  if (signal.aborted) return null;
+  const selected =
+    input.scope === "shared"
+      ? await resolveGitHostLinkedDevelopmentAccess(
+          input.root,
+          input.session,
+          repositoryId,
+          false,
+          signal,
+        )
+      : input.target?.repositoryId === repositoryId
+        ? {
+            ownerRoot: input.repositoryRoot,
+            authorize: null,
+            target: input.target,
+          }
+        : null;
+  if (!selected || signal.aborted) return null;
+  const target = getRepository(selected.ownerRoot);
+  if (target.status !== "completed" || signal.aborted)
+    throw new Error("repository_files_unavailable");
+  const localIdentity =
+    "target" in selected
+      ? observeLocalRepositoryFilesIdentity(selected.ownerRoot, selected.target)
+      : undefined;
+  if (
+    localIdentity === null ||
+    selected.authorize?.() === false ||
+    signal.aborted
+  )
+    return null;
+  const repository = target.capability;
+  const changes = readWorkingChanges(repository, "HEAD");
+  const result: RepositoryFilesResponse =
+    request.kind === "tree"
+      ? {
+          repositoryId,
+          kind: "tree",
+          tree: readTree(
+            repository,
+            changes,
+            request.directory,
+            request.cursor,
+            50,
+          ),
+        }
+      : {
+          repositoryId,
+          kind: "diff",
+          diff: readFileDiff(repository, changes, request.path),
+        };
+  // 同期観測中に届いた切断通知を処理する機会を置く。
+  await setTimeout(0);
+  if (
+    signal.aborted ||
+    resolveVerifiedRepositoryRoot(repository) !== selected.ownerRoot ||
+    ("target" in selected
+      ? observeLocalRepositoryFilesIdentity(
+          selected.ownerRoot,
+          selected.target,
+        ) !== localIdentity
+      : !selected.authorize()) ||
+    signal.aborted
+  )
+    throw new Error("repository_files_unavailable");
+  return result;
 }
 
 /**

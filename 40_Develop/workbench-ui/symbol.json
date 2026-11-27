@@ -4,9 +4,28 @@
   "subsystem": "workbench-ui",
   "symbols": [
     {
-      "symbolId": "workbench.test.system.credential-browser",
+      "symbolId": "workbench.presentation.ai-request-panel",
+      "kind": "file",
+      "path": "src/components/ai-request-panel.tsx",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000012",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.projection-panels",
+      "kind": "file",
+      "path": "src/components/projection-panels.tsx",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.test.system.shared-access-browser",
       "kind": "test-suite",
-      "path": "tests/system/credential-administration-browser.contract.test.ts",
+      "path": "tests/system/shared-access-browser.contract.test.ts",
       "qaIds": [
         "QA-000001",
         "QA-000005",
@@ -108,6 +127,12 @@
       "archIds": ["ARCH-000013"]
     },
     {
+      "symbolId": "workbench.management.permissions",
+      "kind": "file",
+      "path": "src/api/access.ts",
+      "archIds": ["ARCH-000013"]
+    },
+    {
       "symbolId": "workbench.presentation.view-validation",
       "kind": "file",
       "path": "src/api/response.ts",
@@ -193,6 +218,14 @@
       ]
     },
     {
+      "symbolId": "workbench.presentation.api-path",
+      "kind": "file",
+      "path": "src/api/path.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
       "symbolId": "workbench.test.integration.browser-connection",
       "kind": "test-suite",
       "path": "tests/integration/browser-connection.contract.test.ts",
@@ -203,7 +236,8 @@
         "EST-IT-002"
       ],
       "verifies": [
-        "workbench.presentation.connection"
+        "workbench.presentation.connection",
+        "workbench.presentation.api-path"
       ]
     },
     {

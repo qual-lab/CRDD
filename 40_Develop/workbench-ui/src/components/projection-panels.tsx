@@ -1,5 +1,5 @@
 /**
- * CROS WorkbenchのProject Plan／Quality Browser Panel。
+ * Workbenchのプロジェクト計画・品質パネル。
  *
  * @packageDocumentation
  * @responsibility 検証済みProject PlanとQuality Read ModelをBrowser React要素へ変換する。

@@ -4,6 +4,62 @@
   "subsystem": "docker-isolation",
   "symbols": [
     {
+      "symbolId": "docker-isolation.cleanup.resources",
+      "kind": "file",
+      "path": "src/cleanup/resources.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.cleanup.types",
+      "kind": "file",
+      "path": "src/cleanup/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.cleanup.validation",
+      "kind": "file",
+      "path": "src/cleanup/validation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.execution.codex-seccomp",
+      "kind": "config",
+      "path": "src/execution/codex-executor-seccomp.json",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.execution.types",
+      "kind": "file",
+      "path": "src/execution/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.image.types",
+      "kind": "file",
+      "path": "src/image/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.network.egress-proxy",
+      "kind": "file",
+      "path": "src/network/provider-egress-proxy.py",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
       "symbolId": "docker-isolation.test.support.source-declaration",
       "kind": "file",
       "path": "tests/support/source-declaration.ts",

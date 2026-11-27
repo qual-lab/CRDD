@@ -1,0 +1,15 @@
+{
+  "contract": "crdd/test-catalog",
+  "contractRevision": 11,
+  "levels": ["unit", "integration", "system", "acceptance", "performance", "longevity"],
+  "regressionIsSelection": true,
+  "resourceIntensiveLevels": ["performance", "longevity"],
+  "owners": [],
+  "environments": [],
+  "executionProfiles": [],
+  "sharedRuntimePaths": [],
+  "integrationBlocks": [],
+  "integrationCorridors": [],
+  "consumerBindings": [],
+  "tests": []
+}

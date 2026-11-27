@@ -4,54 +4,22 @@
  * @trace ARCH-000012
  */
 import {
-  type CallToolResult,
-  type ListToolsResult,
-  LOG_LEVEL_META_KEY,
+  PROTOCOL_VERSION_META_KEY,
   ProtocolError,
-  Server,
 } from "@modelcontextprotocol/server";
-import type { JsonRpcId, McpRequestSource, McpResponse } from "./mcp-types.ts";
-
-/**
- * 完全なdiscover要求だけを固定応答へ変換する。
- * @responsibility 通信能力を照会する入力と非秘密の応答を固定する。
- * @trace ARCH-000012
- * @trace ARCH-000013
- * @input 信頼しないJSON-RPC要求。
- * @returns 固定discover成功または非秘密Protocol error。
- * @precondition HTTP入力境界の検査はTransportが所有する。
- * @postcondition 有効な非null ID・exact method・閉paramsとEnvelopeだけ成功。
- * @effect N/A: メモリ上の形式検査だけ。
- * @failure 不正要求／別method／不正paramsを固定errorへ閉じる。
- * @invariant 初回確認・認証・通常ToolのEffectを発行しない。
- * @boundary MCP意味検査と認証／保存の責務分離。
- * @security 応答に資格・状態相関・Root・Secretを含めない。
- * @concurrency N/A: 共有状態なし。
- */
-export function handleMcpDiscoverRequest(rawRequest: unknown): McpResponse {
-  const request = inspectProtocolRequest(rawRequest);
-  if (!request) return protocolError(null, -32600, "Invalid Request");
-  if (request.method !== "server/discover")
-    return protocolError(request.id, -32601, "Method not found");
-  const params = readRequestRecord(request.params, discoverKeys);
-  return !params || !inspectMcpEnvelope(params._meta)
-    ? protocolError(request.id, -32602, "Invalid params")
-    : protocolComplete(request.id, {
-        supportedVersions: Object.freeze([MCP_COORDINATOR_PROTOCOL_VERSION]),
-        capabilities: Object.freeze({ tools: Object.freeze({}) }),
-        ttlMs: 0,
-        cacheScope: "private",
-      });
-}
+import type {
+  JsonRpcId,
+  McpAcceptedRequest,
+  McpProtocolRequest,
+  McpPublicRequest,
+  McpResponse,
+} from "./mcp-types.ts";
 
 export const MCP_COORDINATOR_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_SERVER_NAME = "crdd-mcp" as const;
+export const MCP_SERVER_VERSION = "0.22.0-development" as const;
 
-const requestKeys = new Set(["jsonrpc", "id", "method", "params"] as const);
-export const callKeys = new Set(["_meta", "name", "arguments"] as const);
-const discoverKeys = new Set(["_meta"] as const);
-export const listKeys = new Set(["_meta", "cursor"] as const);
-export const listKeysNoCursor = new Set(["_meta"] as const);
+const callKeys = new Set(["_meta", "name", "arguments"] as const);
 
 /**
  * MCPの入力がオブジェクトであり、指定時は必須キーだけを持つことを確認する。
@@ -73,16 +41,82 @@ export function readRequestRecord(
 }
 
 /** Tool共通のパラメーターとメタデータの形を確認する。 @trace ARCH-000012 */
-export function inspectMcpToolParameters(value: unknown) {
+function inspectMcpToolParameters(value: unknown) {
   const params = readRequestRecord(value, callKeys);
   return params && inspectMcpEnvelope(params._meta) ? params : null;
 }
+
+/** SDKの版判定後、CRDD固有の要求外枠だけを確定する。 @trace ARCH-000012 */
+export function acceptMcpRequest(
+  request: McpPublicRequest,
+): McpAcceptedRequest {
+  const { id, method } = request;
+  if (method === "tools/call") {
+    const params = inspectMcpToolParameters(request.params);
+    const args = params?.arguments;
+    if (typeof params?.name !== "string") {
+      throw new ProtocolError(-32602, "Invalid params");
+    }
+    return {
+      id,
+      method,
+      params: { name: params.name, arguments: args, _meta: params._meta },
+    };
+  }
+  const params = readRequestRecord(request.params);
+  if (
+    !params ||
+    !Object.hasOwn(params, "_meta") ||
+    Object.keys(params).some(
+      (key) =>
+        key !== "_meta" && !(method === "tools/list" && key === "cursor"),
+    ) ||
+    !inspectMcpEnvelope(params._meta)
+  )
+    throw new ProtocolError(-32602, "Invalid params");
+  return { id, method, params };
+}
 const requestEnvelopeKeys = new Set<string>([
-  "io.modelcontextprotocol/protocolVersion",
+  PROTOCOL_VERSION_META_KEY,
   "io.modelcontextprotocol/clientCapabilities",
   "io.modelcontextprotocol/clientInfo",
-  LOG_LEVEL_META_KEY,
+  // 標準の進捗要求は受け取るが、CRDDは進捗通知を送らない。
+  "progressToken",
+  // 旧クライアントが送るログ水準は受け流す。CRDDはログ通知を提供しない。
+  "io.modelcontextprotocol/logLevel",
 ]);
+
+/** バージョンの宣言を取り出す。対応版の判定はSDKが行う。 */
+export function readMcpProtocolVersion(params: unknown): string | undefined {
+  const revision = readRequestRecord(readRequestRecord(params)?._meta)?.[
+    PROTOCOL_VERSION_META_KEY
+  ];
+  return typeof revision === "string" ? revision : undefined;
+}
+
+/** SDKの対応版案内を保ち、版名に見せた任意文字列は反射しない。 */
+export function createUnsupportedProtocolVersionResponse(value: unknown) {
+  const response = readRequestRecord(value);
+  const error = readRequestRecord(response?.error);
+  if (error?.code !== -32022) return null;
+  const data = readRequestRecord(error.data);
+  const isRevision = (revision: unknown): revision is string =>
+    typeof revision === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(revision);
+  const requested = isRevision(data?.requested) ? data.requested : "unknown";
+  const supported = Array.isArray(data?.supported)
+    ? data.supported.filter(isRevision)
+    : [];
+  const id = response?.id;
+  return {
+    jsonrpc: "2.0",
+    id: validJsonRpcId(id) ? id : null,
+    error: {
+      code: -32022,
+      message: `Unsupported protocol version: ${requested}`,
+      data: { supported, requested },
+    },
+  };
+}
 
 /**
  * Json Rpc Idが有効か判定する。
@@ -123,28 +157,31 @@ function validJsonRpcId(value: unknown): value is JsonRpcId {
  * @security N/A: inspectMcpEnvelopeはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: inspectMcpEnvelopeは共有非同期状態を持たない同期処理である。
  */
-export function inspectMcpEnvelope(value: unknown) {
+export function inspectMcpEnvelope(
+  value: unknown,
+  kind: "request" | "cancellation" = "request",
+) {
   const envelope = readRequestRecord(value);
   if (
     !envelope ||
-    Object.keys(envelope).some((key) => !requestEnvelopeKeys.has(key))
+    (kind === "cancellation" &&
+      Object.keys(envelope).some((key) => !requestEnvelopeKeys.has(key)))
   )
     return false;
-  const logLevel = envelope[LOG_LEVEL_META_KEY];
+  const progressToken = envelope.progressToken;
   return (
-    envelope["io.modelcontextprotocol/protocolVersion"] ===
-      MCP_COORDINATOR_PROTOCOL_VERSION &&
+    typeof envelope[PROTOCOL_VERSION_META_KEY] === "string" &&
     readRequestRecord(
       envelope["io.modelcontextprotocol/clientCapabilities"],
     ) !== null &&
+    (!Object.hasOwn(envelope, "progressToken") ||
+      (kind === "request" &&
+        (typeof progressToken === "string" ||
+          (typeof progressToken === "number" &&
+            Number.isFinite(progressToken))))) &&
     (!Object.hasOwn(envelope, "io.modelcontextprotocol/clientInfo") ||
       readRequestRecord(envelope["io.modelcontextprotocol/clientInfo"]) !==
-        null) &&
-    (!Object.hasOwn(envelope, LOG_LEVEL_META_KEY) ||
-      (typeof logLevel === "string" &&
-        /^(?:debug|info|notice|warning|error|critical|alert|emergency)$/u.test(
-          logLevel,
-        )))
+        null)
   );
 }
 
@@ -221,7 +258,7 @@ export function protocolComplete(
       _meta: Object.freeze({
         "io.modelcontextprotocol/serverInfo": Object.freeze({
           name: MCP_SERVER_NAME,
-          version: "0.20.0-development",
+          version: MCP_SERVER_VERSION,
         }),
       }),
     }),
@@ -244,9 +281,12 @@ export function protocolComplete(
  * @security N/A: inspectProtocolRequestはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: inspectProtocolRequestは共有非同期状態を持たない同期処理である。
  */
-export function inspectProtocolRequest(value: unknown) {
-  const request = readRequestRecord(value, requestKeys);
+export function inspectProtocolRequest(
+  value: unknown,
+): McpProtocolRequest | null {
+  const request = readRequestRecord(value);
   return request &&
+    Object.hasOwn(request, "params") &&
     validJsonRpcId(request.id) &&
     request.jsonrpc === "2.0" &&
     typeof request.method === "string"
@@ -258,68 +298,13 @@ export function inspectProtocolRequest(value: unknown) {
     : null;
 }
 
-/**
- * 本番Factoryまたは要求Handlerを同じ要求別SDK Serverへ接続する。
- * @responsibility Transportに重複したTool dispatchを持たせない。
- * @trace ARCH-000012
- * @input 現在の接続、元入力、取消、開始済みOwnerの観測。
- * @returns この一要求だけを処理するSDK Server。
- * @precondition raw本文の完全性・容量は入口で検査する。
- * @postcondition SDK自動応答の前にHandlerのdiscover入力検査を行う。
- * @effect Handlerまたは専門Ownerの契約に従う。
- * @failure 内部例外を固定Protocol errorへ閉じる。
- * @invariant Serverと現在認可を後続要求へ再利用しない。
- * @boundary Transportの構成とSDK登録。
- * @security 正規化前の元入力をOwnerへ渡す。
- * @concurrency 開始済みPromiseを呼出し側へ渡してjoin可能にする。
- */
-export async function createMcpRequestServer(
-  source: McpRequestSource,
-  rawRequest: unknown,
-  signal: AbortSignal,
-  observe: (pending: Promise<McpResponse>, sdkSignal: AbortSignal) => void,
-): Promise<Server> {
-  if (typeof source !== "function")
-    return source.createServer(rawRequest, signal, observe);
-  const request = inspectProtocolRequest(rawRequest);
-  if (!request) throw new ProtocolError(-32600, "Invalid Request");
-  if (request.method === "server/discover") {
-    const result = await source(rawRequest, signal);
-    if (result.error)
-      throw new ProtocolError(result.error.code, result.error.message);
-  }
-  const server = new Server(
-    { name: MCP_SERVER_NAME, version: "0.20.0-development" },
-    {
-      capabilities: { tools: {} },
-      cacheHints: { "server/discover": { ttlMs: 0, cacheScope: "private" } },
-    },
+/** CRDDが公開するmethodだけをSDKへの配送対象にする。 */
+export function isMcpPublicRequest(
+  request: McpProtocolRequest,
+): request is McpPublicRequest {
+  return (
+    request.method === "server/discover" ||
+    request.method === "tools/list" ||
+    request.method === "tools/call"
   );
-  const invoke = async (sdkSignal: AbortSignal) => {
-    const pending = Promise.resolve().then(() =>
-      source(rawRequest, AbortSignal.any([signal, sdkSignal])),
-    );
-    observe(pending, sdkSignal);
-    let result: McpResponse;
-    try {
-      result = await pending;
-    } catch {
-      throw new ProtocolError(-32603, "Internal error");
-    }
-    if (result.error)
-      throw new ProtocolError(result.error.code, result.error.message);
-    if (!result.result) throw new ProtocolError(-32603, "Internal error");
-    return result.result;
-  };
-  server.setRequestHandler(
-    "tools/list",
-    async (_request, context) =>
-      (await invoke(context.mcpReq.signal)) as ListToolsResult,
-  );
-  server.setRequestHandler(
-    "tools/call",
-    async (_request, context) =>
-      (await invoke(context.mcpReq.signal)) as CallToolResult,
-  );
-  return server;
 }

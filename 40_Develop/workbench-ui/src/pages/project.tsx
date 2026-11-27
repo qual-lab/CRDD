@@ -15,9 +15,9 @@ import { ProjectScene } from "../components/project-context.tsx";
  * Federated ProjectをSourceごとの五場面へ展開する。
  * @responsibility Project DetailのCoverageと欠測をSourceごとに示す。
  * @trace ARCH-000012
- * @input modelに一件の許可済みFederated Projectを受け取る。
+ * @input modelに取得済みのProject応答を受け取る。
  * @returns Project DetailのReact要素を返す。
- * @precondition Projectは現在PrincipalのExposure内である。
+ * @precondition Serverが対象のProjectの取得を許可している。
  * @postcondition Source別の五場面と観測境界を表示する。
  * @effect N/A: 表示要素の構築だけを行う。
  * @failure 欠測を「なし」へ畳まない。
@@ -32,7 +32,7 @@ export function ProjectDetail({
   model: ProjectDetailResponse;
 }): ReactElement {
   return (
-    <main className="record-detail">
+    <main id="project-detail" className="record-detail">
       <a className="page-link" href="/#portfolio">
         ← Project Portfolioへ戻る
       </a>

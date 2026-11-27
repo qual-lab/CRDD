@@ -1,6 +1,6 @@
 {
   "contract": "crdd/test-catalog",
-  "contractRevision": 10,
+  "contractRevision": 11,
   "levels": [
     "unit",
     "integration",
@@ -14,23 +14,236 @@
     "performance",
     "longevity"
   ],
-  "runnerProfiles": {
-    "access-management": "node_test",
-    "ai-adapter": "node_test",
-    "checker": "node_test",
-    "coordinator": "node_test",
-    "docker-isolation": "node_test",
-    "document-model": "node_test",
-    "execution-model": "node_test",
-    "configuration-model": "node_test",
-    "execution-intelligence": "node_test",
-    "executor": "node_test",
-    "lock": "node_test",
-    "crdd-server": "node_test",
-    "version-control": "node_test",
-    "visual-preview": "node_test",
-    "workbench-ui": "node_test"
-  },
+  "owners": [
+    {
+      "id": "access-management",
+      "root": "40_Develop/access-management",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "ai-adapter",
+      "root": "40_Develop/ai-adapter",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "checker",
+      "root": "40_Develop/checker",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "coordinator",
+      "root": "40_Develop/coordinator",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "docker-isolation",
+      "root": "40_Develop/docker-isolation",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "document-model",
+      "root": "40_Develop/document-model",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "execution-model",
+      "root": "40_Develop/execution-model",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "configuration-model",
+      "root": "40_Develop/configuration-model",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "execution-intelligence",
+      "root": "40_Develop/execution-intelligence",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "executor",
+      "root": "40_Develop/executor",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "lock",
+      "root": "40_Develop/lock",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "crdd-server",
+      "root": "40_Develop/crdd-server",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "version-control",
+      "root": "40_Develop/version-control",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "visual-preview",
+      "root": "40_Develop/visual-preview",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    },
+    {
+      "id": "workbench-ui",
+      "root": "40_Develop/workbench-ui",
+      "runner": "node_test",
+      "coverage": {
+        "implementation": [
+          "src/**",
+          "bin/**"
+        ],
+        "tests": [
+          "tests/**/*.test.ts"
+        ],
+        "exclude": []
+      }
+    }
+  ],
+  "environments": ["fixed_system_runtime", "local_component_boundary", "node_process"],
+  "executionProfiles": ["restricted_process", "windows_process_control"],
+  "sharedRuntimePaths": ["biome.json", ".node-version", ".nvmrc"],
   "integrationBlocks": [
     {
       "id": "executor:single-provider-attempt",
@@ -500,8 +713,7 @@
         "official_logo_delivery",
         "project_context_read_model",
         "unconfigured_capability_classification",
-        "credential_administration",
-        "one_time_secret_display",
+        "standalone_shell_without_shared_sign_in",
         "candidate_review_and_disposition",
         "route_allowlist",
         "listener_cleanup"
@@ -510,7 +722,6 @@
         "repository_filesystem",
         "localhost_http",
         "browser_consumer",
-        "credential_registry",
         "candidate_application"
       ],
       "lifecycleProfile": "read_only_boundary",
@@ -523,10 +734,7 @@
         "official_logo_exact",
         "project_context_five_scenes_exact",
         "unconfigured_capability_not_zero",
-        "credential_secret_not_stored",
-        "credential_secret_displayed_once",
-        "repository_mode_credential_optional",
-        "remote_revocation_stale_projection_absent",
+        "standalone_shell_served_without_shared_sign_in",
         "candidate_identity_reverified",
         "candidate_confirmation_required",
         "candidate_commit_and_push_absent",
@@ -805,7 +1013,6 @@
         "mcp:unit:project-context",
         "mcp:integration:execution-tools",
         "mcp:integration:access-capabilities",
-        "mcp:integration:ai-profile-adapter",
         "mcp:integration:runtime-activity-adapter",
         "mcp:integration:transport-lifecycle",
         "mcp:system:stdio",
@@ -1341,7 +1548,7 @@
       "consumerOwner": "workbench-ui",
       "consumerStatic": true,
       "testIds": [
-        "workbench:system:credential-browser",
+        "workbench:system:shared-access-browser",
         "workbench:system:actual-browser-visual"
       ]
     },
@@ -1358,7 +1565,7 @@
       "consumerOwner": "workbench-ui",
       "consumerStatic": true,
       "testIds": [
-        "workbench:system:credential-browser",
+        "workbench:system:shared-access-browser",
         "workbench:system:actual-browser-visual"
       ]
     },
@@ -2214,6 +2421,7 @@
       "humanInput": false,
       "postconditions": [
         "execution_definition_tools_individual_and_closed",
+        "sdk_rejects_invalid_definition_target_before_access_resolution",
         "retired_execution_definition_tool_names_rejected",
         "input_hooks_not_executed",
         "rejection_preserves_state",
@@ -2443,6 +2651,7 @@
         "shared_ai_cookie_owner_bound_to_current_git_repository",
         "shared_ai_cancelled_read_publishes_no_success_body",
         "shared_ai_restart_reopens_same_request_without_new_start",
+        "all_active_ai_owners_are_not_evicted_at_capacity",
         "coordinator_public_root_source_connection"
       ],
       "mandatoryByDefault": true
@@ -3064,28 +3273,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "mcp:integration:ai-profile-adapter",
-      "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/ai-selection-boundary.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "ai-selection",
-        "retired-public-api",
-        "unknown-tool-rejection"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "retired_tools_not_listed",
-        "retired_calls_rejected",
-        "catalog_effect_zero",
-        "normal_server_api_preserved"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "mcp:integration:runtime-activity-adapter",
       "owner": "crdd-server",
       "path": "40_Develop/crdd-server/tests/integration/execution-activity-adapter.contract.test.ts",
@@ -3130,6 +3317,7 @@
         "origin_absent_get_no_content",
         "origin_absent_post_rejected",
         "unknown_credential_not_authenticated",
+        "unauthenticated_execution_definition_rejected_before_request_body",
         "owned_listener_closed",
         "owned_fixture_directory_absent"
       ],
@@ -3159,7 +3347,8 @@
         "help_exit_zero",
         "invalid_arguments_exit_64",
         "cros_environment_unavailable_exit_2",
-        "missing_fresh_corrupt_host_unchanged",
+        "missing_host_configuration_and_fresh_or_corrupt_host_state_report_distinct_reasons_without_changes",
+        "missing_saved_git_host_reference_blocks_shared_cli_without_rewrite",
         "rejected_entry_no_listener_announcement",
         "initialized_host_listener_started",
         "unified_origin_mismatch_rejected",
@@ -3193,7 +3382,7 @@
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
-        "browser-memory-credential",
+        "browser-cookie-policy",
         "same-origin",
         "late-response",
         "bounded-response",
@@ -3204,12 +3393,15 @@
       "humanInput": false,
       "postconditions": [
         "global_fixture_restored",
-        "credential_reference_released",
+        "standalone_omits_cookies_and_shared_requests_use_same_origin_cookies",
         "foreign_origin_send_zero",
         "old_connection_response_rejected",
+        "proxy_failure_is_not_mistaken_for_confirmed_local_git_disconnect",
         "response_reader_released",
         "inflight_abort_rejected",
-        "automatic_retry_zero"
+        "automatic_retry_zero",
+        "workspace_method_path_and_body_match_operation",
+        "route_parameters_encoded_as_segments"
       ],
       "mandatoryByDefault": true
     },
@@ -3229,12 +3421,12 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "google_management_rest_uses_cookie_without_bearer_or_retry",
-        "google_credential_list_requires_current_session_without_secrets",
+        "management_rest_uses_same_origin_cookies_without_bearer_or_retry",
+        "current_ai_request_is_repository_scoped_and_cancellable",
         "global_fixture_restored",
         "query_and_mutation_cache_released",
         "automatic_retry_zero",
-        "credential_post_not_dispatched"
+        "unsupported_management_operation_not_dispatched"
       ],
       "mandatoryByDefault": true
     },
@@ -3253,8 +3445,7 @@
         "secret-free-result",
         "local-authorized-portfolio",
         "local-authorized-records",
-        "hosted-client-session",
-        "retired-initial-connection"
+        "hosted-client-session"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -3288,8 +3479,8 @@
         "activity_invalid_cursor_no_first_page",
         "activity_state_event_unknown_independent",
         "activity_read_no_initialization",
-        "http_ai_selection_rejects_legacy_bearer_without_state_read_or_publication",
-        "legacy_header_withholds_shared_view_and_reads_no_access_state",
+        "http_ai_selection_rejects_authorization_header_without_state_read_or_publication",
+        "authorization_header_withholds_shared_view_and_reads_no_access_state",
         "activity_precancel_read_zero",
         "activity_started_read_joined",
         "activity_cancelled_success_body_zero",
@@ -3302,7 +3493,7 @@
         "selected_content_denied_after_registration_removal",
         "retired_connection_rejected_for_completed_and_pending_state",
         "retired_connection_publication_zero",
-        "local_cros_startup_content_not_read",
+        "unauthenticated_shared_startup_does_not_read_content",
         "retired_key_never_authenticates_shared_view",
         "authorized_repository_content_revision_preserved_in_portfolio"
       ],
@@ -3316,6 +3507,7 @@
       "kind": "contract",
       "semanticTags": [
         "state-storage",
+        "unknown-state-observation",
         "revision-conflict",
         "bounded-input",
         "pending-reentry",
@@ -3342,6 +3534,7 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
+        "unknown_state_and_pending_materials_preserved_without_publication",
         "current_snapshot_read_back",
         "access_publication_notifies_after_lock_attempt_even_if_result_unknown",
         "retired_scope_publication_rejected_and_pending_retained",
@@ -3364,7 +3557,7 @@
         "host-initialization",
         "bounded-root-preparation",
         "existing-host-root-read-only",
-        "legacy-input-observation"
+        "initialization-storage-identity"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -3377,7 +3570,8 @@
         "lock_cleanup_unknown_does_not_report_initialization_completed",
         "google_bootstrap_never_replaces_existing_or_incomplete_state",
         "retired_scope_schema_never_replaced_by_bootstrap_or_relink",
-        "legacy_material_observed_again_under_current_initialization_lock",
+        "current_slots_preserved_under_initialization_lock",
+        "initialization_lock_rejects_inconsistent_root_identity",
         "missing_root_not_created",
         "existing_root_unchanged",
         "linked_or_replaced_root_rejected",
@@ -3408,30 +3602,6 @@
         "first_revision_requires_one_linked_administrator",
         "retired_schema_and_fields_rejected",
         "state_parse_no_io"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "access-management:unit:initialization-state-evaluation",
-      "owner": "access-management",
-      "path": "40_Develop/access-management/tests/unit/initialization/state.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "host-initialization",
-        "state-classification",
-        "explicit-start",
-        "invalid-input"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "initialization_matrix_24_exact",
-        "invalid_observation_stopped",
-        "implicit_coercion_not_executed",
-        "result_not_shared",
-        "initialization_judgement_no_io"
       ],
       "mandatoryByDefault": true
     },
@@ -3573,6 +3743,32 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:docker-restart-recovery-storage",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-restart-recovery-storage.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "host-recovery",
+        "recovery-terminal-history",
+        "docker-restart"
+      ],
+      "environment": "local_component_boundary",
+      "executionProfiles": [
+        "restricted_process",
+        "windows_process_control"
+      ],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "restart_checkpoint_rejects_settlement_under_existing_owner",
+        "exact_recovery_history_and_task_end_saved",
+        "no_executor_external_operation_attempted",
+        "test_root_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:integration:docker-auth-create-closure",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/docker-auth-create-closure.contract.test.ts",
@@ -3631,7 +3827,11 @@
         "host_cleanup_absence_confirmed",
         "normal_index_head_unchanged",
         "reference_mismatch_retained",
-        "receipt_failure_retained"
+        "receipt_failure_retained",
+        "probe_reentry_checkpoint_precedes_host_cleanup",
+        "probe_reentry_refusal_keeps_original_reference_and_root",
+        "probe_reentry_changed_record_refusal_releases_recovery_owner",
+        "probe_reentry_unconfirmed_completion_keeps_absence_receipt_root_and_recovery_reference"
       ],
       "mandatoryByDefault": true
     },
@@ -4879,6 +5079,9 @@
       "humanInput": false,
       "postconditions": [
         "mcp_http_rejects_invalid_accept_content_type_and_origin_before_tool",
+        "mcp_stdio_tool_list_ignores_unused_metadata_and_cursor_without_pagination",
+        "mcp_server_candidate_propagates_cancellation_and_joins_recovery_result",
+        "http_factory_shutdown_joins_server_cleanup_without_starting_tool",
         "active_request_joined",
         "listener_absent",
         "transport_resources_closed"
@@ -5964,31 +6167,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "mcp:integration:initial-connection",
-      "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/initial-connection.integration.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "access-management",
-        "retired-initial-connection",
-        "http",
-        "non-disclosure"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "retired_initial_credential_rejected_for_discovery_and_tools",
-        "initial_connection_publication_zero",
-        "rejection_does_not_disclose_token_or_directory",
-        "listener_absent",
-        "no_retained_lock_or_publication_materials",
-        "test_root_removed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "mcp:integration:access-management-results",
       "owner": "crdd-server",
       "path": "40_Develop/crdd-server/tests/integration/access-management-results.integration.test.ts",
@@ -6064,6 +6242,13 @@
         "management_http_close_invalidates_existing_cookie",
         "current_account_binding_rechecked",
         "per_account_browser_session_limit_preserves_other_accounts",
+        "global_browser_session_limit_evicts_oldest_and_keeps_new_session",
+        "invalid_cookie_is_cleared_and_valid_session_remains_usable",
+        "same_git_account_callbacks_keep_the_existing_reference_and_execution",
+        "git_host_logout_revokes_interactive_token_without_stopping_started_execution",
+        "git_host_disconnect_drops_local_link_even_when_provider_revocation_is_unconfirmed",
+        "overlapping_disconnect_shares_revocation_after_first_connection_closes",
+        "shared_access_session_uses_admitted_host_reference_and_opens_monitor_without_login_token",
         "management_session_bounded"
       ],
       "mandatoryByDefault": true
@@ -6084,6 +6269,7 @@
       "humanInput": false,
       "postconditions": [
         "host_link_bound_to_browser_and_confirmation",
+        "verified_host_account_shown_only_on_terminal_before_confirmation",
         "google_bootstrap_cli_exclusive_and_terminal_required",
         "distributed_cli_rejection_root_effect_zero",
         "shared_streams_not_destroyed",
@@ -6107,8 +6293,15 @@
       "humanInput": false,
       "postconditions": [
         "mcp_oauth_pkce_grant_verified",
+        "sdk_protected_resource_metadata_preserves_public_url_scope_and_issuer_constraints",
+        "sdk_bearer_rejects_invalid_and_duplicate_headers_and_insufficient_scope",
+        "sdk_rejects_non_post_and_unsupported_media_without_waiting_for_request_body",
+        "sdk_auth_context_keeps_concurrent_subjects_separate",
+        "official_mcp_client_lists_tools_with_locally_issued_oauth_token",
         "resource_bound_token_introspected_and_revoked",
+        "unissued_token_rejected_without_disclosure",
         "valid_token_and_grant_required_for_new_execution_admission",
+        "grant_keeps_same_git_account_reference_across_renewal_and_not_across_disconnect",
         "oauth_state_process_bound_and_expiring",
         "pending_oauth_capacity_does_not_displace_established_state",
         "explicit_logout_invalidates_subject_session_grant_code_and_token",
@@ -6132,10 +6325,14 @@
       "humanInput": false,
       "postconditions": [
         "github_link_bound_to_exact_reference_user_and_binding",
+        "same_account_relinked_200_times_without_growing_or_interrupting_execution",
+        "git_link_capacity_reclaims_only_unreferenced_records_and_bounds_each_user",
         "installation_metadata_scope_and_stable_account_repository_ids_verified",
         "git_host_link_capacity_and_server_close",
         "provider_kind_selects_distinct_configured_host_bindings",
         "git_host_credentials_are_not_forwarded_to_other_bindings",
+        "github_revocation_targets_only_the_user_token_and_does_not_follow_redirects",
+        "pending_token_revocation_prevents_same_credential_readmission",
         "installation_and_repository_permission_intersect",
         "incomplete_remote_observation_not_authorized"
       ],
@@ -6158,6 +6355,7 @@
       "postconditions": [
         "oidc_engine_applies_profile_issuer_tenant_email_and_authorization_parameters",
         "verified_one_time_oidc_callback",
+        "registered_provider_owns_tenant_configuration_and_rejects_wrong_metadata_issuer",
         "oldest_pending_login_is_replaced_at_capacity",
         "same_browser_binding_required"
       ],
@@ -6194,7 +6392,7 @@
         "topic-meeting",
         "runtime-activity",
         "current-authorization",
-        "retired-profile-boundary",
+        "unknown-tool-rejection",
         "http"
       ],
       "environment": "local_component_boundary",
@@ -6228,7 +6426,10 @@
         "hosted_objective_admission_expires_before_first_effect_but_running_tasks_continue",
         "hosted_objective_known_binding_revocation_takes_priority_over_unknown_host_access",
         "hosted_objective_explicit_git_disconnect_cancels_without_poll_and_joins_child",
+        "hosted_objective_cancels_when_current_login_binding_is_removed",
         "hosted_mcp_logout_rejects_new_request_while_installed_app_allows_active_execution",
+        "shared_mcp_logout_during_body_read_rejects_the_admitted_request",
+        "shared_listener_self_tool_uses_one_oauth_introspection_and_correct_subject",
         "hosted_objective_repository_rename_does_not_retarget_execution",
         "hosted_objective_explicit_cancellation_uses_same_current_launch_across_http_and_mcp",
         "active_launch_projection_suppressed_with_state_when_authorization_expires",
@@ -6240,9 +6441,8 @@
         "request_reauthorization",
         "stored_runtime_state_and_history_delivered",
         "authorized_activity_sources_exact",
-        "partial_exposure_reflected",
         "nonkey_management_current_role",
-        "mcp_management_writes_absent_and_rejected_for_every_role",
+        "mcp_published_tool_names_match_role_allowlist_exactly",
         "shared_execution_target_and_principal_bound",
         "shared_execution_result_withheld_after_access_loss",
         "oauth_mcp_rejects_legacy_connection_key",
@@ -6254,8 +6454,8 @@
         "confirmed_publication_not_rewritten",
         "management_automatic_resend_zero",
         "listener_absent",
-        "retired_profile_tools_absent_all_roles",
-        "retired_profile_owner_effect_zero",
+        "current_access_tool_listed_all_roles",
+        "unknown_tool_rejected_without_state_update_all_roles",
         "hosted_record_writes_require_both_permissions",
         "topic_meeting_http_mcp_share_non_hosted_access_and_revisions",
         "hosted_record_prepublication_revocation_preserved",
@@ -7087,6 +7287,9 @@
         "objective_child_cancellation_after_permission_joins_close",
         "objective_child_late_async_confirmation_does_not_reauthorize_cancelled_request",
         "explicit_cancellation_does_not_cross_launch_owner_or_hosted_binding",
+        "mcp_server_migration_probe_compares_recovery_cancellation_discovery_over_http_and_stdio",
+        "mcp_sdk_rejects_invalid_tool_arguments_without_echoing_input",
+        "mcp_unknown_tool_name_not_reflected_over_http_or_stdio",
         "result_observed"
       ],
       "mandatoryByDefault": true
@@ -7118,7 +7321,8 @@
         "pending_outcome_close_effect_zero",
         "schema_rejection_before_dispatch",
         "internal_failure_details_not_disclosed",
-        "write_failure_not_input_rejection"
+        "write_failure_not_input_rejection",
+        "deprecated_log_level_ignored_unknown_metadata_rejected"
       ],
       "mandatoryByDefault": true
     },
@@ -7571,6 +7775,7 @@
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
+        "documentation_validation",
         "crdd",
         "check"
       ],
@@ -7758,7 +7963,7 @@
         "workbench",
         "localhost",
         "official-logo",
-        "retired-credential-write",
+        "shared-operation-authentication",
         "ai-request-application-port",
         "ai-result-meaning-separation",
         "activity-direct-orchestrator-owner",
@@ -7791,14 +7996,12 @@
         "repository_content_unchanged",
         "official_logo_exact",
         "retired_remote_configuration_network_zero",
-        "retired_connection_post_rejected",
-        "retired_credential_write_rejected_without_state_change",
-        "legacy_bearer_git_staging_rejected_without_access_management_read",
-        "legacy_bearer_ai_start_and_read_rejected_without_access_management_read",
+        "anonymous_git_staging_rejected_without_access_management_read",
+        "anonymous_ai_start_and_read_rejected_without_access_management_read",
         "git_staging_rejects_invalid_origin_host_token_and_media_headers_without_effect",
         "git_staging_accepts_json_media_type_with_http_whitespace",
         "connection_model_state_only",
-        "repository_mode_credential_optional",
+        "standalone_shell_served_without_shared_sign_in",
         "ai_request_current_session_only",
         "ai_request_project_context_reference_exact",
         "ai_result_fact_inference_separated",
@@ -7896,7 +8099,11 @@
       "executionProfiles": ["restricted_process"],
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["invalid_view_rejected_before_rendering", "view_states_and_correlations_preserved"],
+      "postconditions": [
+        "invalid_view_rejected_before_rendering",
+        "view_states_and_correlations_preserved",
+        "normal_and_invitation_login_render_names_and_routes_for_each_provider"
+      ],
       "mandatoryByDefault": true
     },
     {
@@ -8022,9 +8229,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "workbench:system:credential-browser",
+      "id": "workbench:system:shared-access-browser",
       "owner": "workbench-ui",
-      "path": "40_Develop/workbench-ui/tests/system/credential-administration-browser.contract.test.ts",
+      "path": "40_Develop/workbench-ui/tests/system/shared-access-browser.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -8662,7 +8869,7 @@
         "restart",
         "real-observation"
       ],
-      "environment": "windows_rust_runtime",
+      "environment": "fixed_system_runtime",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
@@ -8920,7 +9127,7 @@
       "postconditions": [
         "result_observed",
         "repair_outcome_recorded_after_head_change",
-        "repair_history_and_completion_not_confirmed_after_head_change",
+        "repair_history_and_completion_confirmed_after_head_change",
         "test_root_absent"
       ],
       "mandatoryByDefault": true
@@ -8962,25 +9169,6 @@
       "postconditions": [
         "retired_entries_absent",
         "current_consumers_independent"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "access-management:integration:initialization-storage",
-      "owner": "access-management",
-      "path": "40_Develop/access-management/tests/integration/initialization/storage.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "state-storage",
-        "retired-initial-state-observation"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "retired_initial_state_observed_without_changes",
-        "test_root_removed"
       ],
       "mandatoryByDefault": true
     },
@@ -9111,6 +9299,7 @@
       "postconditions": [
         "hosted_collection_expiry_duplicate_and_pending_rejected_before_read",
         "hosted_collection_unknown_and_release_failure_have_no_partial_result",
+        "missing_saved_git_host_reference_rejects_whole_state_without_rewrite",
         "current_snapshot_read_back",
         "pending_materials_settled",
         "unknown_materials_retained",
@@ -11070,6 +11259,78 @@
         "proof_invalidated_on_all_exits",
         "initialization_effect_preserved",
         "unknown_purpose_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "lock:unit:lock-admission",
+      "owner": "lock",
+      "path": "40_Develop/lock/tests/unit/lock-admission.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "lock-request"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "invalid_request_refused_before_observation",
+        "unobservable_directory_refused"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:unit:repository-names",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/unit/repository-names.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "repository-name-validation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "branch_name_grammar_fixed",
+        "root_permission_and_relative_path_normalization_distinguished"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "visual-preview:unit:browser-zoom",
+      "owner": "visual-preview",
+      "path": "40_Develop/visual-preview/tests/unit/browser-zoom.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "zoom-calculation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "base_zoom_level_and_direction_preserved",
+        "nonpositive_and_nonfinite_zoom_rejected"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench-ui:unit:request-path",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/unit/request-path.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "http-path-construction"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "request_method_and_path_remain_bound",
+        "invalid_path_argument_rejected"
       ],
       "mandatoryByDefault": true
     }

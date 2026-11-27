@@ -11,18 +11,19 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
 import { type FileHandle, open } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import { readServerConnectionConfiguration } from "../../src/service/configuration.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
+import { prepareAccessStore } from "../support/access-store.ts";
 import {
   readWorkbenchServerConfiguration,
   startWorkbench,
 } from "../../src/app.ts";
+import { readServerTransportConfiguration } from "../../src/service/configuration.ts";
+import { startSharedFixture } from "../support/shared-sign-in.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -69,21 +70,21 @@ test("Workbench設定Readerは当該Repositoryの閉設定だけを受理する"
       code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
     });
     await assert.rejects(
-      Reflect.apply(readServerConnectionConfiguration, null, [
+      Reflect.apply(readServerTransportConfiguration, null, [
         fixture,
         "../unknown",
       ]),
       { message: "crdd_server_connection_invalid" },
     );
     fs.writeFileSync(mcpFile, '{"publicOrigin":"https://mcp.example"}');
-    assert.deepEqual(await readServerConnectionConfiguration(fixture, "mcp"), {
+    assert.deepEqual(await readServerTransportConfiguration(fixture, "mcp"), {
       publicOrigin: "https://mcp.example",
     });
     assert.deepEqual(await readWorkbenchServerConfiguration(fixture), {
       publicOrigin: "https://workbench.example",
     });
     fs.writeFileSync(mcpFile, '{"publicOrigin":"http://mcp.example"}');
-    await assert.rejects(readServerConnectionConfiguration(fixture, "mcp"), {
+    await assert.rejects(readServerTransportConfiguration(fixture, "mcp"), {
       message: "mcp_server_configuration_invalid",
     });
     assert.deepEqual(await readWorkbenchServerConfiguration(fixture), {
@@ -294,15 +295,14 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
     path.join(testRoot, "workbench-public-origin-"),
   );
   assert.equal(path.dirname(fixture), testRoot);
-  const root = createFilesystemStoreRoot(fixture);
-  assert.ok(root);
-  const observationFile = path.join(fixture, "read-control");
-  fs.writeFileSync(observationFile, "fixture");
   let handle: Awaited<ReturnType<typeof startWorkbench>> | undefined;
   const originalOpen = fs.openSync;
   let opens = 0;
   try {
-    handle = await startWorkbench({
+    const { root } = prepareAccessStore(fixture);
+    const observationFile = path.join(fixture, "read-control");
+    fs.writeFileSync(observationFile, "fixture");
+    handle = await startSharedFixture({
       workingDirectory: repositoryRoot,
       localAccessRoot: root,
       publicOrigin: "https://workbench.example",
@@ -320,7 +320,7 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
     fs.closeSync(fs.openSync(observationFile, "r"));
     assert.equal(opens, 1, "fixture_open_observer_active");
     opens = 0;
-    const url = `${handle.baseUrl}/api/workbench/view`;
+    const url = `${handle.baseUrl}/api/workbench/overview`;
     const valid: Record<string, string | string[]> = {
       host: "workbench.example",
       "x-forwarded-proto": "https",
@@ -331,7 +331,7 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
      * @responsibility 重複Headerを保持し、HTTP状態と非秘密本文だけを取得する。
      * @trace EST-IT-010
      * @precondition 自己生成loopback URLだけを使用する。
-     * @stimulus GETまたは空BodyのPOST、固定Header、任意のraw要求Path。
+     * @stimulus 固定Headerと要求Path。本文待ちの反証ではHeaderだけを送る。
      * @observation HTTP状態と本文。
      * @oracle 送信・受信故障を成功へ補完しない。
      * @cleanup Timeout／終了でTimerを解除し、Responseを最後まで読む。
@@ -340,7 +340,8 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
     const send = (
       headers: Record<string, string | string[]>,
       method = "GET",
-      requestPath = "/api/workbench/view",
+      requestPath = "/api/workbench/overview",
+      withholdBody = false,
     ) =>
       new Promise<{ status: number; body: string }>((resolve, reject) => {
         const request = httpRequest(
@@ -354,9 +355,10 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
                 request.destroy(new Error("fixture_response_limit"));
             });
             response.on("error", reject);
-            response.on("end", () =>
-              resolve({ status: response.statusCode ?? 0, body }),
-            );
+            response.on("end", () => {
+              if (withholdBody) request.destroy();
+              resolve({ status: response.statusCode ?? 0, body });
+            });
           },
         );
         const timer = setTimeout(
@@ -365,7 +367,8 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
         );
         request.once("close", () => clearTimeout(timer));
         request.once("error", reject);
-        request.end();
+        if (withholdBody) request.flushHeaders();
+        else request.end();
       });
     for (const change of [
       { host: "localhost" },
@@ -399,21 +402,44 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
     assert.equal(invalidUrl.status, 500);
     assert.equal(invalidUrl.body, "workbench_request_failed\n");
     assert.equal(opens, 0);
-    const normalized = await send(valid, "GET", "/x/../api/workbench/view");
+    const normalized = await send(valid, "GET", "/x/../api/workbench/overview");
     assert.equal(normalized.status, 200);
     assert.equal(JSON.parse(normalized.body).authenticated, false);
     assert.equal(opens, 0);
     const normal = await send(valid);
     assert.equal(normal.status, 200);
     assert.equal(JSON.parse(normal.body).authenticated, false);
-    assert.equal(JSON.parse(normal.body).portfolio, null);
-    const unknown = await send({
-      ...valid,
-      authorization: `Bearer cros.v1.${"0".repeat(24)}.${"A".repeat(43)}`,
+    assert.equal(Object.hasOwn(JSON.parse(normal.body), "portfolio"), false);
+    const bearer = { ...valid, authorization: "Bearer synthetic" };
+    for (const [method, route] of [
+      ["GET", "/api/workbench/overview"],
+      ["GET", "/api/projects"],
+      ["HEAD", "/api/workbench/overview"],
+      ["GET", "/api/unknown"],
+    ] as const) {
+      const rejected = await send(bearer, method, route);
+      assert.equal(rejected.status, 403);
+      assert.equal(
+        rejected.body,
+        method === "HEAD" ? "" : JSON.stringify({ error: "request_rejected" }),
+      );
+    }
+    assert.equal((await send(valid, "GET", "/api/unknown")).status, 404);
+    const executionWithoutSession = await send(
+      {
+        ...valid,
+        origin: "https://workbench.example",
+        "content-type": "application/json",
+        "content-length": "16",
+      },
+      "PUT",
+      "/api/repositories/repo.fixture/projects/project.fixture/milestones/milestone.fixture/plan",
+      true,
+    );
+    assert.deepEqual(executionWithoutSession, {
+      status: 403,
+      body: JSON.stringify({ error: "execution_definition_unavailable" }),
     });
-    assert.equal(unknown.status, 200);
-    assert.equal(JSON.parse(unknown.body).authenticated, false);
-    assert.equal(JSON.parse(unknown.body).portfolio, null);
     assert.equal(opens, 0);
   } finally {
     fs.openSync = originalOpen;

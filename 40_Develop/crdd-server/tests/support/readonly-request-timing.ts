@@ -68,7 +68,7 @@ export function createReadonlyVerificationTiming() {
   }[] = [];
   const responses = new WeakMap<ServerResponse, ServerTiming>();
   const routeOf = (route: string): Route | null =>
-    route === "/api/workbench/view?route=%2F"
+    route === "/api/workbench/overview"
       ? "view"
       : isVerificationAiWrite(route)
         ? "action"
@@ -182,7 +182,7 @@ export function createReadonlyVerificationTiming() {
           method: timing.method,
           route:
             routeKind === "view"
-              ? "/api/workbench/view?route=%2F"
+              ? "/api/workbench/overview"
               : "/api/repositories/{repositoryId}/ai-requests",
           startedAt: timing.startedAt,
           requestCreatedAt: timing.requestCreatedAt,

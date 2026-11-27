@@ -3,19 +3,26 @@
  * @trace ARCH-000012
  * @boundary CRDD内の認可や、HTTPセッションへの資格保管は行わない。
  */
-import { createHash, createPrivateKey, randomBytes, sign } from "node:crypto";
-import { matchesSecret } from "../secret.ts";
+import {
+  createHash,
+  createPrivateKey,
+  type KeyObject,
+  randomBytes,
+  sign,
+} from "node:crypto";
+import { matchesSecret } from "./secret.ts";
 import type { GitHostLinkedRepository } from "@qual-lab/crdd-access-management";
 
 import type {
-  GitHostConnection,
-  GitHostConfiguration,
+  GitHostLinkFlow,
   GitHostPermissionObservation,
   GitHostProvider,
   GitHostRepositoryAccess,
 } from "./git-host.ts";
 
 const maximumCachedInstallations = 128;
+const maximumCachedAccountNames = 512;
+const accountNameLifetimeMs = 5 * 60_000;
 const apiBase = "https://api.github.com";
 
 function gitHubId(value: unknown): number {
@@ -44,24 +51,12 @@ function repositoryIds(reference: GitHostLinkedRepository) {
 /** 実行監視用の照会。利用者の対話資格を読まず、インストール資格を外へ渡さない。 */
 function createGitHubPermissionObserver(configuration: {
   clientId: string;
-  privateKey: string;
+  privateKey: KeyObject;
 }) {
-  const key = (() => {
-    try {
-      if (!/^[A-Za-z0-9_.-]{1,128}$/u.test(configuration.clientId))
-        throw new Error();
-      const parsed = createPrivateKey(configuration.privateKey);
-      if (
-        parsed.asymmetricKeyType !== "rsa" ||
-        (parsed.asymmetricKeyDetails?.modulusLength ?? 0) < 2048
-      )
-        throw new Error();
-      return parsed;
-    } catch {
-      throw new Error("git_host_monitor_configuration_invalid");
-    }
-  })();
   const tokens = new Map<string, { value: string; expiresAt: number }>();
+  const representations = new Map<string, { etag: string; body: unknown }>();
+  const observations = new Map<string, Promise<GitHostPermissionObservation>>();
+  const accountNames = new Map<number, { login: string; expiresAt: number }>();
   const toBase64 = (value: object) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
   const api = (
@@ -69,6 +64,7 @@ function createGitHubPermissionObserver(configuration: {
     token: string,
     signal: AbortSignal,
     body?: object,
+    etag?: string,
   ) =>
     fetch(new URL(path, apiBase), {
       redirect: "error",
@@ -77,6 +73,7 @@ function createGitHubPermissionObserver(configuration: {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2026-03-10",
         Authorization: `Bearer ${token}`,
+        ...(etag && { "If-None-Match": etag }),
         ...(body && { "Content-Type": "application/json" }),
       },
       ...(body && { method: "POST", body: JSON.stringify(body) }),
@@ -96,7 +93,7 @@ function createGitHubPermissionObserver(configuration: {
       iat: now - 60,
       exp: now + 300,
     })}`;
-    const jwt = `${data}.${sign("RSA-SHA256", Buffer.from(data), key).toString("base64url")}`;
+    const jwt = `${data}.${sign("RSA-SHA256", Buffer.from(data), configuration.privateKey).toString("base64url")}`;
     const response = await api(
       `/app/installations/${installationId}/access_tokens`,
       jwt,
@@ -132,7 +129,67 @@ function createGitHubPermissionObserver(configuration: {
     tokens.set(cacheKey, { value, expiresAt });
     return value;
   };
-  return async (input: {
+  const readCurrent = async (
+    path: string,
+    token: string,
+    scope: string,
+    signal: AbortSignal,
+    onNotFound?: () => void,
+  ) => {
+    const key = `${scope}:${path}`;
+    const prior = representations.get(key);
+    const response = await api(path, token, signal, undefined, prior?.etag);
+    if (signal.aborted) return undefined;
+    if (response.status === 304 && prior) return prior.body;
+    if (representations.get(key) === prior) representations.delete(key);
+    if (response.status === 404) onNotFound?.();
+    if (!response.ok) return undefined;
+    const body: unknown = await response.json();
+    const etag = response.headers.get("etag");
+    // 304を同じ表現の証拠にできる単一タグだけを記憶する。
+    if (
+      etag &&
+      etag.length <= 256 &&
+      /^(?:W\/)?"[\x21\x23-\x7e\x80-\xff]*"$/u.test(etag) &&
+      !signal.aborted
+    ) {
+      representations.delete(key);
+      if (representations.size >= maximumCachedInstallations * 4) {
+        const oldest = representations.keys().next().value;
+        if (oldest !== undefined) representations.delete(oldest);
+      }
+      representations.set(key, { etag, body });
+    }
+    return body;
+  };
+  const readAccountName = async (
+    id: number,
+    token: string,
+    scope: string,
+    signal: AbortSignal,
+  ): Promise<string | null> => {
+    const cached = accountNames.get(id);
+    if (cached && cached.expiresAt > Date.now()) return cached.login;
+    if (cached) accountNames.delete(id);
+    const user = record(await readCurrent(`/user/${id}`, token, scope, signal));
+    if (
+      signal.aborted ||
+      user?.id !== id ||
+      typeof user.login !== "string" ||
+      !/^[A-Za-z0-9_-]{1,100}$/u.test(user.login)
+    )
+      return null;
+    if (accountNames.size >= maximumCachedAccountNames) {
+      const oldest = accountNames.keys().next().value;
+      if (oldest !== undefined) accountNames.delete(oldest);
+    }
+    accountNames.set(id, {
+      login: user.login,
+      expiresAt: Date.now() + accountNameLifetimeMs,
+    });
+    return user.login;
+  };
+  const observe = async (input: {
     reference: GitHostLinkedRepository;
     accountId: string;
     signal: AbortSignal;
@@ -141,7 +198,7 @@ function createGitHubPermissionObserver(configuration: {
     const ids = repositoryIds(input.reference);
     if (!ids || !validId(accountId) || input.signal.aborted)
       return "unavailable";
-    const signal = AbortSignal.any([input.signal, AbortSignal.timeout(5_000)]);
+    const signal = input.signal;
     try {
       const token = await installationToken(
         ids.installationId,
@@ -149,14 +206,16 @@ function createGitHubPermissionObserver(configuration: {
         signal,
       );
       if (!token) return "unavailable";
+      const scope = `${ids.installationId}:${ids.repositoryId}`;
       const repositoryName = async () => {
-        const response = await api(
-          "/installation/repositories?per_page=2",
-          token,
-          signal,
+        const payload = record(
+          await readCurrent(
+            "/installation/repositories?per_page=2",
+            token,
+            scope,
+            signal,
+          ),
         );
-        if (!response.ok) return null;
-        const payload = record(await response.json());
         if (
           payload?.total_count !== 1 ||
           !Array.isArray(payload.repositories) ||
@@ -171,30 +230,31 @@ function createGitHubPermissionObserver(configuration: {
             )
           : null;
       };
-      const [name, identity] = await Promise.all([
+      const [name, login] = await Promise.all([
         repositoryName(),
-        api(`/user/${accountId}`, token, signal),
+        readAccountName(accountId, token, scope, signal),
       ]);
-      const user = identity.ok ? record(await identity.json()) : null;
-      if (
-        !name ||
-        user?.id !== accountId ||
-        typeof user.login !== "string" ||
-        !/^[A-Za-z0-9_-]{1,100}$/u.test(user.login)
-      )
-        return "unavailable";
-      const response = await api(
-        `/repos/${name}/collaborators/${user.login}/permission`,
-        token,
-        signal,
+      if (!name || !login) return "unavailable";
+      const forgetName = () => {
+        if (accountNames.get(accountId)?.login === login)
+          accountNames.delete(accountId);
+      };
+      const permission = record(
+        await readCurrent(
+          `/repos/${name}/collaborators/${login}/permission`,
+          token,
+          `${scope}:${accountId}`,
+          signal,
+          forgetName,
+        ),
       );
-      if (!response.ok) return "unavailable";
-      const permission = record(await response.json());
-      if (
-        record(permission?.user)?.id !== accountId ||
-        name !== (await repositoryName()) ||
-        signal.aborted
-      )
+      if (!permission) return "unavailable";
+      // 304で再利用する表現にも、元の利用者と現在のリポジトリを照合する。
+      if (record(permission?.user)?.id !== accountId) {
+        forgetName();
+        return "unavailable";
+      }
+      if (name !== (await repositoryName()) || signal.aborted)
         return "unavailable";
       switch (permission?.permission) {
         case "admin":
@@ -210,6 +270,32 @@ function createGitHubPermissionObserver(configuration: {
     } catch {
       return "unavailable";
     }
+  };
+  return async (
+    input: Parameters<typeof observe>[0],
+  ): Promise<GitHostPermissionObservation> => {
+    const ids = repositoryIds(input.reference);
+    const account = gitHubId(input.accountId);
+    if (!ids || !validId(account) || input.signal.aborted) return "unavailable";
+    const key = `${ids.installationId}:${ids.repositoryId}:${account}`;
+    let observation = observations.get(key);
+    if (!observation) {
+      observation = observe({ ...input, signal: AbortSignal.timeout(5_000) });
+      const tracked = observations.size < maximumCachedInstallations;
+      if (tracked) {
+        observations.set(key, observation);
+        void observation.finally(() => observations.delete(key));
+      }
+    }
+    return new Promise((resolve) => {
+      const cancel = () => resolve("unavailable");
+      input.signal.addEventListener("abort", cancel, { once: true });
+      if (input.signal.aborted) cancel();
+      void observation.then((result) => {
+        input.signal.removeEventListener("abort", cancel);
+        resolve(input.signal.aborted ? "unavailable" : result);
+      });
+    });
   };
 }
 
@@ -229,13 +315,11 @@ function validId(value: unknown): value is number {
 }
 
 /** セッションIDはHTTP入口の検証済みセッションからのみ渡す。 */
-function createGitHubConnection(input: {
-  host: string;
+function createGitHubLinkFlow(input: {
   clientId: string;
   clientSecret: string;
   callback: URL;
-}): GitHostConnection {
-  if (input.host !== "github.com") throw new Error("git_host_unsupported");
+}): GitHostLinkFlow {
   const { clientId, clientSecret } = input;
   const callback = new URL(input.callback.href);
   if (
@@ -244,11 +328,9 @@ function createGitHubConnection(input: {
     callback.username ||
     callback.password ||
     callback.search ||
-    callback.hash ||
-    !clientId ||
-    !clientSecret
+    callback.hash
   ) {
-    throw new Error("github_connection_configuration_invalid");
+    throw new Error("git_host_connection_configuration_invalid");
   }
 
   const pending = new Map<
@@ -380,6 +462,9 @@ function createGitHubConnection(input: {
   };
 }
 
+type AccessPage = { status: number; data: unknown };
+type AccessPages = Map<string, AccessPage>;
+
 async function findAccessibleEntry(
   path: string,
   key: "installations" | "repositories",
@@ -387,6 +472,7 @@ async function findAccessibleEntry(
   token: string,
   signal: AbortSignal,
   isCurrent?: () => boolean,
+  pages?: AccessPages,
 ): Promise<Record<string, unknown> | null | undefined> {
   let total: number | undefined;
   const seen = new Set<number>();
@@ -395,17 +481,25 @@ async function findAccessibleEntry(
     const url = new URL(path, apiBase);
     url.searchParams.set("per_page", String(pageSize));
     url.searchParams.set("page", String(page));
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-      },
-      redirect: "error",
-      signal,
-    });
-    if (response.status === 401) return null;
-    if (response.status !== 200) return undefined;
-    const body = record(await response.json());
+    let observed = pages?.get(url.href);
+    if (!observed) {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${token}`,
+        },
+        redirect: "error",
+        signal,
+      });
+      observed = {
+        status: response.status,
+        data: response.status === 200 ? await response.json() : null,
+      };
+      pages?.set(url.href, observed);
+    }
+    if (observed.status === 401) return null;
+    if (observed.status !== 200) return undefined;
+    const body = record(observed.data);
     const count = body?.total_count;
     const rows = body?.[key];
     if (
@@ -481,18 +575,22 @@ async function observeGitHubRepositoryBinding(input: {
 }
 
 /** Gitホスト側の権限だけを観測する。現在のCRDD主体との結合は呼出し側が確認する。 */
-async function observeGitHubRepositoryAccess(input: {
-  reference: GitHostLinkedRepository;
-  userAccessToken: string;
-  signal?: AbortSignal;
-  isCurrent?: () => boolean;
-}): Promise<GitHostRepositoryAccess> {
+async function observeGitHubRepositoryAccess(
+  input: {
+    reference: GitHostLinkedRepository;
+    userAccessToken: string;
+    signal?: AbortSignal;
+    isCurrent?: () => boolean;
+  },
+  pages?: AccessPages,
+): Promise<GitHostRepositoryAccess> {
   const ids = repositoryIds(input.reference);
   if (!ids) return { status: "unavailable" };
   const observed = await observeGitHubRepository(
     input,
     (entry) => entry.id === ids.installationId,
     (entry) => entry.id === ids.repositoryId,
+    pages,
   );
   if (observed.status !== "allowed") return observed;
   return {
@@ -511,6 +609,7 @@ async function observeGitHubRepository(
   },
   matchesInstallation: (entry: Record<string, unknown>) => boolean,
   matches: (entry: Record<string, unknown>) => boolean,
+  pages?: AccessPages,
 ): Promise<
   | (Extract<GitHostRepositoryAccess, { status: "allowed" }> & {
       id: number;
@@ -534,6 +633,7 @@ async function observeGitHubRepository(
       userAccessToken,
       signal,
       input.isCurrent,
+      pages,
     );
     if (installation === undefined) return { status: "unavailable" };
     if (installation === null) return { status: "denied" };
@@ -553,6 +653,7 @@ async function observeGitHubRepository(
       userAccessToken,
       signal,
       input.isCurrent,
+      pages,
     );
     if (repository === undefined) return { status: "unavailable" };
     if (repository === null) return { status: "denied" };
@@ -584,55 +685,45 @@ async function observeGitHubRepository(
   }
 }
 
+type GitHubConfiguration = Readonly<{
+  clientId: string;
+  clientSecret: string;
+  privateKey?: KeyObject;
+}>;
 export const gitHubProvider = Object.freeze({
   kind: "github",
+  credentialEnvironmentPrefix: "CRDD_GITHUB_",
   defaultHost: "github.com",
   acceptsHost: (value) => value === "github.com",
   displayName: "GitHub",
   acceptsApiBase: (value) => value === apiBase,
-  readEnvironment(value, readValue) {
+  parseConfiguration(value, readValue) {
     const fields = record(value);
-    if (
-      !fields ||
-      Object.keys(fields).some(
-        (key) =>
-          !["clientIdEnv", "clientSecretEnv", "privateKeyEnv"].includes(key),
-      )
-    )
+    const keys = readValue
+      ? ["clientIdEnv", "clientSecretEnv", "privateKeyEnv"]
+      : ["clientId", "clientSecret", "privateKey"];
+    if (!fields || Object.keys(fields).some((key) => !keys.includes(key)))
       throw new Error("git_hosts_configuration_invalid");
+    const rawPrivateKey = readValue ? fields.privateKeyEnv : fields.privateKey;
     const privateKey =
-      fields.privateKeyEnv === undefined
-        ? undefined
-        : readValue(fields.privateKeyEnv);
-    if (fields.privateKeyEnv !== undefined && privateKey === undefined)
+      readValue && rawPrivateKey !== undefined
+        ? readValue(rawPrivateKey)
+        : rawPrivateKey;
+    if (rawPrivateKey !== undefined && privateKey === undefined)
       throw new Error("git_host_monitor_configuration_invalid");
-    const clientId = readValue(fields.clientIdEnv);
-    const clientSecret = readValue(fields.clientSecretEnv);
-    if (clientId === undefined || clientSecret === undefined)
-      throw new Error("git_host_connection_configuration_invalid");
-    return {
-      clientId,
-      clientSecret,
-      ...(privateKey !== undefined && { privateKey }),
-    };
-  },
-  bind(configuration: GitHostConfiguration) {
-    const fields = record(configuration.providerData);
-    if (
-      !fields ||
-      Object.keys(fields).some(
-        (key) => !["clientId", "clientSecret", "privateKey"].includes(key),
-      )
-    )
-      throw new Error("git_host_connection_configuration_invalid");
-    const { clientId, clientSecret, privateKey } = fields;
+    const clientId = readValue
+      ? readValue(fields.clientIdEnv)
+      : fields.clientId;
+    const clientSecret = readValue
+      ? readValue(fields.clientSecretEnv)
+      : fields.clientSecret;
     if (typeof clientId !== "string" || typeof clientSecret !== "string")
       throw new Error("git_host_connection_configuration_invalid");
     if (
       !/^[A-Za-z0-9_.-]{1,128}$/u.test(clientId) ||
       !/^[!-~]{1,1024}$/u.test(clientSecret)
     )
-      throw new Error("github_connection_configuration_invalid");
+      throw new Error("git_host_connection_configuration_invalid");
     if (
       privateKey !== undefined &&
       (typeof privateKey !== "string" ||
@@ -640,17 +731,66 @@ export const gitHubProvider = Object.freeze({
         privateKey.length > 16_384)
     )
       throw new Error("git_host_monitor_configuration_invalid");
+    let key: KeyObject | undefined;
+    if (privateKey !== undefined) {
+      try {
+        const parsed = createPrivateKey(privateKey);
+        if (
+          parsed.asymmetricKeyType === "rsa" &&
+          (parsed.asymmetricKeyDetails?.modulusLength ?? 0) >= 2048
+        )
+          key = parsed;
+      } catch {
+        // 秘密値や暗号ライブラリの詳細を起動診断に出さない。
+      }
+      if (!key) throw new Error("git_host_monitor_configuration_invalid");
+    }
     return {
-      connect: (callback: URL) =>
-        createGitHubConnection({
-          host: configuration.host,
+      clientId,
+      clientSecret,
+      ...(key && { privateKey: key }),
+    };
+  },
+  bind(_identity, { clientId, clientSecret, privateKey }) {
+    return {
+      createLinkFlow: (callback: URL) =>
+        createGitHubLinkFlow({
           clientId,
           clientSecret,
           callback,
         }),
+      async revokeUserToken(accessToken: string) {
+        const response = await fetch(
+          new URL(
+            `/applications/${encodeURIComponent(clientId)}/token`,
+            apiBase,
+          ),
+          {
+            method: "DELETE",
+            redirect: "error",
+            signal: AbortSignal.timeout(5000),
+            headers: {
+              Accept: "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2026-03-10",
+              Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ access_token: accessToken }),
+          },
+        );
+        await response.body?.cancel();
+        return response.status === 204;
+      },
       readRepositoryName: gitHubRepositoryName,
       observeBinding: observeGitHubRepositoryBinding,
       observeAccess: observeGitHubRepositoryAccess,
+      createAccessObservation(userAccessToken: string) {
+        const pages: AccessPages = new Map();
+        return (input: Parameters<typeof observeGitHubRepositoryAccess>[0]) =>
+          input.userAccessToken === userAccessToken
+            ? observeGitHubRepositoryAccess(input, pages)
+            : Promise.resolve({ status: "unavailable" as const });
+      },
       ...(privateKey !== undefined && {
         observePermission: createGitHubPermissionObserver({
           clientId,
@@ -659,4 +799,4 @@ export const gitHubProvider = Object.freeze({
       }),
     };
   },
-} satisfies GitHostProvider);
+} satisfies GitHostProvider<GitHubConfiguration>);

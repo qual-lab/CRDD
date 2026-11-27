@@ -87,6 +87,33 @@ export function observeConfigurationDirectory(repositoryRoot: string | null) {
   }
 }
 
+/** 現行設定領域の実体を確認してから、同じ保存範囲の排他を許す。 @trace ARCH-000011 */
+export function requireConfigurationStoreRoot(
+  capability: ConfigurationStoreRoot,
+): string {
+  const root = configurationStoreDirectory(capability);
+  const current = fs.lstatSync(root);
+  if (
+    !current.isDirectory() ||
+    current.isSymbolicLink() ||
+    fs.realpathSync.native(root) !== root
+  )
+    throw new Error("filesystem_store_path_invalid");
+  return root;
+}
+
+function configurationStoreDirectory(
+  capability: ConfigurationStoreRoot,
+): string {
+  if (
+    typeof capability !== "object" ||
+    capability === null ||
+    !issuedStoreRoots.has(capability)
+  )
+    throw new Error("filesystem_store_root_capability_invalid");
+  return capability.root;
+}
+
 /**
  * file-snapshotで使用するStable File Identityの値契約を定義する。
  *
@@ -363,18 +390,13 @@ export function resolveConfigurationFile(
   capability: ConfigurationStoreRoot,
   relativePath: string,
 ): string {
-  if (
-    typeof capability !== "object" ||
-    capability === null ||
-    !issuedStoreRoots.has(capability)
-  )
-    throw new Error("filesystem_store_root_capability_invalid");
+  const root = configurationStoreDirectory(capability);
   if (!relativePath || path.isAbsolute(relativePath))
     throw new Error("filesystem_store_relative_path_required");
-  const target = path.resolve(capability.root, relativePath);
-  const relative = path.relative(capability.root, target);
+  const target = path.resolve(root, relativePath);
+  const relative = path.relative(root, target);
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
     throw new Error("filesystem_store_path_outside_root");
-  assertExistingChainIsDirect(capability.root, target);
+  assertExistingChainIsDirect(root, target);
   return target;
 }

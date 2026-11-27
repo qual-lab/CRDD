@@ -14,8 +14,12 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
-import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-server.ts";
-import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
+import {
+  invokeMcpRequest,
+  isMcpInvalidArguments,
+  mcpToolErrorText,
+} from "../fixtures/sdk-request.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 
 const META = {
@@ -107,7 +111,7 @@ test("本番Factoryは構成したCore定義ToolだけをSDKへ接続する", as
       { ...request, params: { ...request.params, name: oldName } },
       dependencies,
     );
-    assert.equal(old.error?.code, -32601);
+    assert.equal(old.error?.code, -32602);
   }
   assert.equal(calls, 0);
   const denied = await invokeMcpRequest(
@@ -117,7 +121,7 @@ test("本番Factoryは構成したCore定義ToolだけをSDKへ接続する", as
     }),
     dependencies,
   );
-  assert.equal(denied.error?.code, -32603);
+  assert.equal(mcpToolErrorText(denied), "Tool execution failed");
   assert.equal(calls, 1);
 });
 
@@ -143,6 +147,8 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
     milestoneId: "milestone",
   };
   for (const input of [
+    { ...command, repositoryId: "invalid/id" },
+    { ...command, repositoryId: 123 },
     { ...command, operation: "queue.enqueue" },
     { ...command, operation: "initialize", expectedAbsence: true },
     { ...command, authority: true },
@@ -156,17 +162,17 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
       { runtimeDefinition: resolve },
       new AbortController().signal,
     );
-    assert.equal(result.error?.code, -32602);
+    assert.equal(mcpToolErrorText(result), "Invalid arguments");
   }
-  assert.equal(
-    (
+  assert.ok(
+    isMcpInvalidArguments(
       await invokeMcpRequest(
         packet("crdd.initialize_execution_definition", command),
         { runtimeDefinition: resolve },
         new AbortController().signal,
-      )
-    ).error?.code,
-    -32602,
+      ),
+      "crdd.initialize_execution_definition",
+    ),
   );
   const controller = new AbortController();
   controller.abort();
@@ -240,8 +246,8 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     }});
     const list = await sdk.invokeMcpSource(execution,{jsonrpc:"2.0",id:0,method:"tools/list",params:{_meta:${JSON.stringify(META)}}},new AbortController().signal);
     assert.deepEqual(list.result.tools.map(tool=>tool.name),["crdd.start_objective","crdd.resume_objective","crdd.request_decision","crdd.answer_decision","crdd.apply_decision","crdd.close_decision","crdd.get_execution_state"]);
-    const unavailable = await sdk.invokeMcpSource(execution,{jsonrpc:"2.0",id:1,method:"tools/call",params:{_meta:${JSON.stringify(META)},name:"crdd.get_execution_state",arguments:{}}},new AbortController().signal);
-    assert.deepEqual(unavailable.error,{code:-32603,message:"Coordinator unavailable"});
+    const unavailable = await sdk.invokeMcpSource(execution,{jsonrpc:"2.0",id:1,method:"tools/call",params:{_meta:${JSON.stringify(META)},name:"crdd.get_execution_state",arguments:{requestId:"request-a",projectId:"project",repositoryRevision:"a".repeat(40)}}},new AbortController().signal);
+    assert.equal(sdk.mcpToolErrorText(unavailable),"Tool execution failed");
     assert.equal(automationCalls,0);
     const vc = await import(${JSON.stringify(modules.vc)});
     const verified = vc.getRepository(${JSON.stringify(root)});
@@ -327,9 +333,9 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     assert.equal(imports,0);
     const fail=()=>{calls++;throw Error("unexpected");};
     const source=runtime.createMcpServerFactory({coordinator:{authenticateClient:fail,runObjective:fail,getProjectState:fail}});
-    const request={jsonrpc:"2.0",id:1,method:"tools/call",params:{_meta:${JSON.stringify(META)},name:"crdd.get_execution_state",arguments:{}}};
+    const request={jsonrpc:"2.0",id:1,method:"tools/call",params:{_meta:${JSON.stringify(META)},name:"crdd.get_execution_state",arguments:{requestId:"request-a",projectId:"project",repositoryRevision:"a".repeat(40)}}};
     const response=await sdk.invokeMcpSource(source,request,controller.signal);
-    assert.equal(response.error.code,-32800);
+    assert.equal(sdk.mcpToolErrorText(response),"Request cancelled");
     assert.ok(imports>0);assert.equal(calls,0);
     process.stdout.write("automation_import_cancelled");
   `,
@@ -410,12 +416,17 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     jsonrpc: "2.0",
     id: 2,
     method: "tools/call",
-    params: { _meta: META, name: "crdd.get_execution_state", arguments: {} },
+    params: {
+      _meta: META,
+      name: "crdd.get_execution_state",
+      arguments: {
+        requestId: "request-a",
+        projectId: "project",
+        repositoryRevision: "a".repeat(40),
+      },
+    },
   });
-  assert.deepEqual(unavailable.error, {
-    code: -32603,
-    message: "Coordinator unavailable",
-  });
+  assert.equal(mcpToolErrorText(unavailable), "Tool execution failed");
   const observed = entryCall(
     packet("crdd.get_execution_plan", {
       projectId: "project",
@@ -460,6 +471,15 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     }),
   ).result.structuredContent;
   assert.equal(tasks.value.length, 2);
+  const missingQueueTasks = entryCall(
+    packet("crdd.list_tasks", {
+      projectId: "project",
+      milestoneId: "milestone",
+      queueId: "missing-queue",
+    }),
+  ).result.structuredContent;
+  assert.equal(missingQueueTasks.status, "absent");
+  assert.equal(missingQueueTasks.value, null);
   const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(stateFile);
   const wrongRepository = packet("crdd.get_execution_plan", {
@@ -546,6 +566,8 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
 test("Workspaceは読込み待機前の入力を捕捉し取消失敗を区別する", () => {
   const module = new URL("../../src/transport/mcp-server.ts", import.meta.url)
     .href;
+  const sdkFixture = new URL("../fixtures/sdk-request.ts", import.meta.url)
+    .href;
   for (const mode of ["mutation", "cancel"]) {
     const output = execFileSync(
       process.execPath,
@@ -555,29 +577,29 @@ test("Workspaceは読込み待機前の入力を捕捉し取消失敗を区別�
       import assert from "node:assert/strict";
       import {registerHooks} from "node:module";
       const mode=${JSON.stringify(mode)}, controller=new AbortController();
-      let reads=0,imports=0,selected;
+      let reads=0,imports=0,selected,liveInput;
       const command={operation:"freeze",projectId:"project",queueId:"queue",workspaceId:"11111111-1111-4111-8111-111111111111",expectedGeneration:1,operationId:"22222222-2222-4222-8222-222222222222",baseCommit:"a".repeat(40),expectedHead:"a".repeat(40),selection:[{path:"src/code.ts",blobId:"a".repeat(40),mode:"100644"}],candidateName:null,relatedChangeIds:["CHG-000001"]};
       registerHooks({resolve(s,c,next){if(s==="@qual-lab/crdd-coordinator"){
         imports++;
         if(mode==="cancel"){controller.abort();throw Error("unavailable");}
+        liveInput.params.arguments.repositoryId="changed-during-import";
         command.operation="invalid";command.expectedGeneration=-1;
         command.selection[0].path="../outside";command.relatedChangeIds[0]="invalid";
       }return next(s,c);}});
       const api=await import(${JSON.stringify(module)});
+      const {invokeMcpRequest,mcpToolErrorText}=await import(${JSON.stringify(sdkFixture)});
       const packet=({operation,...input})=>({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:api.MCP_WORKSPACE_TOOLS.freeze,arguments:{repositoryId:"repository",...input},_meta:${JSON.stringify(META)}}});
       const resolve=(repositoryId)=>{reads++;selected=repositoryId;return null;};
+      const invoke=(input)=>invokeMcpRequest(input,{workspace:resolve},controller.signal);
       for(const invalid of [[],{...command,expectedGeneration:{}},{...command,selection:[0]},{...command,selection:[{path:"a",mode:"100644"}]}]){
-        const result=await api.handleMcpWorkspaceRequest(packet(invalid),resolve,controller.signal);
-        assert.equal(result.error.code,-32602);
+        const result=await invoke(packet(invalid));
+        assert.equal(mcpToolErrorText(result),"Invalid arguments");
       }
       assert.equal(imports,0);assert.equal(reads,0);
-      const input=packet(command);
-      const pending=api.handleMcpWorkspaceRequest(input,resolve,controller.signal);
-      input.params.arguments.repositoryId="changed-after-call";
-      command.candidateName="changed-after-call";
-      const result=await pending;
+      liveInput=packet(command);
+      const result=await invoke(liveInput);
       assert.ok(imports>0);
-      assert.equal(result.error.code,mode==="cancel"?-32800:-32603);
+      assert.equal(mcpToolErrorText(result),mode==="cancel"?"Request cancelled":"Tool execution failed");
       assert.equal(reads,mode==="cancel"?0:1);
       assert.equal(selected,mode==="cancel"?undefined:"repository");
       process.stdout.write("workspace_boundary_passed");

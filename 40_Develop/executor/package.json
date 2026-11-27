@@ -13,10 +13,10 @@
     "typecheck": "tsc -p ./tsconfig.json",
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
-    "result:coverage": "node --experimental-test-coverage --test ./tests/unit/attempt/*.test.ts ./tests/unit/controller.contract.test.ts",
-    "report:coverage": "node --experimental-test-coverage --test-coverage-include=tests/support/report.ts --test-coverage-lines=90 --test-coverage-branches=70 --test-coverage-functions=80 --test ./tests/integration/report.integration.test.ts ./tests/unit/report.contract.test.ts",
+    "result:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test ./tests/unit/attempt/*.test.ts ./tests/unit/controller.contract.test.ts",
+    "report:coverage": "node --experimental-test-coverage --test-coverage-include=tests/support/report.ts --test-coverage-lines=90 --test-coverage-branches=70 --test-coverage-functions=80 --test ./tests/unit/report.contract.test.ts",
     "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/**/*.test.ts",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --experimental-test-module-mocks --test --test-concurrency=1 ./tests/**/*.test.ts",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --experimental-test-module-mocks --test --test-concurrency=1 \"./tests/unit/**/*.test.ts\"",
     "verify:standalone": "node ./tests/system/manual/verify-provider-attempt.ts",
     "verify:home-boundary": "node ./tests/system/manual/verify-provider-home.ts"
   },

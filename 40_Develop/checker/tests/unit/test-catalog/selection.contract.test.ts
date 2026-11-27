@@ -14,7 +14,10 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { readTestCatalog } from "@qual-lab/crdd-document-model";
+import {
+  readTestCatalog,
+  testCatalogPath,
+} from "@qual-lab/crdd-document-model";
 import { buildRegressionStagePlan } from "../../../src/test-catalog/plan.ts";
 import {
   inspectResourceIntensiveTestAuthority,
@@ -31,6 +34,105 @@ const catalogIntake = readTestCatalog(repositoryRoot);
 assert.equal(catalogIntake.status, "complete");
 const loadedCatalog = catalogIntake.catalog;
 const catalog = loadedCatalog;
+
+// 公式リポジトリの実行条件。採用先の台帳受付はこの値や試験の実装言語に依存しない。
+test("Windowsの実行条件を持つ公式試験群と専用段階の接続を維持する", () => {
+  const expected = [
+    "coordinator:integration:claude-subscription-authentication-recovery",
+    "coordinator:integration:codex-executor-sandbox",
+    "coordinator:integration:coordinator-state-runtime",
+    "coordinator:integration:coordinator-task-process",
+    "coordinator:integration:current-host-transition",
+    "coordinator:integration:development-native-observation",
+    "coordinator:integration:docker-auth-create-closure",
+    "coordinator:integration:docker-effect-runtime",
+    "coordinator:integration:docker-isolation-host",
+    "coordinator:integration:docker-process-controller",
+    "coordinator:integration:docker-recovery-owner-reentry",
+    "coordinator:integration:host-recovery-record",
+    "coordinator:integration:orchestrator-durable-foundation",
+    "coordinator:integration:runtime-repair-owner",
+    "coordinator:integration:test-execution-profile",
+    "docker-isolation:integration:owned-process",
+    "docker-isolation:integration:repair-directory-disposal",
+    "domain-model:integration:runtime-core-crud",
+    "domain-model:integration:runtime-history",
+    "domain-model:integration:runtime-publication-reentry",
+    "domain-model:integration:runtime-repair-storage",
+    "domain-model:integration:runtime-settlement",
+    "domain-model:integration:runtime-snapshot-io",
+    "domain-model:integration:runtime-snapshot-lock",
+    "workbench-server:integration:recovery-http-owner",
+  ];
+  const matched = catalog.tests.filter((entry) =>
+    entry.executionProfiles?.includes("windows_process_control"),
+  );
+  assert.deepEqual(matched.map(({ id }) => id).sort(), expected);
+  for (const entry of matched)
+    assert.ok(
+      entry.executionProfiles?.includes("restricted_process"),
+      entry.id,
+    );
+  const plan = buildRegressionStagePlan(matched, [], true, []);
+  const stage = plan.find(({ stage }) => stage === "windows_process_control");
+  assert.deepEqual(
+    [...(stage?.selected ?? [])].sort(),
+    matched.map(({ path }) => path).sort(),
+  );
+});
+
+test("採用先のルート・共有パスを台帳から取得する", () => {
+  const base = catalog.tests[0];
+  assert.ok(base);
+  const synthetic = {
+    ...catalog,
+    owners: [
+      { id: "alpha", root: "packages/alpha", runner: "python" },
+      { id: "beta", root: "packages/beta", runner: "python" },
+    ],
+    consumerBindings: [],
+    sharedRuntimePaths: [
+      "packages/alpha/runner.toml",
+      "packages/alpha/tests/test_example.py",
+    ],
+    tests: [
+      {
+        ...base,
+        id: "alpha:unit:example",
+        owner: "alpha",
+        path: "packages/alpha/tests/test_example.py",
+      },
+      {
+        ...base,
+        id: "beta:unit:example",
+        owner: "beta",
+        path: "packages/beta/tests/test_example.py",
+      },
+    ],
+  };
+  assert.deepEqual(
+    selectRegressionTests(synthetic, ["packages/alpha/src/module.py"]).map(
+      ({ owner }) => owner,
+    ),
+    ["alpha"],
+  );
+  for (const sharedPath of [
+    testCatalogPath,
+    "packages/alpha/runner.toml",
+    "packages/alpha/tests/test_example.py",
+    "packages/alphabeta/module.py",
+  ]) {
+    const selected = selectRegressionTests(synthetic, [sharedPath]);
+    assert.deepEqual(
+      selected.map(({ owner }) => owner),
+      ["alpha", "beta"],
+    );
+    assert.deepEqual(
+      selectRegressionStaticOwners(synthetic, [sharedPath], []),
+      ["alpha", "beta"],
+    );
+  }
+});
 
 /**
  * 実在試験、登録試験、実行可能Ownerをexactに照合するを検証する。
@@ -385,7 +487,7 @@ test("WorkbenchのBrowser横断試験はUI所有のシステム試験として�
   );
   const system = selectRegressionTests(catalog, changed, new Set(["system"]));
   for (const id of [
-    "workbench:system:credential-browser",
+    "workbench:system:shared-access-browser",
     "workbench:system:actual-browser-visual",
   ])
     assert.equal(

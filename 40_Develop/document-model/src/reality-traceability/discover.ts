@@ -27,6 +27,7 @@ export type RealitySymbolDiscoverySource = Readonly<{
   manifestPath: string;
   manifestSource: string;
   symbolSources: ReadonlyMap<string, string>;
+  symbolDirectories?: ReadonlySet<string>;
 }>;
 
 /**
@@ -125,7 +126,15 @@ export function discoverRealitySymbols(
       continue;
     }
     let sourceComplete = true;
+    const directoryPaths = new Set<string>();
     for (const symbol of validated.result.symbols) {
+      if (
+        (symbol.kind === "package" || symbol.kind === "module") &&
+        source.symbolDirectories?.has(symbol.path)
+      ) {
+        directoryPaths.add(symbol.path);
+        continue;
+      }
       const symbolSource = source.symbolSources.get(symbol.path);
       if (symbolSource === undefined) {
         issues.push(
@@ -153,6 +162,9 @@ export function discoverRealitySymbols(
         manifestPath: source.manifestPath,
         subsystemRoot: source.subsystemPath,
         manifest: validated.result,
+        ...(directoryPaths.size > 0
+          ? { directoryPaths: [...directoryPaths] }
+          : {}),
       });
   }
 

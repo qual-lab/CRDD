@@ -46,7 +46,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
   try {
     const response = await requestRaw(
       handle.baseUrl,
-      "/api/workbench/view?route=%2F",
+      "/api/workbench/overview",
     );
     assert.equal(response.status, 200);
     const view = assertViewResponse(JSON.parse(response.body.toString("utf8")));

@@ -14,9 +14,9 @@ import {
   isInvitationDigest,
   isInvitationEmail,
   parseAccessManagementState,
+  UUID_V4,
 } from "../storage/parse.ts";
 import {
-  ATTEMPT_UUID,
   PENDING,
   present,
   publishState,
@@ -78,12 +78,12 @@ export function acceptInvitation(
       };
     }
     if (settlePending(root, current, () => {}) !== "none")
-      throw new Error("google_invitation_unavailable");
+      throw new Error("account_invitation_unavailable");
     const next = structuredClone(current.state);
     const user = next.users.find(
       (candidate) => candidate.userId === found.userId,
     );
-    if (!user) throw new Error("google_invitation_unavailable");
+    if (!user) throw new Error("account_invitation_unavailable");
     delete user.invitation;
     user.accountLinks = [
       {
@@ -99,9 +99,9 @@ export function acceptInvitation(
       parsed.status !== "parsed" ||
       next.operationId === current.state.operationId
     )
-      throw new Error("google_invitation_unavailable");
+      throw new Error("account_invitation_unavailable");
     const account = resolveAccount(parsed.state, proof);
-    if (!account) throw new Error("google_invitation_unavailable");
+    if (!account) throw new Error("account_invitation_unavailable");
     const published = publishState(
       root,
       current,
@@ -135,7 +135,7 @@ export function resolveAccountBinding(
  * @precondition 呼出し前にOIDC応答または発行済みサーバーセッションを検証済み。
  * @security 紐付けを解除・再設定すると旧セッションの結合IDは一致しない。
  */
-export function resolveAccount(
+function resolveAccount(
   state: AccessManagementState,
   identity: AccountIdentity,
   session?: AccountBinding,
@@ -182,7 +182,7 @@ export function readAccount(
     const { state } = current;
     const account = resolveAccount(state, identity, session);
     if (present(root, PENDING)) {
-      if (!account || session) throw new Error("google_account_unavailable");
+      if (!account || session) throw new Error("account_link_unavailable");
       settlePending(
         root,
         current,
@@ -221,9 +221,9 @@ export function readAdministratorFromHost(
   root: FilesystemStoreRoot,
   userId: string,
 ) {
-  if (!ATTEMPT_UUID.test(userId)) return null;
+  if (!UUID_V4.test(userId)) return null;
   const result = locked(root, () => {
-    if (present(root, PENDING)) throw new Error("google_account_unavailable");
+    if (present(root, PENDING)) throw new Error("account_link_unavailable");
     const { state } = readCurrent(root);
     const user =
       state.initialization.stage === "completed" &&
@@ -263,7 +263,7 @@ export function linkAccountFromHost(
     const current = readCurrent(root);
     const rejected = {
       status: "unavailable" as const,
-      reason: "google_account_change_rejected",
+      reason: "account_link_change_rejected",
       revision: current.state.revision,
       cleanupConfirmed: true,
       publication: "not_attempted" as const,
@@ -271,7 +271,7 @@ export function linkAccountFromHost(
     if (
       current.state.initialization.stage !== "completed" ||
       current.state.revision !== expectedRevision ||
-      !ATTEMPT_UUID.test(userId) ||
+      !UUID_V4.test(userId) ||
       !identity ||
       !isAccountIssuer(identity.issuer) ||
       (identity.subject !== null &&

@@ -2137,10 +2137,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.equal(
     prepareStateCompletionSnapshot(
       Buffer.from(
-        encodeStateValue({
+        `${encodeStateValue({
           ...acceptedCompletionState,
           pendingDeliveries: [],
-        }) + "\n",
+        })}\n`,
       ),
       recoveryId,
       binding,

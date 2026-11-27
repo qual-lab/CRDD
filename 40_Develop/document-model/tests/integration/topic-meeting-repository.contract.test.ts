@@ -142,10 +142,17 @@ test("期待Projectを両種別の保存・読取り・Relationへ拘束する",
       );
       assert.equal(repository.get(kind, id)?.projectId, projectId);
       assert.equal(repository.getDocument(kind, id)?.markdown, valid(2));
-      const page = repository.list(kind);
-      assert.equal(page.records.length, 1);
-      assert.equal(page.records[0]?.projectId, projectId);
-      assert.deepEqual(page.records[0], repository.get(kind, id));
+      let visited = 0;
+      const page = repository.list(kind, (directoryId, document) => {
+        assert.equal(directoryId, id);
+        assert.equal(document.record.projectId, projectId);
+        assert.equal(document.markdown, valid(2));
+        visited++;
+        return true;
+      });
+      assert.equal(visited, 1);
+      assert.deepEqual(page.records, [repository.get(kind, id)]);
+      assert.deepEqual(repository.list(kind, () => false).records, []);
       assert.deepEqual(repository.inspectDeletion(kind, id), {
         record: repository.get(kind, id),
         relationPaths: [],

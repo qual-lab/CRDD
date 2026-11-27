@@ -88,7 +88,7 @@ UX／IA・Visual再設計、機能の無断廃止、API全面刷新、SSR、MCP�
 | Build・静的 | `npm run build`、`npm run check` | Browser動作・取消終了の証拠にはしない |
 | 通常結合 | `npm test`（integration集合） | System／Browser全件を含まない |
 | 公開CLI | `test:entry` | 合成Repository・起動終了。外部AIを使わない |
-| Browser管理 | `test:credential-browser` | 合成資格だけ。別主体・鍵専用応答・旧表示の拒否 |
+| ブラウザーの共有アクセス | `test:shared-access-browser` | 合成ログインで、本人・管理セッション・現在認可を確認 |
 | Browser表示 | `test:visual` | 現行画面・Navigation・操作・終了。実Providerの代替ではない |
 | 横断 | Consumer／命名／台帳・利用側型検査 | 旧Pathを除去し、検査を弱めない |
 

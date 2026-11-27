@@ -4,9 +4,27 @@
   "subsystem": "crdd-server",
   "symbols": [
     {
+      "symbolId": "crdd-server.transport-benchmark",
+      "kind": "file",
+      "path": "scripts/benchmark.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "crdd-server.secret-comparison",
+      "kind": "file",
+      "path": "src/service/secret.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
       "symbolId": "crdd-server.login-providers",
       "kind": "file",
-      "path": "src/transport/login-providers.ts",
+      "path": "src/service/login-providers.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "crdd-server.login-google",
+      "kind": "file",
+      "path": "src/service/login-google.ts",
       "archIds": ["ARCH-000012"]
     },
     {
@@ -27,7 +45,7 @@
       "path": "tests/unit/login.contract.test.ts",
       "qaIds": ["QA-000007"],
       "localTestIds": ["RFD-UT-031"],
-      "verifies": ["crdd-server.login", "crdd-server.login-providers"]
+      "verifies": ["crdd-server.login", "crdd-server.login-providers", "crdd-server.login-google"]
     },
     {
       "symbolId": "crdd-server.test.integration.host-admin",
@@ -44,6 +62,12 @@
       "archIds": [
         "ARCH-000012"
       ]
+    },
+    {
+      "symbolId": "crdd-server.client-session.state",
+      "kind": "file",
+      "path": "src/service/session.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
     },
     {
       "symbolId": "crdd-server.mcp-authorization",
@@ -469,6 +493,12 @@
       ]
     },
     {
+      "symbolId": "crdd-server.request-identity",
+      "kind": "file",
+      "path": "src/service/identity.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
       "symbolId": "crdd-server.operations.topic-meeting",
       "kind": "file",
       "path": "src/service/topic.ts",
@@ -487,7 +517,7 @@
     {
       "symbolId": "crdd-server.operations.meeting",
       "kind": "file",
-      "path": "src/service/meeting.ts",
+      "path": "src/service/topic.ts",
       "archIds": ["ARCH-000006", "ARCH-000012"]
     },
     {
@@ -541,22 +571,6 @@
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "mcp.test.integration.ai-profile-adapter",
-      "kind": "test-suite",
-      "path": "tests/integration/ai-selection-boundary.contract.test.ts",
-      "qaIds": [
-        "QA-000001",
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "EST-IT-002",
-        "RCM-IT-010"
-      ],
-      "verifies": [
-        "mcp.source.src.adapters.application.adapter"
       ]
     },
     {
@@ -622,24 +636,6 @@
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "mcp.test.integration.initial-connection",
-      "kind": "test-suite",
-      "path": "tests/integration/initial-connection.integration.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-024",
-        "RFD-IT-025"
-      ],
-      "verifies": [
-        "mcp.request.access-resolver",
-        "mcp.request.discover",
-        "mcp.source.src.adapters.application.adapter",
-        "mcp.source.src.transports.streamable.http.transport"
       ]
     },
     {
@@ -997,7 +993,8 @@
       "verifies": [
         "workbench.cli",
         "workbench.cli.command",
-        "workbench.server"
+        "workbench.server",
+        "crdd-server.shared-transport"
       ]
     },
     {
@@ -1158,7 +1155,7 @@
     {
       "symbolId": "crdd-server.api.entry",
       "kind": "file",
-      "path": "src/service/entry.ts",
+      "path": "src/service/workspace-request.ts",
       "archIds": ["ARCH-000012"]
     },
     {
@@ -1235,6 +1232,14 @@
       "symbolId": "workbench.http.security",
       "kind": "file",
       "path": "src/transport/api-http.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.shared-transport",
+      "kind": "file",
+      "path": "src/transport/shared-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -1627,6 +1632,12 @@
         "ARCH-000012",
         "ARCH-000011"
       ]
+    },
+    {
+      "symbolId": "workbench-server.verification.access-store",
+      "kind": "file",
+      "path": "tests/support/access-store.ts",
+      "archIds": ["ARCH-000012"]
     },
     {
       "symbolId": "executor.verification.task-summary-observation",

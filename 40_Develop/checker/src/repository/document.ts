@@ -32,7 +32,6 @@ import {
   getRepository,
   readRepositoryRevision,
 } from "@qual-lab/crdd-version-control";
-import { createFindingCollector } from "../report/collect.ts";
 import { mapChangeDomainIssueToFinding } from "../report/convert.ts";
 import {
   mapDocumentIdentityIssueToFinding,
@@ -915,13 +914,6 @@ export function inspectDocumentRepository(
     }
   }
 
-  const shouldInspectReality = Boolean(
-    repositoryMode === "official" &&
-      discovery.source === "git" &&
-      lstatIfPresent(path.join(root, "06_Architecture", "Definitions")) &&
-      lstatIfPresent(path.join(root, "07_Quality", "Definitions")) &&
-      lstatIfPresent(path.join(root, "40_Develop")),
-  );
   inspectProjectContextRepository(root, repositoryMode, findings);
   inspectWorkLifecycleRepository(root, repositoryMode, findings);
   checkDiscoveryIdentityLinkOwnership();
@@ -937,12 +929,12 @@ export function inspectDocumentRepository(
   inspectArchitectureRepository(root, repositoryMode, findings);
   inspectQualityRepository(root, repositoryMode, findings);
   checkPhaseDiagramDispositionContracts();
-  if (shouldInspectReality) {
-    const collected = createFindingCollector();
-    inspectRealityRepository(root, collected.add);
-    for (const finding of collected.findings)
-      add(finding.severity, finding.code, finding.path, finding.message);
-  }
+  inspectRealityRepository(
+    root,
+    ({ severity, code, path, message }) => add(severity, code, path, message),
+    repositoryMode === "official",
+    discovery.trackedFilePaths,
+  );
 
   for (const name of ["Evidence", "Decision", "Decisions"]) {
     if (lstatIfPresent(path.join(root, name))) {

@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import {
   type CoverageObligation,
   parseExactTsCoverageLcov,
+  requireCoverageProcessOutput,
 } from "./coverage.ts";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
@@ -21,24 +22,16 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/lifecycle/environment.ts",
-  "40_Develop/coordinator/tests/support/probe-verification.ts",
   "40_Develop/coordinator/src/lifecycle/host.ts",
   "40_Develop/coordinator/src/lifecycle/validation.ts",
-  "40_Develop/coordinator/tests/system/manual/verify-dynamic-fake-provider-failures.ts",
-  "40_Develop/coordinator/tests/system/manual/verify-dynamic-fake-provider-cancellation.ts",
   "40_Develop/coordinator/tests/support/coverage.ts",
   "40_Develop/coordinator/tests/support/check-dynamic-fake-provider-coverage.ts",
 ]);
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/docker-probe-cancellation-projection.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/docker-probe-configuration-projection.contract.test.ts",
-  "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
-  "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
   "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
   "40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts",
 ]);
 
@@ -84,12 +77,6 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/tests/support/probe-verification.ts": obligation(
-    "移管した取消・稼働残存の実Docker境界と全失敗分岐は非AI試験だけでは到達しない",
-    "稀な失敗で同じ実IDの回収又はHost終了を誤分類する可能性",
-    "実本文へ有限DIを接続した二保存・現在Mount・取消join・構成拒否・exact参照の正負試験",
-    "取消、意図残存又はProbe構成の変更時",
-  ),
   "40_Develop/coordinator/src/lifecycle/environment.ts": obligation(
     "実Docker、全Filesystemエラー・操作記録の置換競合、全回復分岐・同期子Process例外、環境候補の全拒否条件、Git／Providerの全形式と失敗を同じ実行では確認しない",
     "稀なDocker failureでcontainer不存在またはHost cleanupを誤分類する可能性／入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行／private reportの状態またはreason投影が稀な環境で不一致になる可能性",
@@ -110,20 +97,6 @@ const coverageObligations = Object.freeze({
     "入力値捕捉・相対Path・JSON解析の実装変更時",
   ),
 
-  "40_Develop/coordinator/tests/system/manual/verify-dynamic-fake-provider-failures.ts":
-    obligation(
-      "実Docker Engine不成立、scenario mismatchおよびmain guard failureをunit coverageで全到達していない",
-      "専用verificationが失敗結果または残留を誤って成功へ集約する可能性",
-      "固定scenario母集団、期待reason、cleanup、Effect、Authority非発行および実Docker E2E",
-      "failure scenario、Docker lifecycleまたはverification出力変更時",
-    ),
-  "40_Develop/coordinator/tests/system/manual/verify-dynamic-fake-provider-cancellation.ts":
-    obligation(
-      "実Docker取消verificationの正常経路はunit coverage runで発火しない",
-      "固定Fake取消の実環境差をunit結果へ誤投影する可能性",
-      "固定Docker Engine上の明示verification command、三軸container不存在およびHost cleanup確認",
-      "Docker CLI、固定image、取消signalまたはcleanup変更時",
-    ),
   "40_Develop/coordinator/tests/support/coverage.ts": obligation(
     "共有LCOV parserの全Filesystem／child process errorと全不正record組合せを同一runで到達していない",
     "品質記録の不正入力を稀な組合せで受理または誤分類する可能性",
@@ -201,20 +174,13 @@ function inspectOnce() {
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
-  if (
-    result.error ||
-    result.signal !== null ||
-    result.status !== 0 ||
-    typeof result.stdout !== "string" ||
-    typeof result.stderr !== "string" ||
-    result.stderr.length !== 0
-  ) {
-    throw new Error("dynamic Fake Provider coverage command failed");
-  }
-  return parseExactTsCoverageLcov(result.stdout, {
-    sources: DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES,
-    obligations: coverageObligations,
-  });
+  return parseExactTsCoverageLcov(
+    requireCoverageProcessOutput(result, "dynamic Fake Provider"),
+    {
+      sources: DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES,
+      obligations: coverageObligations,
+    },
+  );
 }
 
 /**

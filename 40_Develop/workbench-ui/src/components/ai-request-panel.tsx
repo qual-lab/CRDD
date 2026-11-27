@@ -1,5 +1,5 @@
 /**
- * CROS WorkbenchのAI依頼Browser Panel。
+ * WorkbenchのAI依頼パネル。
  *
  * @packageDocumentation
  * @responsibility 検証済みAI依頼Read ModelをBrowser React要素へ変換する。

@@ -13,8 +13,8 @@ import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import * as actualAccess from "@qual-lab/crdd-access-management";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import type { McpResponse } from "../../src/transport/mcp-server.ts";
+import { prepareAccessStore } from "../support/access-store.ts";
+import type { McpResponse } from "../../src/transport/mcp-types.ts";
 import { startManagementHttpFixture } from "../support/management-http.ts";
 
 const testBase = fileURLToPath(
@@ -26,8 +26,7 @@ assert.ok(ownedRoot && path.isAbsolute(ownedRoot));
 assert.equal(path.dirname(ownedRoot), path.resolve(testBase));
 assert.ok(path.basename(ownedRoot).startsWith("mcp-management-results-"));
 assert.equal(fs.realpathSync.native(ownedRoot), ownedRoot);
-const root = createFilesystemStoreRoot(ownedRoot);
-assert.ok(root);
+const { root } = prepareAccessStore(ownedRoot);
 if (mode === "before-mock-failure")
   throw new Error("fixture_before_mock_failure");
 if (mode === "timeout") {
@@ -56,12 +55,18 @@ const replacement = mock.module(
 );
 try {
   // MCPをmock登録前にimportしてはいけない。未適用は呼出し数で必ず失敗する。
-  const {
-    createOAuthMcpResolver,
-    MCP_COORDINATOR_PROTOCOL_VERSION,
-    MCP_CURRENT_ACCESS_TOOL,
-  } = await import("../../src/transport/mcp-server.ts");
-  const { invokeMcpSource } = await import("./sdk-request.ts");
+  const { MCP_CURRENT_ACCESS_TOOL } = await import(
+    "../../src/transport/mcp-server.ts"
+  );
+  const { createFixtureOAuthResolver } = await import(
+    "../support/mcp-http-listener.ts"
+  );
+  const { MCP_COORDINATOR_PROTOCOL_VERSION } = await import(
+    "../../src/transport/mcp-protocol.ts"
+  );
+  const { invokeMcpSource, isMcpInvalidArguments } = await import(
+    "./sdk-request.ts"
+  );
   const operationId = "00000000-0000-4000-8000-000000000001";
   const userId = "00000000-0000-4000-8000-000000000002";
   currentResult = {
@@ -69,7 +74,7 @@ try {
     revision: 7,
     user: { userId, username: "fixture", role: "manager" },
   };
-  const handler = await createOAuthMcpResolver(root, async () => ({
+  const handler = await createFixtureOAuthResolver(root, async () => ({
     status: "completed",
     subject: `${userId}:${operationId}`,
     expiresAt: Date.now() + 60_000,
@@ -169,7 +174,7 @@ try {
     request,
     new AbortController().signal,
   );
-  assert.equal(retired.error?.code, -32601);
+  assert.equal(retired.error?.code, -32602);
   const readRequest = {
     ...request,
     params: {
@@ -212,6 +217,7 @@ try {
     ...request,
     params: { ...request.params, name: MCP_CURRENT_ACCESS_TOOL, arguments: {} },
   };
+  const beforeCurrentReads = current.mock.callCount();
   for (const role of ["developer", "manager", "administrator"] as const) {
     currentResult = {
       status: "completed",
@@ -250,14 +256,14 @@ try {
       { status: "unavailable", reason },
     );
   }
-  assert.equal(current.mock.callCount(), 9);
+  assert.equal(current.mock.callCount(), beforeCurrentReads + 8);
   assert.equal(
     (await invokeMcpSource(handler, currentRequest, cancelled.signal)).error
       ?.code,
     -32800,
   );
-  assert.equal(
-    (
+  assert.ok(
+    isMcpInvalidArguments(
       await invokeMcpSource(
         handler,
         {
@@ -265,14 +271,19 @@ try {
           params: { ...currentRequest.params, arguments: { userId } },
         },
         new AbortController().signal,
-      )
-    ).error?.code,
-    -32602,
+      ),
+      MCP_CURRENT_ACCESS_TOOL,
+    ),
   );
-  assert.equal(current.mock.callCount(), 9);
+  assert.equal(current.mock.callCount(), beforeCurrentReads + 8);
 
   // 合成Owner結果で最終JSON-RPCのUTF-8境界を検査する。AM容量成立の主張ではない。
   const users: { userId: string; username: string; role: "developer" }[] = [];
+  currentResult = {
+    status: "completed",
+    revision: 8,
+    user: { userId, username: "本人", role: "manager" },
+  };
   readResult = {
     status: "completed",
     revision: 8,

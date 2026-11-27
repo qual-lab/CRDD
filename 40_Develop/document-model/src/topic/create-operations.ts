@@ -42,6 +42,8 @@ export function createTopicOperations(
     list: (input) => application.list({ ...input, kind: "topic" }),
     get: (id) => application.get("topic", id),
     getDocument: (id) => application.getDocument("topic", id),
+    getDocumentWithRelations: (id) =>
+      application.getDocumentWithRelations("topic", id),
     relations: (id) => application.relations("topic", id),
     hasRelationTarget: application.hasRelationTarget,
     create: (markdown) => application.create("topic", markdown),

@@ -12,8 +12,7 @@ import {
   type FilesystemStoreRoot,
   resolveFilesystemStorePath,
 } from "../initialization/root.ts";
-import { locked } from "./lock.ts";
-import { parseAccessManagementState } from "./parse.ts";
+import { parseAccessManagementState, UUID_V4 } from "./parse.ts";
 import type { AccessManagementState, StateStoreResult } from "./types.ts";
 
 export const CURRENT = "access-management.json";
@@ -68,9 +67,6 @@ function notifyPublication(root: FilesystemStoreRoot): void {
 }
 
 const HASH = /^[a-f0-9]{64}$/u;
-
-export const ATTEMPT_UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 /**
  * 出版材料（PendingPublication）を定義する。
@@ -287,13 +283,13 @@ export function readCurrent(root: FilesystemStoreRoot) {
 }
 
 /** 現在Fileの実体とbytesを検査し、状態の意味解釈はしない。 */
-export function readCurrentBytes(root: FilesystemStoreRoot): Buffer {
+function readCurrentBytes(root: FilesystemStoreRoot): Buffer {
   return readStableFileSnapshot(resolveFilesystemStorePath(root, CURRENT))
     .bytes;
 }
 
 /** 同じ取得断面を再読取りせず、完全な状態として検査する。 */
-export function decodeCurrent(bytes: Buffer) {
+function decodeCurrent(bytes: Buffer) {
   const parsed = parseAccessManagementState(bytes);
   if (parsed.status !== "parsed")
     throw new Error("state_store_current_invalid");
@@ -366,7 +362,7 @@ function readPending(root: FilesystemStoreRoot) {
     parsed.status !== "parsed" ||
     (p.kind === "account-invitation" &&
       (typeof p.invitationUserId !== "string" ||
-        !ATTEMPT_UUID.test(p.invitationUserId) ||
+        !UUID_V4.test(p.invitationUserId) ||
         !parsed.state.users.some(
           (user) => user.userId === p.invitationUserId,
         ))) ||
@@ -572,135 +568,6 @@ export function settlePending(
 }
 
 /**
- * 内部の現在状態を同じLock下で読み取る。
- * @responsibility 保存途中の照合と完全Snapshot読取りを一つの排他へ閉じる。
- * @trace ARCH-000013
- * @input 既存の用途限定FilesystemStoreRoot。
- * @returns 内部Snapshotまたは未取得理由。
- * @precondition 同じ用途限定Rootと既存排他を使用する内部保存Ownerだけが呼び出す。
- * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
- * @effect 読取り・Lock・確認済み短命材料の清掃。
- * @failure 不在・破損・相関不能はunavailable。
- * @invariant 内部Snapshotは公開DTOではない。
- * @boundary AM保存OwnerとFilesystem。
- * @security Snapshot・Verifier・salt・内部Pathを外部応答や例外本文へ出さない。
- * @concurrency 全Writerと同じLockを使う。
- */
-export function readAccessManagementState(
-  root: FilesystemStoreRoot,
-): StateStoreResult<AccessManagementState> {
-  return locked(root, () => {
-    let publication: "not_attempted" | "confirmed" = "not_attempted";
-    let revision: number | null = null;
-    try {
-      const current = readCurrent(root);
-      revision = current.state.revision;
-      settlePending(root, current, () => {
-        publication = "confirmed";
-      });
-      return {
-        status: "completed",
-        value: current.state,
-        cleanupConfirmed: true,
-        publication,
-        revision,
-      };
-    } catch {
-      return {
-        status: "unavailable",
-        reason: "state_store_read_unavailable",
-        publication,
-        revision,
-        cleanupConfirmed: false,
-      };
-    }
-  });
-}
-
-/**
- * 通常管理の次状態を同じLock下で保存・読戻しする。
- * @responsibility 現在認可の利用側callback、期待改訂、完全候補、出版、清掃を直列化する。
- * @trace ARCH-000013
- * @input Root・期待改訂・現在状態から次UTF-8 byteを返す同期callback。
- * @returns 読戻し済み改訂と操作ID、または段階・既知出版事実。
- * @precondition 内部保存Ownerだけが呼び出す。callbackは同期の認可評価とメモリ内候補構築だけに閉じ、Promise・外部I/O・鍵処置・別Store更新・利用者応答を行わない。
- * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
- * @effect 保存部品だけがpending・replace作成、current置換、短命材料清掃を行う。callback自身の外部・永続Effectは0。
- * @failure 競合・候補不正・出版／読戻し／清掃失敗は未完了。
- * @invariant 鍵・初回処置は受理せず、暗黙再更新・rollbackしない。
- * @boundary 通常管理保存OwnerとFilesystem。
- * @security Snapshot・Verifier・salt・内部Pathを外部応答や例外本文へ出さない。
- * @concurrency callbackは同期かつ現在認可を同じLock内で照合する。
- */
-export function updateAccessManagementState(
-  root: FilesystemStoreRoot,
-  expectedRevision: number,
-  createNext: (current: AccessManagementState) => Uint8Array,
-): StateStoreResult<Readonly<{ revision: number; operationId: string }>> {
-  return locked(root, () => {
-    let publication: "not_attempted" | "unconfirmed" | "confirmed" =
-      "not_attempted";
-    let revision: number | null = null;
-    let stage = "read";
-    try {
-      const current = readCurrent(root);
-      revision = current.state.revision;
-      stage = "pending";
-      if (
-        settlePending(root, current, () => {
-          publication = "confirmed";
-        }) !== "none"
-      )
-        return {
-          status: "unavailable",
-          reason: "state_store_previous_pending_settled",
-          publication,
-          revision,
-          cleanupConfirmed: true,
-        };
-      stage = "revision";
-      if (
-        !Number.isSafeInteger(expectedRevision) ||
-        expectedRevision !== current.state.revision
-      )
-        return {
-          status: "unavailable",
-          reason: "state_store_revision_conflict",
-          publication,
-          revision,
-          cleanupConfirmed: true,
-        };
-      stage = "candidate";
-      const parsed = parseAccessManagementState(
-        createNext(structuredClone(current.state)),
-      );
-      if (
-        parsed.status !== "parsed" ||
-        parsed.state.revision !== expectedRevision + 1 ||
-        parsed.state.operationId === current.state.operationId ||
-        !ordinaryChange(current.state, parsed.state)
-      )
-        return {
-          status: "unavailable",
-          reason: "state_store_candidate_invalid",
-          publication,
-          revision,
-          cleanupConfirmed: true,
-        };
-      return publishState(root, current, parsed.state, "management");
-    } catch {
-      return {
-        status: "unavailable",
-        reason: `state_store_${stage}_failed`,
-        publication,
-        revision,
-        cleanupConfirmed: false,
-      };
-    }
-  });
-}
-
-/**
  * 検査済み次状態を共通の物理手順で出版する。
  * @responsibility pending・replace・読戻し・清掃と既知出版事実を所有する。
  * @trace ARCH-000013
@@ -798,7 +665,7 @@ export function publishState(
  * @security Verifierを含む内部byteを公開しない。
  * @concurrency 同じ同期Lock区間内だけ。
  */
-export function preparePublicationBytes(
+function preparePublicationBytes(
   current: ReturnType<typeof readCurrent>,
   next: AccessManagementState,
   kind: PendingPublication["kind"],

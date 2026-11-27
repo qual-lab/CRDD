@@ -7,15 +7,50 @@
  * @boundary loopback HTTPとServer公開入口。実AI・Dockerは使わない。
  */
 import assert from "node:assert/strict";
+import type { IncomingMessage } from "node:http";
+import { Readable } from "node:stream";
 import test from "node:test";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
+import {
+  RequestBodyTooLarge,
+  readJsonRequestBody,
+} from "../../src/transport/api-http.ts";
 import { requestRaw, requestTransport } from "../support/workbench-http.ts";
 import { assertManagementResponse } from "../support/workbench-wire.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+/** JSON読取りは曖昧な本文、壊れた符号化、上限超過を区別する。 @trace ERB-IT-021 */
+test("HTTPの共通JSON読取りはUTF-8・重複キー・バイト上限を維持する", async () => {
+  const body = (...chunks: Buffer[]) =>
+    Object.assign(Readable.from(chunks), { headers: {} }) as IncomingMessage;
+  const bytes = Buffer.from('{"name":"日本語"}');
+  assert.deepEqual(
+    await readJsonRequestBody(
+      body(bytes.subarray(0, 10), bytes.subarray(10)),
+      bytes.length,
+    ),
+    { name: "日本語" },
+  );
+  assert.equal(
+    await readJsonRequestBody(body(Buffer.from('{"name":1,"name":2}')), 40),
+    null,
+  );
+  await assert.rejects(
+    readJsonRequestBody(
+      body(Buffer.from('{"name":"'), Buffer.from([0xff]), Buffer.from('"}')),
+      40,
+    ),
+    TypeError,
+  );
+  await assert.rejects(
+    readJsonRequestBody(body(bytes), bytes.length - 1),
+    RequestBodyTooLarge,
+  );
+});
 
 /** 実HTTPを観測する試験側が不正な改訂・結果区分を成功として受理しない。 @trace ERB-IT-021 */
 test("管理HTTPの観測は配列を状態値に変換せず未定義の改訂を拒否する", () => {
@@ -147,6 +182,73 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
     assert.ok(operationIds.every((id) => typeof id === "string" && id !== ""));
     assert.equal(new Set(operationIds).size, operationIds.length);
     assert.equal(doc.paths["/api/projects"].get.operationId, "list_projects");
+    assert.deepEqual(
+      doc.paths["/api/projects"].get.parameters.map(
+        ({ name }: { name: string }) => name,
+      ),
+      ["repositoryId", "q", "state", "cursor", "limit"],
+    );
+    const repoRoute = "/api/repositories/{repositoryId}";
+    for (const [resource, expectedParameters, invalidQuery] of [
+      [
+        "/api/projects",
+        ["repositoryId", "q", "state", "cursor", "limit"],
+        "?route=%2Fproject",
+      ],
+      [
+        `${repoRoute}/activity`,
+        ["repositoryId", "cursor", "limit"],
+        "?limit=51",
+      ],
+      [
+        `${repoRoute}/worktree/tree`,
+        ["repositoryId", "directory", "cursor"],
+        "?path=readme.md",
+      ],
+      [`${repoRoute}/worktree/diff`, ["repositoryId", "path"], ""],
+    ] as const) {
+      const described = doc.paths[resource];
+      for (const method of ["get", "head"] as const)
+        assert.deepEqual(
+          (described[method].parameters ?? described.parameters).map(
+            ({ name }: { name: string }) => name,
+          ),
+          [...expectedParameters],
+          `${method} ${resource}`,
+        );
+      assert.equal(
+        Object.hasOwn(described.head.responses["200"], "content"),
+        false,
+      );
+      const url =
+        resource.replace("{repositoryId}", "repository.example") + invalidQuery;
+      const get = await requestRaw(handle.baseUrl, url, "GET");
+      const head = await requestRaw(handle.baseUrl, url, "HEAD");
+      assert.equal(get.status, 400, url);
+      assert.equal(head.status, get.status, url);
+      assert.equal(head.body.length, 0);
+    }
+    assert.ok(
+      doc.paths["/api/workbench/overview"].get.parameters.every(
+        ({ name }: { name: string }) =>
+          !name.startsWith("portfolio") &&
+          ![
+            "treeDirectory",
+            "treeCursor",
+            "diffPath",
+            "activityCursor",
+          ].includes(name),
+      ),
+    );
+    assert.equal(
+      doc.paths["/api/workbench/context"].get.operationId,
+      "readWorkbenchContext",
+    );
+    assert.equal(Object.hasOwn(doc.paths, "/api/workbench/view"), false);
+    assert.equal(
+      doc.paths["/api/projects/{projectId}"].get.operationId,
+      "get_project",
+    );
     assert.equal(
       doc.paths["/api/repositories/{repositoryId}/projects/{projectId}/context"]
         .get.operationId,
@@ -186,6 +288,18 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
     );
     assert.equal(Object.hasOwn(doc.paths, "/api/repository"), false);
     const gitRepository = "/api/repositories/{repositoryId}";
+    for (const [resource, operation, fields] of [
+      ["tree", "readRepositoryTree", ["repositoryId", "directory", "cursor"]],
+      ["diff", "readRepositoryFileDiff", ["repositoryId", "path"]],
+    ] as const) {
+      const read = doc.paths[`${gitRepository}/worktree/${resource}`];
+      assert.equal(read.get.operationId, operation);
+      assert.equal(Object.hasOwn(read.head.responses["200"], "content"), false);
+      assert.deepEqual(
+        read.parameters.map(({ name }: { name: string }) => name),
+        fields,
+      );
+    }
     const staging = doc.paths[`${gitRepository}/staging`];
     assert.equal(staging.post.operationId, "stageRepositoryPath");
     assert.equal(staging.delete.operationId, "unstageRepositoryPath");
@@ -270,12 +384,15 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
     assert.deepEqual(Object.keys(doc.paths).sort(), [
       "/.well-known/crdd-workbench-health",
       "/api/projects",
+      "/api/projects/{projectId}",
       "/api/repositories/{repositoryId}/activity",
       "/api/repositories/{repositoryId}/ai-request",
       "/api/repositories/{repositoryId}/ai-requests",
       "/api/repositories/{repositoryId}/ai-requests/{requestId}",
       "/api/repositories/{repositoryId}/ai-requests/{requestId}/cancellation",
       "/api/repositories/{repositoryId}/ai-selection",
+      "/api/repositories/{repositoryId}/artifacts",
+      "/api/repositories/{repositoryId}/changes/{changeId}",
       "/api/repositories/{repositoryId}/meetings",
       "/api/repositories/{repositoryId}/meetings/{meetingId}",
       "/api/repositories/{repositoryId}/meetings/{meetingId}/outcomes/{outcomeId}/treatment",
@@ -309,7 +426,10 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
       "/api/repositories/{repositoryId}/workspaces/{workspaceId}/freeze",
       "/api/repositories/{repositoryId}/workspaces/{workspaceId}/hold",
       "/api/repositories/{repositoryId}/workspaces/{workspaceId}/inspection",
-      "/api/workbench/view",
+      "/api/repositories/{repositoryId}/worktree/diff",
+      "/api/repositories/{repositoryId}/worktree/tree",
+      "/api/workbench/context",
+      "/api/workbench/overview",
     ]);
     const topics = doc.paths["/api/repositories/{repositoryId}/topics"];
     assert.equal(topics.get.operationId, "list_topics");
@@ -337,12 +457,9 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
         "outcomeId",
       ),
     );
-    const viewResponse = doc.paths["/api/workbench/view"].get.responses["200"];
-    for (const name of [
-      "crdd/workbench/view/v1",
-      "projectData",
-      "executionActivity",
-    ])
+    const viewResponse =
+      doc.paths["/api/workbench/overview"].get.responses["200"];
+    for (const name of ["crdd/workbench/view/v1", "projectData"])
       assert.ok(viewResponse.description.includes(name), name);
     const stateRoute =
       doc.paths["/api/repositories/{repositoryId}/runs/{requestId}"];
@@ -477,7 +594,7 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
           "POST",
         )
       ).status,
-      405,
+      404,
     );
     assert.equal(
       (
@@ -487,7 +604,7 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
           "POST",
         )
       ).status,
-      405,
+      404,
     );
     assert.equal(
       (
@@ -521,24 +638,21 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
       { Origin: [executionOrigin, executionOrigin] },
     );
     assert.equal(repeatedOrigin.status, 403);
-    assert.equal(
-      (
-        await requestRaw(
-          handle.baseUrl,
-          "/api/repositories/sample/runs/run-1",
-          "HEAD",
-        )
-      ).status,
-      404,
+    const rejectedRunHead = await requestRaw(
+      handle.baseUrl,
+      "/api/repositories/sample/runs/run-1",
+      "HEAD",
     );
+    assert.equal(rejectedRunHead.status, 400);
+    assert.equal(rejectedRunHead.body.length, 0);
     assert.equal(
       (await requestRaw(handle.baseUrl, "/api/execution", "POST")).status,
-      405,
+      404,
     );
     assert.equal(
       (await requestRaw(handle.baseUrl, "/api/runtime-definition", "POST"))
         .status,
-      405,
+      404,
     );
     for (const legacy of [
       "/workspace/action",
@@ -548,7 +662,7 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
     ])
       assert.equal(
         (await requestRaw(handle.baseUrl, legacy, "POST")).status,
-        405,
+        legacy.startsWith("/api/") ? 404 : 405,
       );
     const definitionBase =
       "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}";
@@ -658,11 +772,14 @@ test("Express受付は現行のPath・Method・HEAD・固定拒否を維持す�
       ["GET", "/project/", 404, "not_found\n"],
       ["GET", "/%70roject", 404, "not_found\n"],
       ["GET", "/unknown", 404, "not_found\n"],
+      ["GET", "/api/workbench/view", 404, ""],
+      ["GET", "/api/workbench/view?route=%2Fproject", 404, ""],
       ["POST", "/unknown", 405, "method_not_allowed\n"],
       ["OPTIONS", "/", 405, "method_not_allowed\n"],
       ["PUT", "/", 405, "method_not_allowed\n"],
-      ["POST", "/api/workspace/", 405, "method_not_allowed\n"],
-      ["POST", "/api/workspace", 405, "method_not_allowed\n"],
+      ["POST", "/api/workspace/", 404, ""],
+      ["POST", "/api/workspace", 404, ""],
+      ["POST", "/api/projects/project.example", 405, "method_not_allowed\n"],
       ["POST", "/candidate/action", 405, "method_not_allowed\n"],
     ] as const) {
       const response = await fetch(`${handle.baseUrl}${pathname}`, {
@@ -694,6 +811,22 @@ test("Express受付は現行のPath・Method・HEAD・固定拒否を維持す�
       get.headers.get("content-type"),
     );
     assert.equal(head.headers.get("x-powered-by"), null);
+    const contextUrl = `${handle.baseUrl}/api/workbench/context`;
+    const local = await fetch(contextUrl);
+    assert.equal(local.status, 200);
+    const jsonContext = await local.json();
+    assert.deepEqual(Object.keys(jsonContext).sort(), [
+      "contract",
+      "mode",
+      "repositoryId",
+    ]);
+    assert.equal(jsonContext.contract, "crdd/workbench/context/v1");
+    assert.equal(jsonContext.mode, "single");
+    assert.equal(typeof jsonContext.repositoryId, "string");
+    const contextHead = await fetch(contextUrl, { method: "HEAD" });
+    assert.equal(contextHead.status, 200);
+    assert.equal(await contextHead.text(), "");
+    assert.equal((await fetch(`${contextUrl}?route=%2Fproject`)).status, 400);
   } finally {
     await handle.close();
   }

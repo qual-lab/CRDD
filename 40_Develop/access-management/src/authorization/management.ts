@@ -14,15 +14,19 @@ import type {
   ManagementStateResult,
   ManagementStateSnapshot,
 } from "../permission/types.ts";
-import { evaluateManagementPermission } from "../permission/validation.ts";
+import {
+  describeUserManagementPermissions,
+  evaluateManagementPermission,
+} from "../permission/validation.ts";
 import type { RepositoryManagementResult } from "../repository/types.ts";
 import { locked } from "../storage/lock.ts";
 import { readCurrent, settlePending } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import type { UserRoleManagementResult } from "../user/types.ts";
-import { acceptsAccessPrincipal, resolveAccessPrincipal } from "./principal.ts";
-
-export { evaluateManagementPermission } from "../permission/validation.ts";
+import {
+  isUnexpiredAccountPrincipal,
+  resolveAccessPrincipal,
+} from "./principal.ts";
 
 /**
  * 管理対象のprimitive識別子を検査する。
@@ -39,9 +43,7 @@ export { evaluateManagementPermission } from "../permission/validation.ts";
  * @security trueは認証・参照許可ではない。
  * @concurrency N/A: 同期局所検査だけ。
  */
-export function isManagementReadKind(
-  value: unknown,
-): value is ManagementReadKind {
+function isManagementReadKind(value: unknown): value is ManagementReadKind {
   return value === "users" || value === "registeredRepositories";
 }
 
@@ -60,10 +62,11 @@ export function isManagementReadKind(
  * @security Root・秘密材料・種類外情報を返さない。
  * @concurrency 同じLock区間で取得した改訂だけ。後続操作は再認可する。
  */
-export function projectManagementState(
+function projectManagementState(
   state: AccessManagementState,
   actor: AccessActor,
   kind: ManagementReadKind,
+  includeUserActions = false,
 ): ManagementStateSnapshot | null {
   if (
     actor.revision !== state.revision ||
@@ -90,6 +93,13 @@ export function projectManagementState(
                 userId: user.userId,
                 username: user.username,
                 role: user.role,
+                ...(includeUserActions && {
+                  actions: describeUserManagementPermissions(
+                    actor.role,
+                    user.role,
+                    user.accountLinks !== undefined,
+                  ),
+                }),
               }),
             ),
         ),
@@ -255,10 +265,11 @@ export function readManagementStateSnapshot(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
   kind: unknown,
+  includeUserActions = false,
 ): ManagementStateResult {
   if (!isManagementReadKind(kind))
     return { status: "unavailable", reason: "management_state_read_rejected" };
-  if (!acceptsAccessPrincipal(principal))
+  if (!isUnexpiredAccountPrincipal(principal))
     return {
       status: "unavailable",
       reason: "management_state_authentication_rejected",
@@ -275,7 +286,12 @@ export function readManagementStateSnapshot(
           revision: null,
           cleanupConfirmed: true,
         };
-      const snapshot = projectManagementState(current.state, actor, kind);
+      const snapshot = projectManagementState(
+        current.state,
+        actor,
+        kind,
+        includeUserActions,
+      );
       if (!snapshot)
         return {
           status: "unavailable",
@@ -367,4 +383,23 @@ export function readManagementState(
   return projectManagementReadResult(
     readManagementStateSnapshot(root, principal, kind),
   );
+}
+
+/** UI専用。操作可否を対象と同じAM改訂から返し、通常のMCP投影は変えない。 */
+export function readManagementUsersForDisplay(
+  root: FilesystemStoreRoot,
+  principal: AccountAccessPrincipal,
+) {
+  const result = readManagementStateSnapshot(root, principal, "users", true);
+  if (result.status !== "completed") return projectManagementReadResult(result);
+  if (result.snapshot.kind !== "users")
+    return {
+      status: "unavailable",
+      reason: "management_read_unavailable",
+    } as const;
+  return {
+    status: "completed",
+    revision: result.snapshot.revision,
+    users: result.snapshot.users,
+  } as const;
 }

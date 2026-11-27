@@ -19,16 +19,21 @@ import {
   resolveHostRootInput,
   linkAccountFromHost,
 } from "@qual-lab/crdd-access-management";
-import { createLogin } from "../transport/login.ts";
-import { loginProviderProfiles } from "../transport/login-providers.ts";
+import { createLogin, type LoginFlow } from "../transport/login.ts";
+import {
+  isLoginProviderName,
+  loginFailure,
+  type LoginProviderId,
+  loginProviderProfiles,
+  type PublicLoginProvider,
+} from "../service/login-providers.ts";
 
 export const hostAdministratorCallbackPath = "/api/session/host-admin/callback";
-const cookieName = "crdd-host-google";
-type Login = Awaited<ReturnType<typeof createLogin>>;
 type Proof = Readonly<{
   issuer: string;
   subject: string;
   confirmation: string;
+  verifiedAccountLabel?: string;
 }>;
 
 function setProofHeaders(response: ServerResponse): void {
@@ -45,18 +50,25 @@ function setProofHeaders(response: ServerResponse): void {
 /** 相関した確認コードをブラウザーだけに表示し、一時Listenerを閉じる。 @trace ARCH-000013 */
 export async function receiveHostLoginProof(
   origin: URL,
-  login: Login,
+  login: LoginFlow,
   ready: (url: string) => void,
   signal: AbortSignal,
+  provider: PublicLoginProvider,
 ): Promise<Proof | null> {
   if (signal.aborted) return null;
   if (
     origin.protocol !== "http:" ||
     origin.hostname !== "127.0.0.1" ||
     !origin.port ||
-    origin.href !== `${origin.origin}/`
+    origin.href !== `${origin.origin}/` ||
+    !isLoginProviderName(provider.id)
   )
-    throw new Error("host_google_origin_invalid");
+    throw loginFailure("host_login_origin_invalid");
+  const cookieName = `crdd-host-${provider.id}`;
+  const displayName = provider.displayName
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
   const stop = new AbortController();
   const closing = AbortSignal.any([signal, stop.signal]);
   const sockets = new Set<Socket>();
@@ -130,7 +142,7 @@ export async function receiveHostLoginProof(
       return reply(
         response,
         200,
-        '<!doctype html><html lang="ja"><meta charset="utf-8"><title>CRDD 管理者の紐付け</title><h1>CRDD 管理者の紐付け</h1><form method="post"><button>Googleで本人確認する</button></form>',
+        `<!doctype html><html lang="ja"><meta charset="utf-8"><title>CRDD 管理者の紐付け</title><h1>CRDD 管理者の紐付け</h1><form method="post"><button>${displayName}で本人確認する</button></form>`,
         "text/html; charset=utf-8",
       );
     if (request.url === "/" && request.method === "POST") {
@@ -140,7 +152,7 @@ export async function receiveHostLoginProof(
         found
       )
         return accept(403, "本人確認を開始できません。\n");
-      const started = await login.start();
+      const started = await login.start("/");
       if (active.aborted || response.destroyed) return;
       setProofHeaders(response);
       response.setHeader(
@@ -174,6 +186,9 @@ export async function receiveHostLoginProof(
     found = {
       ...result.identity,
       confirmation: String(randomInt(100_000_000)).padStart(8, "0"),
+      ...(result.verifiedAccountLabel && {
+        verifiedAccountLabel: result.verifiedAccountLabel,
+      }),
     };
     response.setHeader(
       "Set-Cookie",
@@ -223,7 +238,7 @@ export async function receiveHostLoginProof(
 /** Hostの明示対話を確認してから、本人確認と保存を順番に行う。 @trace ARCH-000013 */
 export async function runHostAdministratorCommand(
   operation: { kind: "initialize" } | { kind: "link"; userId: string },
-  provider: keyof typeof loginProviderProfiles,
+  provider: LoginProviderId,
   port: number,
   environment: NodeJS.ProcessEnv,
   terminalInput: NodeJS.ReadStream,
@@ -242,9 +257,9 @@ export async function runHostAdministratorCommand(
   if (hostSignal.aborted) return 2;
   if (!Object.hasOwn(loginProviderProfiles, provider)) return 2;
   const profile = loginProviderProfiles[provider];
-  const settings = (() => {
+  const configured = (() => {
     try {
-      return profile.readConfiguration(environment);
+      return profile.configure(profile.readConfiguration(environment));
     } finally {
       for (const name of Object.keys(environment))
         if (profile.environmentNames.includes(name.toUpperCase()))
@@ -258,7 +273,7 @@ export async function runHostAdministratorCommand(
       ? readAdministratorFromHost(root, operation.userId)
       : null;
   if (operation.kind === "link" && (!root || !target))
-    throw new Error("host_google_administrator_unavailable");
+    throw loginFailure("host_administrator_unavailable");
   if (
     !input ||
     (operation.kind === "initialize" &&
@@ -266,7 +281,7 @@ export async function runHostAdministratorCommand(
       readHostInitializationState(root, { settlePending: false }).status !==
         "fresh")
   )
-    throw new Error("host_google_initialization_unavailable");
+    throw loginFailure("host_initialization_unavailable");
   const controller = new AbortController();
   const stop = () => controller.abort();
   const signal = AbortSignal.any([
@@ -277,13 +292,13 @@ export async function runHostAdministratorCommand(
   output.write(
     target
       ? `対象: ${target.username} (${target.userId})\n${profile.displayName}で本人確認し、その発行者の紐付けだけを更新します。ほかの発行者の紐付けは変わりません。\n`
-      : `${profile.displayName}で本人確認したアカウントを最初の管理者に設定します。接続鍵は発行しません。\n`,
+      : `${profile.displayName}で本人確認したアカウントを最初の管理者に設定します。\n`,
   );
   const origin = new URL(`http://127.0.0.1:${port}`);
-  const login = await createLogin(profile, {
-    ...settings,
+  const login = await createLogin(configured, {
     callback: new URL(hostAdministratorCallbackPath, origin),
     chooseAccount: true,
+    accountLabel: true,
   });
   const proof = await receiveHostLoginProof(
     origin,
@@ -292,8 +307,17 @@ export async function runHostAdministratorCommand(
       output.write(`同じPCのブラウザーで ${url} を開いてください。\n`);
     },
     signal,
+    configured,
   );
   if (!proof || signal.aborted) return 2;
+  const plain = (value: string) => value.replace(/[^\p{L}\p{N}@._:/+-]/gu, "�");
+  output.write(
+    `確認したアカウント: ${profile.displayName} / ${
+      proof.verifiedAccountLabel
+        ? plain(proof.verifiedAccountLabel)
+        : `${plain(proof.issuer)} / ${plain(proof.subject)}`
+    }\n`,
+  );
 
   const terminal = createInterface({
     input: terminalInput,
@@ -336,7 +360,7 @@ export async function runHostAdministratorCommand(
   }
   output.write(
     operation.kind === "initialize"
-      ? "最初の管理者を設定しました。共有サーバーをGoogleログイン付きで起動してください。\n"
+      ? `最初の管理者を設定しました。共有サーバーで${profile.displayName}ログインを有効にしてください。\n`
       : `${profile.displayName}アカウントの紐付けを確定しました。\n`,
   );
   return 0;

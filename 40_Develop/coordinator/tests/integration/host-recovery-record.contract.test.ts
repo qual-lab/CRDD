@@ -11,11 +11,21 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import {
+  cleanupOwnedOperationDirectories,
+  createCoordinatorOperation,
+  getOwnedHostRecoveryId,
+} from "../../src/lifecycle/host.ts";
+import { createHostNamespaceFixture } from "../support/recovery-repository.ts";
 
 const modules = {
   operation: new URL("../../src/lifecycle/host.ts", import.meta.url).href,
+  coordinator: new URL("../../src/index.ts", import.meta.url).href,
+  executor: import.meta.resolve("@qual-lab/crdd-executor"),
   model: import.meta.resolve("@qual-lab/crdd-execution-model"),
   recoveryRepository: new URL(
     "../support/recovery-repository.ts",
@@ -87,7 +97,7 @@ const located = getRepository(root);
 assert.equal(located.status, "completed");
 const repository = located.capability;
 let current = true;
-const input = { root: repository, purpose: scenario === "probe" ? "isolation_probe" : "task",
+const input = { root: repository, purpose: scenario.startsWith("probe") ? "isolation_probe" : "task",
   recordingCurrent: () => current && resolveVerifiedRepositoryRoot(repository) === root };
 const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
 const read = () => {
@@ -352,7 +362,7 @@ if (scenario === "crash_reentry") {
     operation.cleanupOwnedOperationDirectories(owned);
     assert.equal(fs.existsSync(owned.root), false);
     assert.equal(host().phase, "terminal"); assert.equal(host().cleanup, "confirmed");
-  } else if (scenario === "probe") {
+  } else if (scenario.startsWith("probe")) {
     const snapshot = { resources: [{ key: "probe", identity: { kind: "container", dockerId: null,
       name: "crdd-fixture-probe", ownershipLabel: "crdd.coordinator.probe=fixture" },
       request: "not_issued", configuration: { image: null, command: null, environmentNames: null, mounts: null, networks: null, internal: null } }] };
@@ -363,15 +373,160 @@ if (scenario === "crash_reentry") {
     assert.equal(fs.existsSync(owned.root), true);
     const receipt = { resources: snapshot.resources.map(item => ({ ...item, request: "issued",
       identity: { ...item.identity, dockerId: "a".repeat(64) } })) };
-    book = applyResourceEvent(book, { event: "receipt", key: "probe", snapshot: receipt, cleanup });
-    assert.ok(book); operation.recordOwnedHostResources(management, book);
-    const observed = operation.readOwnedHostOperation(management);
-    book = applyResourceCleanup(book, receipt, [{ key: "probe", observation: "absent" }],
-      { recoveryId, previousPayloadSha256: observed.payloadSha256 });
-    assert.ok(book); operation.recordOwnedHostResources(management, book);
-    operation.cleanupOwnedOperationDirectories(owned);
-    assert.equal(host().resources.checkpoints[0].observation, "absent");
-    assert.equal(host().phase, "terminal");
+    if (scenario !== "probe_reentry_missing_receipt") {
+      book = applyResourceEvent(book, { event: "receipt", key: "probe", snapshot: receipt, cleanup });
+      assert.ok(book); operation.recordOwnedHostResources(management, book);
+    }
+    if (scenario === "probe") {
+      const observed = operation.readOwnedHostOperation(management);
+      book = applyResourceCleanup(book, receipt, [{ key: "probe", observation: "absent" }],
+        { recoveryId, previousPayloadSha256: observed.payloadSha256 });
+      assert.ok(book); operation.recordOwnedHostResources(management, book);
+      operation.cleanupOwnedOperationDirectories(owned);
+      assert.equal(host().resources.checkpoints[0].observation, "absent");
+      assert.equal(host().phase, "terminal");
+    } else {
+      const executorUrl = ${JSON.stringify(modules.executor)};
+      let notifications = 0, savedBeforeCleanup = false, faultObserved = false;
+      const unexpectedOperations = [];
+      const rejectOperation = (name) => () => {
+        unexpectedOperations.push(name);
+        throw Error("unexpected_probe_operation: " + name);
+      };
+      let checkpointError;
+      const displaced = path.join(root, "probe-management-before-replacement");
+      const managementPath = owned.directories.management;
+      const previous = read();
+      if (scenario !== "probe_reentry_live_owner")
+        assert.equal(await operation.abandonOwnedHostOperationGenerationLock(management), true);
+      const injected = mock.module(executorUrl, { namedExports: {
+        createExecutor: rejectOperation("createExecutor"),
+        inspectResources: rejectOperation("inspectResources"),
+        restartDockerEnvironment: rejectOperation("restartDockerEnvironment"),
+        startDockerEnvironment: rejectOperation("startDockerEnvironment"),
+        cleanupResources(target, _settings, callbacks) {
+          try {
+            assert.equal(target?.managementDirectory, managementPath);
+            assert.deepEqual(target.resources, receipt);
+          } catch {
+            return rejectOperation("cleanupResources")();
+          }
+          notifications++;
+          return { cancel: async () => {}, completion: (async () => {
+            callbacks.onCleanupSubmitting();
+            if (scenario === "probe_reentry_replaced_management") {
+              rename(managementPath, displaced); mkdir(managementPath);
+              faultObserved = true;
+            }
+            if (scenario === "probe_reentry_changed_record") {
+              // 元の回復Ownerを通さない保存物の置換を、試験専用領域にだけ注入する。
+              const original = readFile(stateFile, "utf8");
+              const changed = original.replaceAll("a".repeat(64), "b".repeat(64));
+              assert.notEqual(changed, original);
+              fs.writeFileSync(stateFile, changed, "utf8");
+              assert.equal(host().resources.snapshot.resources[0].identity.dockerId, "b".repeat(64));
+              faultObserved = true;
+            }
+            const exact = scenario === "probe_reentry_wrong_receipt" ? {
+              resources: receipt.resources.map(item => ({ ...item, identity: {...item.identity, dockerId: "b".repeat(64)} })),
+            } : receipt;
+            try {
+              callbacks.onResourcesClosed(exact, [{ key: "probe", observation: "absent" }]);
+            } catch (error) {
+              checkpointError = error;
+              throw error;
+            }
+            assert.equal(host().resources.checkpoints[0].observation, "absent");
+            assert.equal(host().recoveryId, recoveryId);
+            assert.ok(read().snapshot.revision > previous.snapshot.revision);
+            assert.ok(fs.lstatSync(owned.root).isDirectory());
+            savedBeforeCleanup = true;
+            return {
+              processTerminationConfirmed: scenario !== "probe_reentry_process_unknown",
+              cleanup: { confirmed: scenario !== "probe_reentry_cleanup_unknown" },
+            };
+          })() };
+        },
+      } });
+      if (scenario === "probe_reentry_save_refused") {
+        mock.method(fs, "renameSync", (from, to) => {
+          if (String(to) === stateFile && JSON.parse(readFile(from, "utf8")).operations.some(item =>
+            item.recoveryId === recoveryId && item.resources?.checkpoints[0]?.observation === "absent")) {
+            faultObserved = true;
+            throw Error("fixture_probe_save_refused");
+          }
+          return rename(from, to);
+        });
+        syncBuiltinESMExports();
+      }
+      try {
+        const { recoverExecution } = await import(${JSON.stringify(modules.coordinator)});
+        const recover = () => recoverExecution({ recoveryId }, { rootCapability: repository }, new AbortController().signal);
+        const result = await recover();
+        const completionUnknown = ["probe_reentry_process_unknown", "probe_reentry_cleanup_unknown"].includes(scenario);
+        if (scenario === "probe_reentry") {
+          assert.equal(notifications, 1);
+          assert.equal(savedBeforeCleanup, true);
+          assert.equal(result.status, "recovered", JSON.stringify(result));
+          assert.equal(result.recoveryId, null);
+          assert.equal(result.hostCleanupCompleted, true);
+          assert.equal(host().phase, "terminal");
+          assert.equal(host().cleanup, "confirmed");
+          assert.throws(() => fs.lstatSync(owned.root), { code: "ENOENT" });
+          assert.equal((await recover()).status, "recovered");
+          assert.equal(notifications, 1, "終端再入場で資源回収を再送しない");
+        } else if (completionUnknown) {
+          assert.equal(notifications, 1);
+          assert.equal(savedBeforeCleanup, true);
+          assert.equal(result.status, "blocked", JSON.stringify(result));
+          assert.equal(result.reason, "docker_probe_cleanup_failed");
+          assert.equal(result.recoveryId, recoveryId);
+          assert.equal(result.hostCleanupCompleted, false);
+          const retained = host();
+          assert.equal(retained.recoveryId, recoveryId);
+          assert.equal(retained.resources.checkpoints[0].observation, "absent");
+          assert.equal(retained.cleanup, "not_requested");
+          assert.ok(fs.lstatSync(owned.root).isDirectory());
+          const next = operation.acquireHostOperationRecoveryGeneration(repository, recoveryId, input.recordingCurrent);
+          assert.ok(next, "終端不明でも元の回復参照で再入場できる");
+          assert.equal(await operation.releaseHostOperationRecoveryGeneration(next), true);
+        } else {
+          assert.equal(notifications, ["probe_reentry_missing_receipt", "probe_reentry_live_owner"].includes(scenario) ? 0 : 1);
+          assert.equal(faultObserved, ["probe_reentry_save_refused", "probe_reentry_replaced_management", "probe_reentry_changed_record"].includes(scenario));
+          assert.equal(savedBeforeCleanup, false);
+          assert.equal(result.status, "blocked", JSON.stringify(result));
+          assert.equal(result.recoveryId, recoveryId);
+          assert.equal(result.hostCleanupCompleted, false);
+          const persisted = scenario === "probe_reentry_save_refused"
+            ? JSON.parse(readFile(stateFile, "utf8")).operations.find(item => item.recoveryId === recoveryId)
+            : host();
+          assert.ok(persisted);
+          assert.equal(persisted.cleanup, "not_requested");
+          assert.notEqual(persisted.resources.checkpoints[0].observation, "absent");
+          if (scenario === "probe_reentry_changed_record") {
+            assert.equal(result.reason, "docker_probe_recovery_failed");
+            assert.equal(checkpointError?.message, "host_operation_record_changed");
+            assert.equal(persisted.resources.snapshot.resources[0].identity.dockerId, "b".repeat(64));
+            const next = operation.acquireHostOperationRecoveryGeneration(repository, recoveryId, input.recordingCurrent);
+            assert.ok(next, "拒否後も回復Ownerを解放する");
+            assert.equal(await operation.releaseHostOperationRecoveryGeneration(next), true);
+          }
+          if (scenario === "probe_reentry_save_refused") {
+            const pending = readState(prepareFixtureRecovery(repository), { scope: "recovery" });
+            assert.equal(pending.status, "blocked");
+            assert.equal(pending.reason, "coordinator_state_reentry_required");
+            assert.equal(pending.lockReleased, true);
+          }
+          assert.ok(fs.lstatSync(owned.root).isDirectory());
+          if (scenario === "probe_reentry_replaced_management") assert.ok(fs.lstatSync(displaced).isDirectory());
+        }
+        assert.deepEqual(unexpectedOperations, []);
+      } finally {
+        if (fs.existsSync(displaced)) { fs.rmdirSync(managementPath); rename(displaced, managementPath); }
+        injected.restore();
+        mock.restoreAll(); syncBuiltinESMExports();
+      }
+    }
   } else if (scenario === "management_replaced") {
     assert.equal(await operation.abandonOwnedHostOperationGenerationLock(management), true);
     const first = operation.acquireHostOperationRecoveryGeneration(repository, recoveryId, input.recordingCurrent);
@@ -505,6 +660,15 @@ process.stdout.write(JSON.stringify({ scenario, complete: true,
 for (const scenario of [
   "normal",
   "probe",
+  "probe_reentry",
+  "probe_reentry_wrong_receipt",
+  "probe_reentry_missing_receipt",
+  "probe_reentry_live_owner",
+  "probe_reentry_process_unknown",
+  "probe_reentry_cleanup_unknown",
+  "probe_reentry_save_refused",
+  "probe_reentry_replaced_management",
+  "probe_reentry_changed_record",
   "current_rejected",
   "abort_before_root",
   "root_receipt_failure",
@@ -538,7 +702,15 @@ for (const scenario of [
     sub.after(directory.cleanup);
     const result = spawnSync(
       process.execPath,
-      ["--input-type=module", "-", directory.path, scenario],
+      [
+        ...(scenario.startsWith("probe_reentry")
+          ? ["--experimental-test-module-mocks"]
+          : []),
+        "--input-type=module",
+        "-",
+        directory.path,
+        scenario,
+      ],
       {
         input: worker,
         encoding: "utf8",
@@ -576,3 +748,97 @@ for (const scenario of [
     }
   });
 }
+
+/**
+ * 実Node正常系の結果契約を維持する。
+ * @trace ERB-IT-003
+ * @precondition 固定Namespaceを事前作成しない自己生成Repositoryを使用する。
+ * @stimulus 本番Host領域の生成を二回呼ぶ。実AI・Dockerは開始しない。
+ * @observation 公開結果とHost Recovery IDの相関。
+ * @oracle 旧UTのassertionを同じ本番入口へ適用する。
+ * @cleanup 生成したHost領域と試験Repositoryだけを回収する。
+ * @boundary Coordinator→既存Node Owner→Node Filesystem。
+ */
+test("production doctorは受動診断でHost領域・Namespaceを作成しない", {
+  timeout: 120_000,
+}, () => {
+  runNodeNamespaceCase(
+    `
+import assert from "node:assert/strict";
+import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)};
+
+  const report = await runDoctor({
+    activeIsolation: false,
+    cwd: process.cwd(),
+  });
+  for (const removedKey of [
+    "runtimeRoot",
+    "runtimeRootPathIdentity",
+    "runtimeActivation",
+    "runtimeRootEvaluation",
+    "runtimeRootProtectionPrecheck",
+  ]) {
+    assert.equal(Object.hasOwn(report, removedKey), false);
+  }
+  assert.equal(Object.hasOwn(report.egress, "authorityRoot"), false);
+  assert.equal(Object.hasOwn(report.egress, "activation"), false);
+  assert.equal(REQUIRED_CHECK_IDS.includes("runtime.root"), false);
+  assert.equal(report.diagnosticMode, "passive_preflight");
+  assert.equal(report.reportVersion, 17);
+  assert.equal(report.filesystem.policy, null);
+  assert.equal(report.recovery.required, false);
+  const directories = report.checks.find(item => item.id === "operation.directories");
+  assert.equal(directories.status, "not_implemented");
+  assert.equal(directories.reason, "owned_operation_directories_not_requested");
+  assert.equal(report.blockers.some(item => item.id === "operation.directories" && item.reason === directories.reason), true);
+  assert.equal(Object.hasOwn(report.credentials, "forwardedNames"), false);
+  assert.equal(Object.hasOwn(report.credentials, "environmentFiltered"), false);
+  assert.equal(report.credentials.valuesRecorded, false);
+  assert.ok(Array.isArray(report.credentials.detectedNames));
+  assert.equal(REQUIRED_CHECK_IDS.includes("execution.credential_environment"), false);
+  assert.equal(report.checks.some(item => item.id === "execution.credential_environment"), false);
+  assert.equal(Object.hasOwn(report, "repositoryLocation"), true);
+  assert.equal(Object.hasOwn(report, "repositoryGitLayout"), false);
+  assert.equal(report.repositoryLocation.pathReported, false);
+  assert.equal(report.fakeProviderLifecycle.fakeProviderExecuted, false);
+`,
+    false,
+  );
+});
+
+/**
+ * 実Node正常系の結果契約を維持する。
+ * @trace ERB-IT-003
+ * @precondition 固定Namespaceを事前作成しない専用TEMPを使用する。
+ * @stimulus 本番入口を呼ぶ。診断は受動・Operationは実行なし。
+ * @observation 公開結果とHost Recovery IDの相関。
+ * @oracle 旧UTのassertionを同じ本番入口へ適用する。
+ * @cleanup runNodeNamespaceCaseが自己生成領域だけを回収する。
+ * @boundary Coordinator→既存Node Owner→Node Filesystem。
+ */
+test("production Operationは実Directory producerのexact Host Recovery IDを公開する", {
+  timeout: 120_000,
+}, (t) => {
+  const { input, parent } = createHostNamespaceFixture(t);
+  const seen = new Set<string>();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const created = createCoordinatorOperation(input);
+    try {
+      assert.equal(
+        getOwnedHostRecoveryId(created.owned),
+        created.hostRecoveryId,
+      );
+      assert.equal(
+        created.hostRecoveryId,
+        `host-operation.${created.operationId}`,
+      );
+      assert.match(created.hostRecoveryId, /^host-operation\.OP-[0-9]+$/u);
+      assert.equal(created.owned.root, path.join(parent, created.operationId));
+      assert.ok(!seen.has(created.hostRecoveryId));
+      seen.add(created.hostRecoveryId);
+    } finally {
+      cleanupOwnedOperationDirectories(created.owned);
+      assert.equal(fs.existsSync(created.owned.root), false);
+    }
+  }
+});

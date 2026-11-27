@@ -255,44 +255,23 @@ export function resolveCrosRuntimeRoots(input: CrosRootInput) {
 }
 
 /**
- * 旧管理入力と回復領域の非秘密観測を表す。
- * @responsibility 確認済み不存在・既知存在・観測不能を区別する。
- * @trace ARCH-000013
- * @shape management、attemptと固定reason。
- * @invariant 旧入力内容をparseせず、回復領域存在を有効な試行へ昇格しない。
- * @boundary Host内部の旧入力観測。MCP公開値ではない。
- * @security Secret・Path・旧Credential一覧を含めない。
- * @compatibility 旧形式移行はフロントAI、最新Sourceは存在だけ観測する。
- */
-export type HostPreviousInputObservation = Readonly<{
-  management: "uninitialized" | "existing" | "unknown";
-  attempt: "absent" | "unknown";
-  reason:
-    | "legacy_inputs_absent"
-    | "legacy_management_present"
-    | "legacy_recovery_present"
-    | "legacy_inputs_present"
-    | "host_previous_inputs_unknown";
-}>;
-
-/**
  * Host Root準備の既知Effectと既存保存Capabilityを表す。
  * @responsibility 途中作成を未実行へ戻さず、readyを初期化許可と区別する。
  * @trace ARCH-000013
- * @shape status、exact作成Directory集合。readyだけ既存Rootと同期旧入力Observer。
+ * @shape status、exact作成Directory集合。readyだけ既存Rootと実体の再照合。
  * @invariant 作成集合は当該mkdir成功分だけで、自動削除のAuthorityではない。
  * @boundary 信頼済みHost内部Owner。絶対Path集合をRemote／CLI公開結果へ透過しない。
  * @security Credential・Verifierを読まない。
  * @compatibility 既存CROS配置契約のstate Rootだけ。Repositoryへ秘密を移さない。
  */
-export type HostRootPreparationResult = Readonly<{
+type HostRootPreparationResult = Readonly<{
   createdDirectories: readonly string[];
 }> &
   (
     | Readonly<{
         status: "ready";
         root: FilesystemStoreRoot;
-        observePrevious(): HostPreviousInputObservation;
+        isCurrent(): boolean;
       }>
     | Readonly<{ status: "blocked"; reason: "host_state_root_unavailable" }>
   );
@@ -318,6 +297,8 @@ function verifyHostDirectory(directory: string): fs.BigIntStats {
   while (true) {
     const entry = fs.lstatSync(cursor, { bigint: true });
     if (
+      (cursor === directory &&
+        (entry.dev !== observed.dev || entry.ino !== observed.ino)) ||
       !entry.isDirectory() ||
       entry.isSymbolicLink() ||
       fs.realpathSync.native(cursor) !== cursor
@@ -442,50 +423,12 @@ export function prepareHostInitializationRoot(
       status: "ready",
       root,
       createdDirectories: Object.freeze([...created]),
-      observePrevious: () => {
-        const unknown: HostPreviousInputObservation = {
-          management: "unknown",
-          attempt: "unknown",
-          reason: "host_previous_inputs_unknown",
-        };
+      isCurrent: () => {
         try {
-          resolveFilesystemStorePath(root, "access-management.json");
-          const before = verifyHostDirectory(roots.state);
-          if (before.dev !== identity.dev || before.ino !== identity.ino)
-            return unknown;
-          const exists: boolean[] = [];
-          for (const name of [
-            "credential-registry",
-            "credential-access-recovery",
-          ]) {
-            try {
-              fs.lstatSync(path.join(roots.state, name));
-              exists.push(true);
-            } catch (error) {
-              if ((error as NodeJS.ErrnoException).code !== "ENOENT")
-                return unknown;
-              exists.push(false);
-            }
-          }
-          const after = verifyHostDirectory(roots.state);
-          if (after.dev !== identity.dev || after.ino !== identity.ino)
-            return unknown;
-          const management = exists[0] === true;
-          const recovery = exists[1] === true;
-          return {
-            management: management ? "existing" : "uninitialized",
-            attempt: recovery ? "unknown" : "absent",
-            reason:
-              management && recovery
-                ? "legacy_inputs_present"
-                : management
-                  ? "legacy_management_present"
-                  : recovery
-                    ? "legacy_recovery_present"
-                    : "legacy_inputs_absent",
-          };
+          const current = verifyHostDirectory(roots.state);
+          return current.dev === identity.dev && current.ino === identity.ino;
         } catch {
-          return unknown;
+          return false;
         }
       },
     };

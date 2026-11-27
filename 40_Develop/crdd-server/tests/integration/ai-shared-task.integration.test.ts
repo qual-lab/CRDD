@@ -14,25 +14,257 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { ServerResponse } from "node:http";
-import { syncBuiltinESMExports } from "node:module";
+import { registerHooks, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { setImmediate as advanceIo } from "node:timers/promises";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
+import {
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} from "@qual-lab/crdd-version-control";
+import { prepareAccessStore } from "../support/access-store.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { executionSelection } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { resolveVerifiedRepositoryRoot } from "@qual-lab/crdd-version-control";
-import { startWorkbench } from "../../src/app.ts";
-import { prepareAiRequestStart } from "../../src/service/execution.ts";
 import type { AiRequestSnapshot } from "../../src/app.ts";
+import { startWorkbench, type WorkbenchStartRequest } from "../../src/app.ts";
+import type {
+  GitHostLinkedAccessSession,
+  openGitHostLinkedExecutionAccess,
+} from "../../src/service/access.ts";
+import {
+  prepareAiRequestStart,
+  retireIdleAiOwner,
+} from "../../src/service/execution.ts";
 import { readProjectViewData } from "../../src/service/project-context.ts";
 
-import { prepareSharedSignIn, testIssuer } from "../support/shared-sign-in.ts";
+import {
+  prepareSharedSignIn,
+  startSharedFixture,
+  testIssuer,
+} from "../support/shared-sign-in.ts";
+
 const testRepositories = [
   { id: 91, full_name: "fixture/repository-a" },
   { id: 92, full_name: "fixture/repository-b" },
 ] as const;
+
+test("共有AI所有者の上限では待機中の古い所有者だけを終了する", async () => {
+  const closed: string[] = [];
+  const entry = (
+    name: string,
+    busy: number,
+    lastUsed: number,
+    fails = false,
+  ) => ({
+    busy,
+    lastUsed,
+    tasks: {
+      async close() {
+        closed.push(name);
+        if (fails) throw new Error("cleanup_unconfirmed");
+      },
+    },
+  });
+  const owners = new Map([
+    ["active", entry("active", 1, -1)],
+    ["unconfirmed", entry("unconfirmed", 0, 0, true)],
+    ...Array.from(
+      { length: 98 },
+      (_, index) =>
+        [`idle${index}`, entry(`idle${index}`, 0, index + 1)] as const,
+    ),
+  ]);
+  assert.equal(owners.size, 100);
+  await assert.rejects(retireIdleAiOwner(owners), {
+    message: "cleanup_unconfirmed",
+  });
+  assert.equal(owners.size, 100);
+  await retireIdleAiOwner(owners);
+  assert.equal(owners.size, 99);
+  assert.deepEqual(closed, ["unconfirmed", "idle0"]);
+  assert.ok(owners.has("active") && owners.has("unconfirmed"));
+
+  const allActive = new Map(
+    Array.from({ length: 100 }, (_, index) => [
+      `active${index}`,
+      entry(`active${index}`, 1, index),
+    ]),
+  );
+  assert.equal(await retireIdleAiOwner(allActive), false);
+  assert.equal(allActive.size, 100);
+  assert.deepEqual(closed, ["unconfirmed", "idle0"]);
+});
+
+/** 共有AI受付の容量を、認可済み対象と終了を保留した合成Ownerで確認する。 @trace CPR-IT-010 */
+test("共有AI受付は稼働中100件を維持し、101件目のOwnerを作らない", async (t) => {
+  const directory = path.resolve(import.meta.dirname, "../../../..");
+  const testArea = path.join(directory, ".crdd", "tests");
+  fs.mkdirSync(testArea, { recursive: true });
+  const owned = fs.mkdtempSync(path.join(testArea, "shared-ai-capacity-"));
+  t.after(() => fs.rmSync(owned, { recursive: true }));
+  const { root } = prepareAccessStore(owned);
+  const repository = getRepository(directory);
+  assert.equal(repository.status, "completed");
+  const executionModule = new URL(
+    "../../src/service/execution.ts",
+    import.meta.url,
+  );
+  executionModule.searchParams.set("fixture", "ai-owner-capacity");
+  const accessModule = new URL("../../src/service/access.ts", import.meta.url)
+    .href;
+  const vcModule = import.meta.resolve("@qual-lab/crdd-version-control");
+  const key = `ai-owner-capacity-${randomUUID()}`;
+  let monitorsClosed = 0;
+  const admit: typeof openGitHostLinkedExecutionAccess = async (
+    _root,
+    session,
+  ) => ({
+    ownerRoot: directory,
+    projectId: "project.fixture",
+    bindingId: "repository-binding",
+    gitHostLinkedBinding: "git-host-binding",
+    principalId: session.principal.userId,
+    host: "github.example.test",
+    observeBinding: () => "current",
+    authorizedAtAdmission: () => true,
+    authorizeRequest: () => true,
+    observe: () => "current",
+    observeTarget: () => true,
+    refresh: async () => "current",
+    close: () => {
+      monitorsClosed++;
+    },
+    revocationSignal: undefined,
+  });
+  const globalKey = JSON.stringify(key);
+  const fixtures = new Map([
+    [
+      "./access.ts",
+      [accessModule, "openGitHostLinkedExecutionAccess", "admit"],
+    ],
+    [
+      "@qual-lab/crdd-version-control",
+      [vcModule, "getRepository", "repository"],
+    ],
+  ]);
+  Reflect.set(globalThis, key, { admit, repository: () => repository });
+  const hooks = registerHooks({
+    resolve(specifier, context, next) {
+      const fixture =
+        context.parentURL === executionModule.href && fixtures.get(specifier);
+      if (!fixture) return next(specifier, context);
+      const [source, exported, value] = fixture;
+      return {
+        url: `data:text/javascript,${encodeURIComponent(
+          `export * from ${JSON.stringify(source)}; export const ${exported} = globalThis[${globalKey}].${value};`,
+        )}`,
+        shortCircuit: true,
+      };
+    },
+  });
+  const { createGitHostLinkedAiSessions } = await (async () => {
+    try {
+      return (await import(
+        executionModule.href
+      )) as typeof import("../../src/service/execution.ts");
+    } finally {
+      hooks.deregister();
+      Reflect.deleteProperty(globalThis, key);
+    }
+  })();
+  let finishJoining!: () => void;
+  const joined = new Promise<void>((resolve) => {
+    finishJoining = resolve;
+  });
+  let owners = 0;
+  let starts = 0;
+  let closed = 0;
+  const broker = createGitHostLinkedAiSessions((capability) => {
+    assert.equal(capability, repository.capability);
+    owners++;
+    return {
+      async start(command) {
+        starts++;
+        return {
+          status: "accepted",
+          requestId: command.requestId,
+          reason: null,
+        };
+      },
+      async observe() {
+        throw new Error("unexpected_observe");
+      },
+      async cancel() {
+        throw new Error("unexpected_cancel");
+      },
+      join: () => joined,
+      async close() {
+        closed++;
+      },
+    };
+  });
+  const signal = new AbortController().signal;
+  const open = (userId: string) => {
+    const session: GitHostLinkedAccessSession = {
+      principal: {
+        kind: "account",
+        userId,
+        bindingId: randomUUID(),
+        expiresAt: Date.now() + 60_000,
+      },
+      browserSessionKey: {},
+      repositoryScope: () => true,
+      readGitHost: () => undefined,
+      readHostToken: () => null,
+    };
+    return broker.open(
+      root,
+      session,
+      "repository.fixture",
+      "read_only_advice",
+      signal,
+    );
+  };
+  try {
+    for (let index = 0; index < 100; index++) {
+      const scoped = await open(randomUUID());
+      assert.ok(scoped, `Owner ${index + 1}`);
+      assert.equal(
+        (
+          await scoped.owner.start(
+            {
+              requestId: `capacity-${index}`,
+              mode: "read_only_advice",
+              workType: null,
+              prompt: "fixture",
+              contextReferences: [],
+              allowedPaths: [],
+              workspaceId: null,
+            },
+            signal,
+          )
+        ).status,
+        "accepted",
+      );
+    }
+    assert.equal(await open(randomUUID()), null);
+    assert.deepEqual(
+      { owners, starts, closed, monitorsClosed },
+      {
+        owners: 100,
+        starts: 100,
+        closed: 0,
+        monitorsClosed: 1,
+      },
+    );
+  } finally {
+    finishJoining();
+    await broker.close();
+  }
+  assert.equal(closed, 100);
+  assert.equal(monitorsClosed, 101);
+});
 
 /**
  * 共通の開始入力作成で単体と共有の既存差を維持する。
@@ -96,7 +328,7 @@ test("Workbenchの活動Readerは業務Ownerへ直接接続する", () => {
   );
   assert.match(
     source,
-    /export function createRepositoryWorkbenchActivityReader[\s\S]*?const \{ queryActivity \} = await import\(\s*"@qual-lab\/crdd-coordinator"/u,
+    /export async function readAuthorizedExecutionActivity[\s\S]*?const \{ queryActivity \} = await import\(\s*"@qual-lab\/crdd-coordinator"/u,
   );
 });
 
@@ -124,8 +356,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     fs.rmSync(owned, { recursive: true, force: true });
     assert.equal(fs.existsSync(owned), false);
   });
-  const root = createFilesystemStoreRoot(owned);
-  assert.ok(root);
+  const { root, directory: store } = prepareAccessStore(owned);
   const users = [randomUUID(), randomUUID()] as const;
   const operationId = randomUUID();
   const subjects = ["synthetic-shared-ai-a", "synthetic-shared-ai-b"] as const;
@@ -217,7 +448,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       connection: "account_confirmed",
     },
   };
-  const current = path.join(owned, "access-management.json");
+  const current = path.join(store, "access-management.json");
   fs.writeFileSync(current, JSON.stringify(state));
   const fixtureSurface = await readProjectViewData(
     registeredRepositories[0]?.repositoryRoot ?? "invalid_fixture_repository",
@@ -230,11 +461,13 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
   let owners = 0;
   let revokeDuringObserve = false;
   let returnOldSnapshotAfterRevocation = false;
+  let watchedExecutionSignal: AbortSignal | undefined;
+  let watchJoin: { requestId: string; complete: () => void } | undefined;
   let beforeObserve:
     | ((signal: AbortSignal | undefined) => Promise<void>)
     | undefined;
   const saved = new Map<string, AiRequestSnapshot>();
-  const configuration: Parameters<typeof startWorkbench>[0] = {
+  const configuration: WorkbenchStartRequest = {
     workingDirectory: repository,
     localAccessRoot: root,
     ...signIn.options,
@@ -287,6 +520,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
               reason: "already_running",
             };
           starts++;
+          watchedExecutionSignal = signal;
           const requestId = command.requestId;
           assert.ok(admissionCurrent?.());
           let finish = () => {};
@@ -341,11 +575,12 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
         },
         join: async (id) => {
           await completions.get(id)?.done;
+          if (watchJoin?.requestId === id) watchJoin.complete();
         },
       };
     },
   };
-  handle = await startWorkbench(configuration);
+  handle = await startSharedFixture(configuration);
   const establish = async () => {
     const cookies = [];
     for (const subject of subjects)
@@ -382,9 +617,12 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
    */
   const model = async (index: number, id: string) =>
     (
-      await fetch(`${handle.baseUrl}/api/workbench/view?repositoryId=${id}`, {
-        headers: headers(index),
-      })
+      await fetch(
+        `${handle.baseUrl}/api/workbench/overview?repositoryId=${id}`,
+        {
+          headers: headers(index),
+        },
+      )
     ).json();
   const first = await model(0, "repository.a");
   const currentAi = (actor: number, repositoryId: string) =>
@@ -442,6 +680,17 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
   try {
     assert.equal(first.view, "main");
     assert.equal(first.aiRequest.configured, true);
+    const duplicateCookie = await fetch(
+      `${handle.baseUrl}/api/repositories/repository.a/ai-request`,
+      {
+        headers: { cookie: `${cookies[0]}; ${cookies[0]}` },
+      },
+    );
+    assert.equal(duplicateCookie.status, 403);
+    assert.match(
+      duplicateCookie.headers.get("set-cookie") ?? "",
+      /crdd-client-session=;[^,]*Max-Age=0/u,
+    );
     assert.equal((await currentAi(0, "repository.a")).status, 403);
     assert.equal(
       (await observeAi(0, "repository.a", command.requestId)).status,
@@ -458,10 +707,25 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       400,
     );
     assert.equal(starts, 0);
-    const started = await action(0, "repository.a", command);
+    let runMonitor: (() => void) | undefined;
+    const realInterval = setInterval;
+    const clock = t.mock.method(
+      globalThis,
+      "setInterval",
+      (...args: Parameters<typeof realInterval>) => {
+        if (args[1] === 15_000) runMonitor = () => args[0]();
+        return realInterval(...args);
+      },
+    );
+    const started = await action(0, "repository.a", command).finally(() =>
+      clock.mock.restore(),
+    );
     assert.equal(started.status, 201);
     const id = (await started.json()).requestId;
     assert.equal(starts, 1);
+    const interactiveObservations = signIn.interactiveObservations();
+    const monitoringObservations = signIn.monitoringObservations();
+    const gitHostRequests = signIn.gitHostRequests();
     const progress = await currentAi(0, "repository.a");
     assert.equal(progress.status, 200);
     assert.equal(progress.headers.get("cache-control"), "no-store");
@@ -472,8 +736,192 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     const direct = await observeAi(0, "repository.a", id);
     assert.equal(direct.status, 200);
     assert.equal((await direct.json()).requestId, id);
+    for (let poll = 0; poll < 2; poll++) {
+      assert.equal((await currentAi(0, "repository.a")).status, 200);
+      assert.equal((await observeAi(0, "repository.a", id)).status, 200);
+    }
+    assert.equal(signIn.interactiveObservations(), interactiveObservations);
+    assert.equal(signIn.monitoringObservations(), monitoringObservations);
+    assert.equal(signIn.gitHostRequests(), gitHostRequests);
+    const monotonicNow = performance.now.bind(performance);
+    let elapsed = 17_000;
+    const aged = t.mock.method(
+      performance,
+      "now",
+      () => monotonicNow() + elapsed,
+    );
+    try {
+      assert.equal((await currentAi(0, "repository.a")).status, 200);
+      assert.equal((await observeAi(0, "repository.a", id)).status, 200);
+      elapsed = 25_000;
+      assert.equal((await currentAi(0, "repository.a")).status, 403);
+      assert.equal((await observeAi(0, "repository.a", id)).status, 403);
+      assert.equal(signIn.interactiveObservations(), interactiveObservations);
+      assert.equal(signIn.monitoringObservations(), monitoringObservations);
+      assert.equal(signIn.gitHostRequests(), gitHostRequests);
+    } finally {
+      aged.mock.restore();
+    }
+    assert.ok(runMonitor);
+    const localId = testRepositories[0].id;
+    const holdMonitor = () => {
+      let finish = (_response?: Response) => {};
+      const pendingReply = new Promise<Response | undefined>((resolve) => {
+        finish = resolve;
+      });
+      let markEntered = () => {};
+      const entered = new Promise<void>((resolve) => {
+        markEntered = resolve;
+      });
+      signIn.setMonitorResponse(async (candidate) => {
+        if (candidate !== localId) return undefined;
+        markEntered();
+        return pendingReply;
+      });
+      const deadline = AbortSignal.timeout(2_000);
+      return {
+        finish,
+        async wait() {
+          await new Promise<void>((resolve, reject) => {
+            const timeout = () =>
+              reject(new Error("fixture_monitor_not_started"));
+            if (deadline.aborted) return timeout();
+            deadline.addEventListener("abort", timeout, { once: true });
+            void entered.then(() => {
+              deadline.removeEventListener("abort", timeout);
+              resolve();
+            });
+          });
+        },
+      };
+    };
+    const refresh = holdMonitor();
+    const delayedClock = t.mock.method(
+      performance,
+      "now",
+      () => monotonicNow() + 17_000,
+    );
+    try {
+      runMonitor();
+      await refresh.wait();
+      assert.equal(signIn.monitoringObservations(), monitoringObservations + 1);
+      const duringRequests = signIn.gitHostRequests();
+      for (let poll = 0; poll < 2; poll++) {
+        assert.equal((await currentAi(0, "repository.a")).status, 200);
+        assert.equal((await observeAi(0, "repository.a", id)).status, 200);
+      }
+      assert.equal(signIn.gitHostRequests(), duringRequests);
+      refresh.finish(new Response(null, { status: 503 }));
+      await advanceIo();
+      assert.equal((await currentAi(0, "repository.a")).status, 403);
+      assert.equal((await observeAi(0, "repository.a", id)).status, 403);
+      assert.equal(signIn.gitHostRequests(), duringRequests);
+    } finally {
+      refresh.finish(new Response(null, { status: 503 }));
+      delayedClock.mock.restore();
+      signIn.setMonitorResponse(undefined);
+    }
+    const failedMonitoringObservations = signIn.monitoringObservations();
+    runMonitor();
+    await advanceIo();
+    assert.equal((await currentAi(0, "repository.a")).status, 200);
+    assert.equal(
+      signIn.monitoringObservations(),
+      failedMonitoringObservations + 1,
+    );
+    const localFailureRefresh = holdMonitor();
+    const targetRoot = registeredRepositories[0]?.repositoryRoot;
+    assert.ok(targetRoot);
+    const actualLstat = fs.lstatSync;
+    let localObservationFailed = false;
+    const failOnce = t.mock.method(fs, "lstatSync", ((
+      ...args: Parameters<typeof actualLstat>
+    ) => {
+      if (!localObservationFailed && args[0] === targetRoot) {
+        localObservationFailed = true;
+        throw Object.assign(new Error("fixture_local_observation_failed"), {
+          code: "EIO",
+        });
+      }
+      return actualLstat(...args);
+    }) as typeof actualLstat);
+    syncBuiltinESMExports();
+    try {
+      runMonitor();
+    } finally {
+      failOnce.mock.restore();
+      syncBuiltinESMExports();
+    }
+    try {
+      assert.equal(localObservationFailed, true);
+      await localFailureRefresh.wait();
+      const whileLocalUnconfirmed = signIn.gitHostRequests();
+      assert.equal((await currentAi(0, "repository.a")).status, 403);
+      assert.equal((await observeAi(0, "repository.a", id)).status, 403);
+      assert.equal(signIn.gitHostRequests(), whileLocalUnconfirmed);
+    } finally {
+      localFailureRefresh.finish();
+      signIn.setMonitorResponse(undefined);
+    }
+    await advanceIo();
+    assert.equal((await currentAi(0, "repository.a")).status, 200);
     assert.equal((await observeAi(1, "repository.a", id)).status, 403);
     assert.equal((await observeAi(0, "repository.b", id)).status, 403);
+    const currentSaved = [...saved.keys()].find((key) =>
+      key.endsWith(`:${id}`),
+    );
+    assert.ok(currentSaved);
+    const historical = "shared-task-historical";
+    const historicalKey = currentSaved.slice(0, -id.length) + historical;
+    saved.set(historicalKey, {
+      ...snapshot,
+      requestId: historical,
+      status: "completed",
+    });
+    assert.equal(
+      (
+        await action(0, "repository.a", {
+          operation: "observe",
+          requestId: historical,
+        })
+      ).status,
+      200,
+    );
+    let observeEntered = () => {};
+    const observing = new Promise<void>((resolve) => {
+      observeEntered = resolve;
+    });
+    let releaseObservation = () => {};
+    const waitForReselection = new Promise<void>((resolve) => {
+      releaseObservation = resolve;
+    });
+    beforeObserve = async () => {
+      beforeObserve = undefined;
+      observeEntered();
+      await waitForReselection;
+    };
+    const historicalRead = observeAi(0, "repository.a", id);
+    try {
+      await Promise.race([
+        observing,
+        historicalRead.then(() => {
+          throw new Error("fixture_read_did_not_wait");
+        }),
+      ]);
+      assert.equal(
+        (
+          await action(0, "repository.a", {
+            operation: "observe",
+            requestId: id,
+          })
+        ).status,
+        200,
+      );
+    } finally {
+      beforeObserve = undefined;
+      releaseObservation();
+    }
+    assert.equal((await historicalRead).status, 403);
     const replacement = registeredRepositories[1];
     const originalTarget = registeredRepositories[0];
     assert.ok(replacement);
@@ -651,6 +1099,8 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     assert.equal(other.status, 201);
     const otherId = (await other.json()).requestId;
     assert.notEqual(otherId, id);
+    const otherSignal = watchedExecutionSignal;
+    assert.ok(otherSignal);
     assert.equal(
       (
         await action(0, "repository.a", {
@@ -674,8 +1124,39 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       200,
     );
     assert.equal(cancels, 1);
+    const beforeRevoke = signIn.monitoringObservations();
+    const joining = new Promise<void>((resolve) => {
+      watchJoin = { requestId: otherId, complete: resolve };
+    });
+    signIn.setMonitoredPermission(testRepositories[1].id, "none");
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        otherSignal.removeEventListener("abort", stopped);
+        reject(new Error("fixture_monitor_did_not_revoke"));
+      }, 20_000);
+      function stopped() {
+        clearTimeout(timeout);
+        resolve();
+      }
+      if (otherSignal.aborted) stopped();
+      else otherSignal.addEventListener("abort", stopped, { once: true });
+    });
+    await joining;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.ok(signIn.monitoringObservations() > beforeRevoke);
+    const interactiveAfterRevoke = signIn.interactiveObservations();
+    const monitoringAfterRevoke = signIn.monitoringObservations();
+    const gitHostRequestsAfterRevoke = signIn.gitHostRequests();
+    for (let poll = 0; poll < 2; poll++) {
+      assert.equal((await currentAi(0, "repository.b")).status, 403);
+      assert.equal((await observeAi(0, "repository.b", otherId)).status, 403);
+    }
+    assert.equal(signIn.interactiveObservations(), interactiveAfterRevoke);
+    assert.equal(signIn.monitoringObservations(), monitoringAfterRevoke);
+    assert.equal(signIn.gitHostRequests(), gitHostRequestsAfterRevoke);
+    assert.equal((await model(0, "repository.b")).aiRequest.snapshot, null);
     await handle.close();
-    handle = await startWorkbench(configuration);
+    handle = await startSharedFixture(configuration);
     cookies = await establish();
     actionToken = (await model(0, "repository.a")).actionToken;
     const reentered = await action(0, "repository.a", {
@@ -701,11 +1182,20 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     assert.ok(user?.accountLinks);
     const accountLinks = user.accountLinks;
     const originalOpen = fs.openSync;
+    const originalRead = fs.promises.readFile;
     fs.openSync = ((...args: Parameters<typeof fs.openSync>) => {
       if (String(args[0]).endsWith("network-policy.json")) networkReads++;
       if (String(args[0]) === targetContext) contextReads++;
       return originalOpen(...args);
     }) as typeof fs.openSync;
+    const read = t.mock.method(
+      fs.promises,
+      "readFile",
+      (...args: Parameters<typeof originalRead>) => {
+        if (String(args[0]) === targetContext) contextReads++;
+        return originalRead(...args);
+      },
+    );
     syncBuiltinESMExports();
     try {
       await model(0, "repository.a");
@@ -727,7 +1217,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       fs.writeFileSync(current, JSON.stringify(state));
       revokeDuringObserve = true;
       const revoked = await fetch(
-        `${handle.baseUrl}/api/workbench/view?repositoryId=repository.a`,
+        `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.a`,
         { headers: headers(0) },
       );
       assert.equal(revoked.status, 403);
@@ -736,12 +1226,13 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       assert.equal((await currentAi(0, "repository.a")).status, 403);
     } finally {
       fs.openSync = originalOpen;
+      read.mock.restore();
       syncBuiltinESMExports();
     }
     assert.equal(
       (
         await fetch(
-          `${handle.baseUrl}/api/workbench/view?repositoryId=repository.a`,
+          `${handle.baseUrl}/api/workbench/overview?repositoryId=repository.a`,
           { headers: headers(0) },
         )
       ).status,
@@ -826,7 +1317,7 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
    * @boundary 実HTTPから保存済みOwner参照。
    */
   const model = async () =>
-    (await fetch(`${handle.baseUrl}/api/workbench/view`)).json();
+    (await fetch(`${handle.baseUrl}/api/workbench/overview`)).json();
   const initial = await model();
   const actionToken = initial.actionToken;
   const aiRequestsPath = `/api/repositories/${initial.projectData.context.repositoryId}/ai-requests`;
@@ -885,20 +1376,33 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
     (await fetch(`${handle.baseUrl}${aiRequestsPath}/other-request`)).status,
     403,
   );
-  assert.equal(
-    (
-      await fetch(`${handle.baseUrl}${aiRequestsPath}/${id}`, {
-        method: "HEAD",
-      })
-    ).status,
-    405,
+  const head = await fetch(`${handle.baseUrl}${aiRequestsPath}/${id}`, {
+    method: "HEAD",
+  });
+  assert.equal(head.status, 200);
+  assert.match(head.headers.get("content-type") ?? "", /^application\/json\b/u);
+  assert.equal(await head.text(), "");
+  const missingHead = await fetch(
+    `${handle.baseUrl}${aiRequestsPath}/other-request`,
+    { method: "HEAD" },
   );
+  assert.equal(missingHead.status, 403);
+  assert.equal(await missingHead.text(), "");
   assert.equal((await fetch(`${handle.baseUrl}/api/ai-request`)).status, 404);
   assert.equal(
     (await fetch(`${handle.baseUrl}/api/ai-request`, { method: "POST" }))
       .status,
-    405,
+    404,
   );
+  const wrongMethod = await fetch(`${handle.baseUrl}${currentRequestPath}`, {
+    method: "POST",
+  });
+  assert.equal(wrongMethod.status, 405);
+  assert.deepEqual(wrongMethod.headers.get("allow")?.split(/,\s*/u).sort(), [
+    "GET",
+    "HEAD",
+    "PUT",
+  ]);
   assert.equal((await action("cancel", "other-request")).status, 403);
   assert.equal(cancels, 0);
   assert.equal((await action("cancel", id)).status, 200);

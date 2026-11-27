@@ -5,8 +5,84 @@
  * @trace ERB-IT-014
  * @boundary 試験専用。製品の許可や保存は行わない。
  */
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import type { TestContext } from "node:test";
 import { types } from "node:util";
 import * as versionControl from "@qual-lab/crdd-version-control";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+
+/**
+ * 現行Hostの作業先となる試験専用Gitリポジトリを用意する。
+ * @trace ERB-IT-003
+ * @boundary 操作対象は既存fixtureが作成した試験Rootだけ。
+ */
+export function createHostNamespaceFixture(t: TestContext) {
+  const directory = createRepositoryTestDirectory("node-host-namespace-");
+  t.after(directory.cleanup);
+  const git = (...args: string[]) =>
+    execFileSync("git", ["-C", directory.path, ...args], { windowsHide: true });
+  git("init", "--quiet");
+  git(
+    "-c",
+    "user.name=CRDD Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "--allow-empty",
+    "--quiet",
+    "-m",
+    "fixture",
+  );
+  const verified = versionControl.getRepository(directory.path);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed")
+    throw Error("fixture_repository_invalid");
+  return {
+    root: directory.path,
+    parent: path.join(directory.path, ".crdd", "coordinator"),
+    input: {
+      root: verified.capability,
+      purpose: "isolation_probe" as const,
+      recordingCurrent: () => true,
+    },
+  };
+}
+
+/**
+ * Host試験の共有Home親を今回の新品Rootへ限定する。
+ * @responsibility 実ユーザーの設定・保持物に依存せず、同じ所在から排他を導出する。
+ * @trace ERB-IT-014
+ * @precondition rootは現在Caseが作成した専用Repositoryである。
+ * @stimulus 所在取得元を自己所有Rootに設定し、既存の候補所在だけを作成する。
+ * @observation 既存Home排他と回復準備の結果をCaseが検証する。
+ * @oracle 実Homeの有無を試験前提にしない。
+ * @cleanup 元設定を復元し、Caseの既存hookがRoot全体を回収する。
+ * @boundary 試験Process内の設定と自己所有Filesystemのみ。
+ */
+export function useFixtureProviderHomeDirectory(
+  t: TestContext,
+  root: string,
+  readCandidate: () => string | null,
+) {
+  const previous = process.env.LOCALAPPDATA;
+  process.env.LOCALAPPDATA = root;
+  t.after(() => {
+    if (previous === undefined) delete process.env.LOCALAPPDATA;
+    else process.env.LOCALAPPDATA = previous;
+  });
+  const directory = readCandidate();
+  assert.ok(directory);
+  const relative = path.relative(root, directory);
+  assert.ok(
+    relative && !relative.startsWith("..") && !path.isAbsolute(relative),
+  );
+  fs.mkdirSync(directory, { recursive: true });
+}
 
 /**
  * 合成Repositoryに対する上位の回復受付を試験内で組み立てる。

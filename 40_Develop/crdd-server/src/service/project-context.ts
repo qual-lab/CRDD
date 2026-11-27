@@ -1,16 +1,12 @@
 /**
- * Local CROSの現在許可集合からPortfolioを直接読む。
+ * 共有モードで現在許可されたリポジトリからPortfolioを直接読む。
  * @responsibility Host管理状態と内容Rootを分離し、MCP通信を介さず既存Ownerへ接続する。
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @trace ARCH-000013
  */
-import type {
-  RemoteTarget,
-  WorkingChanges,
-} from "@qual-lab/crdd-version-control";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
-import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
+
+import type { Stats } from "node:fs";
 import {
   lstat,
   open,
@@ -20,43 +16,53 @@ import {
   stat,
 } from "node:fs/promises";
 import path from "node:path";
-import {
-  createPortfolioProjection,
-  parseMeetingMarkdown,
-  parseRepositoryProjectContextMarkdown,
-  parseQualityCenter,
-  parseRepositoryReleaseProjectionMarkdown,
-  parseTopicMarkdown,
-  readRepositoryProjectContext,
-  type MeetingRecord,
-  type PortfolioProjection,
-  type ProjectContextSource,
-  type RepositoryProjectContext,
-  type RepositoryQualityProjection,
-  type RepositoryReleaseProjection,
-  type TopicRecord,
-} from "@qual-lab/crdd-document-model";
-import { readRepositoryChangeSet } from "./repository.ts";
-
 import type {
   AuthorizedRepository,
   FilesystemStoreRoot,
 } from "@qual-lab/crdd-access-management";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import {
-  type HostedAccessSession,
-  resolveHostedRepositories,
+  createPortfolioProjection,
+  type MeetingRecord,
+  type PortfolioProjection,
+  type ProjectContextSource,
+  parseMeetingMarkdown,
+  parseQualityCenter,
+  parseRepositoryProjectContextMarkdown,
+  parseRepositoryReleaseProjectionMarkdown,
+  parseTopicMarkdown,
+  type RepositoryProjectContext,
+  type RepositoryQualityProjection,
+  type RepositoryReleaseProjection,
+  readRepositoryProjectContext,
+  type TopicRecord,
+} from "@qual-lab/crdd-document-model";
+import type {
+  RemoteTarget,
+  WorkingChanges,
+} from "@qual-lab/crdd-version-control";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
+import {
+  type GitHostLinkedAccessSession,
+  resolveGitHostLinkedRepositories,
 } from "./access.ts";
+import { readRepositoryChangeSet } from "./repository.ts";
 
 export type ProjectContextTarget = Readonly<{
   repositoryId: string;
   projectId: string;
 }>;
 
+type ProjectPortfolioTarget = Readonly<{
+  projectId?: string;
+  repositoryId?: string;
+}>;
+
 /** 起動リポジトリだけのProject ContextをHTTPとMCPで共用する。 @trace ARCH-000012 */
 export async function readLocalProjectPortfolio(
   repositoryRoot: string,
   signal: AbortSignal,
-  target?: ProjectContextTarget,
+  target?: ProjectPortfolioTarget,
 ): Promise<PortfolioProjection> {
   if (
     signal.aborted ||
@@ -70,8 +76,10 @@ export async function readLocalProjectPortfolio(
   const identity = manifest.manifest;
   if (
     target &&
-    (target.repositoryId !== identity.repositoryId ||
-      target.projectId !== identity.projectId)
+    ((target.repositoryId !== undefined &&
+      target.repositoryId !== identity.repositoryId) ||
+      (target.projectId !== undefined &&
+        target.projectId !== identity.projectId))
   )
     return createPortfolioProjection([]);
   const read = readRepositoryProjectContext(repositoryRoot, identity);
@@ -95,8 +103,30 @@ export async function readLocalProjectPortfolio(
   ]);
 }
 
+type ProjectListResponse = Readonly<{
+  retainedAsSourceOfTruth: false;
+  projects: readonly Readonly<{
+    projectId: string;
+    state: PortfolioProjection["projects"][number]["state"];
+    sourceCount: number;
+    repositoryIds: readonly string[];
+    sources: readonly Readonly<
+      Pick<ProjectContextSource, "repositoryId" | "state">
+    >[];
+  }>[];
+}>;
+
+/** ページ指定を受けたProject一覧の公開応答。 @trace ARCH-000012 */
+export type ProjectPageResponse = ProjectListResponse &
+  Readonly<{
+    nextCursor: string | null;
+    cursorInvalid: boolean;
+  }>;
+
 /** 一覧はProjectの要約だけを公開する。 @trace ARCH-000012 */
-export function projectPortfolioList(portfolio: PortfolioProjection) {
+export function summarizeProjectPortfolio(
+  portfolio: PortfolioProjection,
+): ProjectListResponse {
   return {
     retainedAsSourceOfTruth: false as const,
     projects: portfolio.projects.map(({ projectId, state, sources }) => ({
@@ -104,29 +134,37 @@ export function projectPortfolioList(portfolio: PortfolioProjection) {
       state,
       sourceCount: sources.length,
       repositoryIds: sources.map(({ repositoryId }) => repositoryId),
+      sources: sources.map(({ repositoryId, state }) => ({
+        repositoryId,
+        state,
+      })),
     })),
   };
 }
 
-/** CRDDとGitHub双方が許可したProject Contextだけを読む。 */
-export async function readHostedProjectPortfolio(
+/** CRDDとGitホスト双方が許可したProject Contextだけを読む。 */
+export async function readGitHostLinkedProjectPortfolio(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   signal: AbortSignal,
-  target?: ProjectContextTarget,
+  target?: ProjectPortfolioTarget,
+  options?: Readonly<{ rejectRevokedPrincipal?: true }>,
 ): Promise<PortfolioProjection> {
-  const access = await resolveHostedRepositories(
+  const access = await resolveGitHostLinkedRepositories(
     root,
     session,
     signal,
     target?.repositoryId,
+    "read",
+    options,
   );
   if (!access) return createPortfolioProjection([]);
-  const repositories = target
-    ? access.repositories.filter(
-        ({ manifest }) => manifest.projectId === target.projectId,
-      )
-    : access.repositories;
+  const repositories =
+    target?.projectId !== undefined
+      ? access.repositories.filter(
+          ({ manifest }) => manifest.projectId === target.projectId,
+        )
+      : access.repositories;
   const portfolio = readAuthorizedPortfolio(
     repositories,
     access.signal,
@@ -153,7 +191,7 @@ export async function readHostedProjectPortfolio(
  * @security Root・Binding・資格を公開しない。
  * @concurrency AMを再取得せず同じ短命集合を使う。
  */
-export function readAuthorizedPortfolio(
+function readAuthorizedPortfolio(
   repositories: readonly AuthorizedRepository[],
   signal: AbortSignal,
   assertDirectory?: (repository: AuthorizedRepository) => void,
@@ -258,11 +296,16 @@ export type OwnerArtifactCatalog = Readonly<{
 export async function readOwnerArtifactCatalog(
   repositoryRoot: string,
   projectContextMarkdown: string,
+  assertReadable?: () => void,
 ): Promise<OwnerArtifactCatalog> {
   const { artifactReferences } = parseRepositoryProjectContextMarkdown(
     projectContextMarkdown,
   );
-  return observeOwnerArtifactCatalog(repositoryRoot, artifactReferences);
+  return observeOwnerArtifactCatalog(
+    repositoryRoot,
+    artifactReferences,
+    assertReadable,
+  );
 }
 
 /** 合成済みの参照候補を現在の実体で照合し、一覧を作る。 @trace ARCH-000005 */
@@ -272,6 +315,7 @@ async function observeOwnerArtifactCatalog(
     typeof parseRepositoryProjectContextMarkdown
   >["artifactReferences"],
   assertReadable?: () => void,
+  assertCurrentDocumentBatch: (() => void) | undefined = assertReadable,
 ): Promise<OwnerArtifactCatalog> {
   const candidates = new Map<
     string,
@@ -292,14 +336,23 @@ async function observeOwnerArtifactCatalog(
         sourceSection: reference.sourceSection,
       });
   try {
-    const artifacts = await Promise.all(
-      [...candidates.entries()].sort().map(async ([relativePath, relation]) => {
-        const markdown = await readVerifiedOwnerArtifact(
-          repositoryRoot,
+    const prepared = await Promise.allSettled(
+      [...candidates.entries()]
+        .sort()
+        .map(async ([relativePath, relation]) => ({
           relativePath,
-          true,
-          assertReadable,
-        );
+          relation,
+          file: await prepareOwnerArtifact(repositoryRoot, relativePath),
+        })),
+    );
+    if (prepared.some((entry) => entry.status === "rejected"))
+      throw new Error("workbench_owner_artifact_observation_failed");
+    assertCurrentDocumentBatch?.();
+    const observed = await Promise.allSettled(
+      prepared.map(async (entry) => {
+        if (entry.status !== "fulfilled") throw entry.reason;
+        const { relativePath, relation, file } = entry.value;
+        const markdown = await readOwnerArtifactForCatalog(file);
         return Object.freeze({
           relativePath,
           title: extractTitle(markdown, relativePath),
@@ -316,6 +369,10 @@ async function observeOwnerArtifactCatalog(
         });
       }),
     );
+    const artifacts = observed.map((entry) => {
+      if (entry.status !== "fulfilled") throw entry.reason;
+      return entry.value;
+    });
     return Object.freeze({
       state: "available",
       artifacts: Object.freeze(artifacts),
@@ -363,7 +420,6 @@ export async function readOwnerArtifact(
   return await readVerifiedOwnerArtifact(
     repositoryRoot,
     relativePath,
-    false,
     assertReadable,
   ).catch(() => null);
 }
@@ -385,7 +441,7 @@ export async function readOwnerArtifact(
  * @security 六桁CHG IDを固定Pathへ変換し、一般Repository探索を行わない。
  * @concurrency Requestごとの独立読取りだけを所有する。
  */
-export async function readChangeArtifact(
+async function readChangeArtifact(
   repositoryRoot: string,
   changeId: string,
   assertReadable?: () => void,
@@ -394,7 +450,6 @@ export async function readChangeArtifact(
   return await readVerifiedOwnerArtifact(
     repositoryRoot,
     `99_Roadmap/Changes/${changeId}/change.md`,
-    false,
     assertReadable,
   ).catch(() => null);
 }
@@ -419,9 +474,24 @@ export async function readChangeArtifact(
 async function readVerifiedOwnerArtifact(
   repositoryRoot: string,
   relativePath: string,
-  titleOnly = false,
   assertReadable?: () => void,
 ): Promise<string> {
+  const { fileReal } = await prepareOwnerArtifact(repositoryRoot, relativePath);
+  assertReadable?.();
+  return readFile(fileReal, "utf8");
+}
+
+type OwnerArtifactFile = Readonly<{
+  absolutePath: string;
+  fileReal: string;
+  metadata: Stats;
+}>;
+
+/** 本文を開かず、同じ読取りバッチに結び付ける実体を確認する。 */
+async function prepareOwnerArtifact(
+  repositoryRoot: string,
+  relativePath: string,
+): Promise<OwnerArtifactFile> {
   if (
     relativePath.length === 0 ||
     !relativePath.endsWith(".md") ||
@@ -449,55 +519,59 @@ async function readVerifiedOwnerArtifact(
   const metadata = await stat(fileReal);
   if (!metadata.isFile())
     throw new Error("workbench_owner_artifact_not_regular");
-  assertReadable?.();
-  if (titleOnly) {
-    const handle = await open(fileReal, "r");
-    try {
-      const before = await handle.stat();
-      if (
-        !before.isFile() ||
-        before.dev !== metadata.dev ||
-        before.ino !== metadata.ino ||
-        before.size !== metadata.size
-      )
-        throw new Error("workbench_owner_artifact_changed");
-      const bytes = Buffer.alloc(before.size);
-      let offset = 0;
-      while (offset < bytes.length) {
-        const read = await handle.read(
-          bytes,
-          offset,
-          bytes.length - offset,
-          offset,
-        );
-        if (read.bytesRead === 0)
-          throw new Error("workbench_owner_artifact_read_incomplete");
-        offset += read.bytesRead;
-      }
-      const after = await handle.stat();
-      const current = await lstat(fileReal);
-      if (
-        !after.isFile() ||
-        !current.isFile() ||
-        current.isSymbolicLink() ||
-        [after, current].some(
-          (value) =>
-            value.dev !== before.dev ||
-            value.ino !== before.ino ||
-            value.size !== before.size ||
-            value.mtimeMs !== before.mtimeMs ||
-            value.ctimeMs !== before.ctimeMs,
-        ) ||
-        (await realpath(absolutePath)) !== fileReal
-      )
-        throw new Error("workbench_owner_artifact_changed");
-      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    } finally {
-      await handle.close();
+  return { absolutePath, fileReal, metadata };
+}
+
+/** 受付済みの実体だけを読み、終了後に同一性を照合する。 */
+async function readOwnerArtifactForCatalog({
+  absolutePath,
+  fileReal,
+  metadata,
+}: OwnerArtifactFile) {
+  const handle = await open(fileReal, "r");
+  try {
+    const before = await handle.stat();
+    if (
+      !before.isFile() ||
+      before.dev !== metadata.dev ||
+      before.ino !== metadata.ino ||
+      before.size !== metadata.size
+    )
+      throw new Error("workbench_owner_artifact_changed");
+    const bytes = Buffer.alloc(before.size);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const read = await handle.read(
+        bytes,
+        offset,
+        bytes.length - offset,
+        offset,
+      );
+      if (read.bytesRead === 0)
+        throw new Error("workbench_owner_artifact_read_incomplete");
+      offset += read.bytesRead;
     }
+    const after = await handle.stat();
+    const current = await lstat(fileReal);
+    if (
+      !after.isFile() ||
+      !current.isFile() ||
+      current.isSymbolicLink() ||
+      [after, current].some(
+        (value) =>
+          value.dev !== before.dev ||
+          value.ino !== before.ino ||
+          value.size !== before.size ||
+          value.mtimeMs !== before.mtimeMs ||
+          value.ctimeMs !== before.ctimeMs,
+      ) ||
+      (await realpath(absolutePath)) !== fileReal
+    )
+      throw new Error("workbench_owner_artifact_changed");
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } finally {
+    await handle.close();
   }
-  const markdown = await readFile(fileReal, "utf8");
-  return markdown;
 }
 
 /**
@@ -749,6 +823,7 @@ async function readRecordCollection<T>(
 export async function readProjectViewData(
   repositoryRoot: string,
   assertReadable?: () => void,
+  assertCurrentDocumentBatch: (() => void) | undefined = assertReadable,
 ): Promise<ProjectViewData> {
   const repository = readRepositoryChangeSet(repositoryRoot);
   const [markdown, topics, meetings, plan, quality] = await Promise.all([
@@ -759,7 +834,7 @@ export async function readProjectViewData(
       "topic.md",
       parseTopicMarkdown,
       (record) => record.topicId,
-      assertReadable,
+      assertCurrentDocumentBatch,
     ),
     readRecordCollection(
       path.join(repositoryRoot, "23_Meetings"),
@@ -767,7 +842,7 @@ export async function readProjectViewData(
       "meeting.md",
       parseMeetingMarkdown,
       (record) => record.meetingId,
-      assertReadable,
+      assertCurrentDocumentBatch,
     ),
     readProjectPlan(repositoryRoot),
     readQuality(repositoryRoot),
@@ -782,10 +857,12 @@ export async function readProjectViewData(
           issue.kind === "artifact.project-context.projection-model-invalid",
       )?.reason ?? "project_context_scene_invalid",
     );
+  assertCurrentDocumentBatch?.();
   const ownerArtifacts = await observeOwnerArtifactCatalog(
     repositoryRoot,
     contextIntake.artifactReferences,
     assertReadable,
+    assertCurrentDocumentBatch,
   );
   return Object.freeze({
     context,
@@ -798,20 +875,20 @@ export async function readProjectViewData(
   });
 }
 
-export type ArtifactSelection = Readonly<{
+type ArtifactSelection = Readonly<{
   kind: "change" | "owner";
   identity: string;
 }>;
 
 /**
- * 本文表示の用途別Queryを本文観測前に閉検査する。
+ * 本文の種別と識別子を観測前に検査する。
  * @responsibility 種別ごとのID／Pathと今回Repository選択を分離する。
  * @trace ARCH-000012
  * @trace ARCH-000016
- * @input API Queryと共有modeの有無。
- * @returns 本文選択、本文以外のrouteではnull。
- * @precondition URLSearchParamsは同要求の値である。
- * @postcondition 重複・余剰・越境入力をRoot／Readerへ搬送しない。
+ * @input リソースで確定した種別と、受信した識別子。
+ * @returns 読取り対象。形式不正では返さない。
+ * @precondition HTTP側は経路・クエリの重複と余剰を検査済みである。
+ * @postcondition 越境入力をReaderへ渡さない。
  * @effect N/A: 同期値検査。
  * @failure 不正Queryは固定例外。
  * @invariant URL入力を認可または物理Rootへ変換しない。
@@ -820,35 +897,11 @@ export type ArtifactSelection = Readonly<{
  * @concurrency N/A: 要求内の同期検査。
  */
 export function readArtifactSelection(
-  parameters: URLSearchParams,
-  shared: boolean,
-): ArtifactSelection | null {
-  const routes = parameters.getAll("route");
+  kind: ArtifactSelection["kind"],
+  identity: string,
+): ArtifactSelection {
   if (
-    !routes.some((route) => route === "/change" || route === "/owner-artifact")
-  )
-    return null;
-  const change = routes[0] === "/change",
-    identityKey = change ? "id" : "path";
-  const allowed = new Set(["route", "repositoryId", identityKey]);
-  if (
-    routes.length !== 1 ||
-    parameters.getAll(identityKey).length !== 1 ||
-    [...parameters.keys()].some(
-      (key) => !allowed.has(key) || parameters.getAll(key).length !== 1,
-    )
-  )
-    throw new Error("workbench_artifact_input_invalid");
-  const repositoryId = parameters.get("repositoryId");
-  if (
-    (shared && !repositoryId) ||
-    (repositoryId !== null &&
-      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId))
-  )
-    throw new Error("workbench_artifact_input_invalid");
-  const identity = parameters.get(identityKey) ?? "";
-  if (
-    change
+    kind === "change"
       ? !/^CHG-\d{6}$/u.test(identity)
       : identity.length === 0 ||
         !identity.endsWith(".md") ||
@@ -856,10 +909,12 @@ export function readArtifactSelection(
         identity.includes("\\") ||
         identity.includes("\0") ||
         /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(identity) ||
-        identity.split("/").some((part) => part === ".." || part === "")
+        identity
+          .split("/")
+          .some((part) => part === ".." || part === "." || part === "")
   )
     throw new Error("workbench_artifact_input_invalid");
-  return Object.freeze({ kind: change ? "change" : "owner", identity });
+  return Object.freeze({ kind, identity });
 }
 
 /**
@@ -871,18 +926,50 @@ export function readArtifactSelection(
  */
 export function readArtifactMarkdown(
   repositoryRoot: string,
-  surface: ProjectViewData,
   selection: ArtifactSelection,
+  catalog: OwnerArtifactCatalog | null,
   assertReadable?: () => void,
 ): Promise<string | null> {
   return selection.kind === "change"
     ? readChangeArtifact(repositoryRoot, selection.identity, assertReadable)
-    : readOwnerArtifact(
-        repositoryRoot,
-        surface.ownerArtifacts,
-        selection.identity,
-        assertReadable,
-      );
+    : catalog
+      ? readOwnerArtifact(
+          repositoryRoot,
+          catalog,
+          selection.identity,
+          assertReadable,
+        )
+      : Promise.resolve(null);
+}
+
+/** 共有の成果物要求では、画面全体を読まず固定Contextから本文の公開候補を決める。 @trace ARCH-000016 */
+export async function readAuthorizedOwnerArtifactCatalog(
+  repositoryRoot: string,
+  expected: Pick<
+    RepositoryProjectContext,
+    "projectId" | "repositoryId" | "repositoryRole"
+  >,
+  assertReadable: () => void,
+): Promise<OwnerArtifactCatalog> {
+  const source = await readVerifiedOwnerArtifact(
+    repositoryRoot,
+    "PROJECT_CONTEXT.md",
+    assertReadable,
+  );
+  const { result, artifactReferences } =
+    parseRepositoryProjectContextMarkdown(source);
+  if (
+    result === null ||
+    result.projectId !== expected.projectId ||
+    result.repositoryId !== expected.repositoryId ||
+    result.repositoryRole !== expected.repositoryRole
+  )
+    throw new Error("artifact_access_unavailable");
+  return observeOwnerArtifactCatalog(
+    repositoryRoot,
+    artifactReferences,
+    assertReadable,
+  );
 }
 
 /**
@@ -893,39 +980,39 @@ export function readArtifactMarkdown(
  * @invariant Cursorだけで認可集合や観測範囲を拡張しない。
  * @boundary 要求QueryとPortfolio表示ページ。
  * @security 非Authorityの継続位置であり、Rootや資格を含めない。
- * @compatibility 既存base64url Cursorの意味と形状を維持する。
+ * @compatibility base64url Cursorは画面URL内だけで使う。検索とRepository範囲を結合する。
  */
-type PortfolioCursor = readonly [string, string, string];
+type PortfolioCursor = readonly [string, string, string, string];
 
 /**
- * 許可済みPortfolioを同じ検索条件の20件へ閉じる。
+ * 許可済みPortfolioを同じ検索条件の指定件数へ閉じる。
  * @responsibility 検索・状態条件と継続位置を相関し、未知Cursorを先頭ページへ補完しない。
  * @trace ARCH-000012
- * @input 認可済みPortfolioまたは未構成と、検索文字・状態・Cursor。
+ * @input 認可済みPortfolio、検索文字・状態・Cursor・対象Repository・ページ件数。
  * @returns 有界Portfolio、次Cursor、不正Cursorの明示状態。
  * @precondition 入力Portfolioの認可と観測は呼出し側Ownerが完了している。
- * @postcondition 表示件数は20以下で、次Cursorは同じ検索・状態条件へ結合する。
+ * @postcondition 表示件数は指定以下で、次Cursorは同じ検索・状態・Repository範囲へ結合する。
  * @effect N/A: 同期の絞込みと不変値生成。
  * @failure 不正CursorはcursorInvalidと空の当該ページとして返し、正常ページへ丸めない。
- * @invariant Source・不完全性を維持し、未構成を空Portfolioへ変換しない。
+ * @invariant Source・不完全性を維持する。
  * @boundary Domain投影と表示用ページ。
  * @security Cursorは表示継続位置であり、Repository認可や物理Rootを表さない。
  * @concurrency N/A: 当該要求の投影だけを同期処理する。
  */
 export function createPortfolioPage(
-  portfolio: PortfolioProjection | undefined,
-  query: Readonly<{ query: string; state: string; cursor: string }>,
+  portfolio: PortfolioProjection,
+  query: Readonly<{
+    query: string;
+    state: string;
+    cursor: string;
+    repositoryId?: string;
+  }>,
+  limit = 20,
 ): Readonly<{
-  portfolio: PortfolioProjection | null;
+  portfolio: PortfolioProjection;
   nextCursor: string | null;
   cursorInvalid: boolean;
 }> {
-  if (portfolio === undefined)
-    return Object.freeze({
-      portfolio: null,
-      nextCursor: null,
-      cursorInvalid: false,
-    });
   const normalizedQuery = query.query.toLocaleLowerCase("ja-JP");
   const filtered = portfolio.projects.filter(
     (project) =>
@@ -944,7 +1031,7 @@ export function createPortfolioPage(
       );
       if (
         !Array.isArray(value) ||
-        value.length !== 3 ||
+        value.length !== 4 ||
         !value.every((entry) => typeof entry === "string")
       )
         cursorInvalid = true;
@@ -953,8 +1040,9 @@ export function createPortfolioPage(
         if (
           decoded[0] !== query.query ||
           decoded[1] !== query.state ||
-          decoded[2] === undefined ||
-          decoded[2].length === 0
+          decoded[2] !== (query.repositoryId ?? "") ||
+          decoded[3] === undefined ||
+          decoded[3].length === 0
         )
           cursorInvalid = true;
         else cursor = Object.freeze(decoded) as PortfolioCursor;
@@ -966,16 +1054,21 @@ export function createPortfolioPage(
   const start =
     cursor === null
       ? 0
-      : filtered.findIndex((project) => project.projectId === cursor?.[2]) + 1;
+      : filtered.findIndex((project) => project.projectId === cursor?.[3]) + 1;
   if (cursor !== null && start === 0) cursorInvalid = true;
-  const projects = cursorInvalid ? [] : filtered.slice(start, start + 20);
+  const projects = cursorInvalid ? [] : filtered.slice(start, start + limit);
   const last = projects.at(-1);
   const nextCursor =
     !cursorInvalid &&
     last !== undefined &&
     start + projects.length < filtered.length
       ? Buffer.from(
-          JSON.stringify([query.query, query.state, last.projectId]),
+          JSON.stringify([
+            query.query,
+            query.state,
+            query.repositoryId ?? "",
+            last.projectId,
+          ]),
           "utf8",
         ).toString("base64url")
       : null;
@@ -1083,48 +1176,6 @@ export type ProjectQualityObservation = Readonly<{
   projection: RepositoryQualityProjection | null;
   reason: "quality_projection_invalid" | "observation_failed" | null;
 }>;
-
-/**
- * 観測済み本文を共通の表示契約に整える。
- * @responsibility 表示用Repositoryの採用時点と欠測の扱いは各受付に委ねる。
- * @trace ARCH-000012
- */
-export function createArtifactViewResponse(
-  selection: ArtifactSelection,
-  markdown: string,
-  repositoryId: string,
-  selectedRepositoryId: string | null,
-): ArtifactViewResponse {
-  return {
-    contract: "crdd/workbench/view/v1",
-    view: "artifact",
-    repositoryId,
-    selectedRepositoryId,
-    artifact: { ...selection, markdown },
-  };
-}
-
-/**
- * 対象Projectの詳細表示を、利用側が確定したPortfolioだけから取得する。
- * @responsibility 単体と共有で同じ表示契約を使い、欠測はnullで呼出し元へ返す。
- * @trace ARCH-000012
- * @boundary 現在認可済みPortfolioに限定する。通信応答は発行しない。
- */
-export function readProjectDetailResponse(
-  portfolio: PortfolioProjection | null | undefined,
-  projectId: string | null,
-): ProjectDetailResponse | null {
-  const project = portfolio?.projects.find(
-    (entry) => entry.projectId === projectId,
-  );
-  return project === undefined
-    ? null
-    : {
-        contract: "crdd/workbench/view/v1",
-        view: "project-detail",
-        project,
-      };
-}
 
 /**
  * 許可済みPortfolioの一ProjectをSource別に表示するRead Model。

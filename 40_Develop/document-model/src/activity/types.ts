@@ -44,6 +44,9 @@ export type ScopedTopicMeetingOperations = Readonly<{
   ): TopicMeetingPage;
   get(id: string): ProjectOperationRecord | null;
   getDocument(id: string): TopicMeetingDocument | null;
+  getDocumentWithRelations(
+    id: string,
+  ): TopicMeetingDocumentWithRelations | null;
   relations(id: string): readonly TopicMeetingRelation[];
   hasRelationTarget: TopicMeetingOperations["hasRelationTarget"];
   create(markdown: string): TopicMeetingWriteResult;
@@ -206,6 +209,10 @@ export type TopicMeetingOperations = Readonly<{
     id: string,
   ): ProjectOperationRecord | null;
   getDocument: TopicMeetingRepository["getDocument"];
+  getDocumentWithRelations(
+    kind: ProjectOperationRecordKind,
+    id: string,
+  ): TopicMeetingDocumentWithRelations | null;
   relations(
     kind: ProjectOperationRecordKind,
     id: string,
@@ -293,6 +300,12 @@ export type TopicMeetingDocument = Readonly<{
   markdown: string;
 }>;
 
+/** 一回取得した本文と、その本文から抽出した関係。 @trace ARCH-000006 */
+export type TopicMeetingDocumentWithRelations = Readonly<{
+  document: TopicMeetingDocument;
+  relations: readonly TopicMeetingRelation[];
+}>;
+
 /**
  * Topic／Meeting Markdown正本のRepository境界で使用するTopicMeetingListResultの構造を固定する。
  *
@@ -305,13 +318,10 @@ export type TopicMeetingDocument = Readonly<{
  * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
  */
 
-export type TopicMeetingListResult = Readonly<
-  | {
-      status: "available";
-      records: readonly ProjectOperationRecord[];
-    }
-  | { status: "not_configured"; records: readonly ProjectOperationRecord[] }
->;
+export type TopicMeetingListResult = Readonly<{
+  status: "available" | "not_configured";
+  records: readonly ProjectOperationRecord[];
+}>;
 
 /**
  * Topic／Meeting Markdown正本のRepository境界で使用するTopicMeetingWriteResultの構造を固定する。
@@ -364,7 +374,10 @@ export type TopicMeetingRepository = Readonly<{
     kind: ProjectOperationRecordKind,
     id: string,
   ): TopicMeetingDocument | null;
-  list(kind: ProjectOperationRecordKind): TopicMeetingListResult;
+  list(
+    kind: ProjectOperationRecordKind,
+    include?: (directoryId: string, document: TopicMeetingDocument) => boolean,
+  ): TopicMeetingListResult;
   hasChange(id: string): boolean;
   create(
     kind: ProjectOperationRecordKind,

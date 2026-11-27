@@ -87,6 +87,10 @@ Change配置の比較はfilename／evidence／aggregateの三用途に限定す�
 
 文書モデル（document-model）はCRDD成果物・Markdown構造・Relation・Project Context・Topic／Meeting・Semantic・Reality・試験Catalogと、それらの保存を所有する。実行State、設定Reader、認証、AI／Docker実行、Recovery許可は所有しない。
 
+Topic／Meetingの一覧では、保存領域から読み取った一つのMarkdownから一覧項目と検索対象を得る。同じ保持場所と本文IDを照合できた記録を検索のために読み直さず、本文は一覧応答に含めない。保持場所の名前と本文IDが異なる記録では、本文IDで正規の保存場所を照会する従来の判定を維持する。
+
+本文と関連情報を一緒に使う場合は `getDocumentWithRelations` で、本文表示と参照IDの抽出に一回の取得結果を共用する。本文がなければ結果なしとし、関連先は探索しない。関連先の確認と一覧の列挙は別の読取りとする。呼出し側が認可した同一Projectの集合を使う場合、関連先の所有者が一意・競合・観測なしのどれかを既存の判定で区別する。対象と関連先の読取りを一つの永続スナップショットとして保証するものではない。
+
 文書・実行・構成の3モデルは、型・再export・deep import・dynamic import・package依存を含め相互の直接依存を持たない。既存Consumerが各Ownerの完成操作を呼び、必要な値だけを明示投影する。共通Facade・第4Package・汎用Storeを作らない。VC・共通Lock・Node.jsは必要なOwnerが直接使用する。
 
 <a id="document-conceptual-models"></a>
@@ -272,6 +276,8 @@ Qualityの定義閉包は定義モデル列・既存の工程分析結果・統�
 Quality分析結果のhasCoverageSectionsは、渡された各分析モデルの先頭Coverage節が取得できていることだけを示す。Checkerは先に六工程の分析Fileを確認する。空のモデル列を全工程の観測完了とは扱わない。節が揃わなくても集約・照合を停止せず、正本外の既知ID、取得済みCoverageから情報源関係への不足、既知の要求段階の不足、重複・不正処置・定義とDetailの照合を継続する。欠測があるときは逆方向の不足・全体件数・未知Goal名・全Goal集合の一致を保留し、欠測を空表として不一致を生成しない。節が存在するが内容が空の表と、節自体の欠測は区別する。既存Issueの分類・正常時の順序は維持し、公開関数・型の追加は行わない。
 
 Reality Graphは観測済みManifest・実在ID／試験台帳・前提Issue、Semantic CoverageはIR・Quality関係・Symbolモデルを使う。品質Gateは固定改訂版・必須確認集合・同版の確認結果を使う。これらへ本文を直接読む入口を足さず、記載上のReady／PASSからverifiedや実装済みを発行しない。
+
+試験台帳の改訂11は、所有者ルート・実行環境・実行プロファイル等を宣言から受け取る。実装追跡のリポジトリ観測は受理した台帳と同じ所有者集合を使い、各ルートの `symbol.json` の `subsystem` と所有者IDを照合する。試験のパスは所有者のルートと宣言済みパスから組み立てる。試験ランナーの意味や開発言語を推定しない。Gitインデックスの観測と未登録警告の配送はチェッカーの責務とする。
 
 ### Architecture分析・定義の内容モデル
 
@@ -489,7 +495,7 @@ Releaseの版・Baseline・Stable条件はRelease自身が所有する。inspect
 
 publishSemanticCoverageは検証済みRepositoryを受け、Bundle構築後に既存Writerを一回呼ぶ。不要なPublisher Factory・Port型・転送処理は撤去し、WriterのPath・Link・原子的置換・失敗時保全と内部の故障Hookを維持する。Topic／Meetingの生成入口はRootと期待Projectだけを受け、保存契約注入Overloadは撤去する。故障注入は既存activity/operations.tsのOwner試験へ閉じ、本番Root経路の種別限定・改訂・期待Project検査を別に確認する。
 
-parseRealityTestCatalogは取得済みJSON本文と出典を受け、解析と三文字列field・Path重複だけの限定Map構築を完了する。JSON不正と構造不正はいずれも結果nullだが別Issueで区別し、Checkerは従来のcode・文言へ変換する。readTestCatalogの全Schema・走査条件へ置き換えず、一回観測・Manifestなし時の読取り省略・前提不成立時のGraph省略を維持する。parseMarkdownLinkReferenceとMarkdownLinkReferenceは、現在参照と固定Git履歴のraw値を一回Decodeして失敗を保持する独立値契約として残す。Filesystem／Git解決はCheckerに残し、解析を複製しない。
+parseRealityTestCatalogは取得済みJSON本文から三文字列field・Path重複を照合する限定投影であり、台帳の受理には使わない。現在のリポジトリ観測は改訂11の台帳を一度受理し、所有者の実装探索と試験の対応付けに同じ結果を使う。前提不成立時はGraphを発行しない。parseMarkdownLinkReferenceとMarkdownLinkReferenceは、現在参照と固定Git履歴のraw値を一回Decodeして失敗を保持する独立値契約として残す。Filesystem／Git解決はCheckerに残し、解析を複製しない。
 
 [Rootの宣言](../../../40_Develop/document-model/src/index.ts)は明示公開226項目（値102・型124）を持つ。値には定数・Parser・検査を含み、226個の操作を意味しない。現在の集合は[公開契約試験](../../../40_Develop/document-model/tests/unit/public-boundary.contract.test.ts)の固定期待値と照合する。[分離途中の棚卸し](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#document-public-inventory)は調査時点の履歴である。文書単位のParse・モデルと、実利用または独立した完成契約を残し、内部構文Helperと部分更新はRootへ出さない。文書の保存・照会・連合操作や共通技術受付までParseだけへ押し込まず、未接続Capabilityの本番利用を主張しない。
 

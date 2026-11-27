@@ -157,7 +157,7 @@ try {
     url.search ||
     url.hash ||
     (write === undefined
-      ? value.route !== "/api/workbench/view?route=%2F" &&
+      ? value.route !== "/api/workbench/overview" &&
         !isVerificationWorkspaceRead(value.route)
       : !isVerificationAiWrite(value.route))
   )

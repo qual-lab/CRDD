@@ -8,20 +8,64 @@
  */
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import {
+  disconnectGitHost,
+  isGitHostLinkAbsent,
+  isGitHostRevocationUnconfirmed,
+  requestGitHostConnections,
+} from "../api/access.ts";
+import { workbenchPostForm } from "../api/path.ts";
+import {
+  type AccessViewResponse,
   type GitHostConnectionView,
   validateGitHostConnections,
 } from "../api/response.ts";
 import { EmptyState, WorkbenchPanel } from "./elements.ts";
 
-const gitConnectionsPath = "/api/session/git";
+/** 現在の提供元一覧を、通常ログインまたは招待のフォームに変換する。 @trace ARCH-000013 */
+export function ExternalLoginOptions({
+  providers,
+  invitation,
+}: {
+  providers: NonNullable<AccessViewResponse["loginProviders"]>;
+  invitation?: string | undefined;
+}) {
+  return providers.map(({ id, displayName }) => (
+    <form
+      key={id}
+      {...workbenchPostForm(
+        invitation
+          ? ["POST", "/api/session/login/:provider/invitation"]
+          : ["POST", "/api/session/login/:provider"],
+        { provider: id },
+      )}
+    >
+      {invitation && (
+        <input type="hidden" name="invitation" value={invitation} />
+      )}
+      <button type="submit">
+        {invitation ? "招待を使って" : ""}
+        {displayName}でログイン
+      </button>
+    </form>
+  ));
+}
+
 type GitHostRow = GitHostConnectionView & {
-  readonly disconnectFailed?: boolean;
+  readonly disconnectResult?:
+    | "disconnected"
+    | "already_absent"
+    | "revocation_unavailable"
+    | "unknown";
 };
 
 export function GitHostConnections({
   showLogin = true,
+  onDisconnectPending,
+  onSessionRejected,
 }: {
   showLogin?: boolean;
+  onDisconnectPending?: (pending: boolean) => void;
+  onSessionRejected?: () => void;
 }) {
   const [state, setState] = useState<
     "hidden" | "login" | "unavailable" | readonly GitHostRow[]
@@ -33,12 +77,13 @@ export function GitHostConnections({
     lifetime.current = controller;
     void (async () => {
       try {
-        const response = await fetch(gitConnectionsPath, {
-          signal: controller.signal,
-        });
+        const response = await requestGitHostConnections(controller.signal);
         if (controller.signal.aborted) return;
         if (response.status === 404) return;
-        if (response.status === 401) return setState("login");
+        if (response.status === 401) {
+          onSessionRejected?.();
+          return setState("login");
+        }
         if (!response.ok) return setState("unavailable");
         const result: unknown = await response.json();
         if (controller.signal.aborted) return;
@@ -48,7 +93,7 @@ export function GitHostConnections({
       }
     })();
     return () => controller.abort();
-  }, []);
+  }, [onSessionRejected]);
   if (
     state === "hidden" ||
     (state === "login" && !showLogin) ||
@@ -59,7 +104,8 @@ export function GitHostConnections({
     const signal = lifetime.current?.signal;
     if (!signal || signal.aborted || operations.current.has(id)) return;
     operations.current.add(id);
-    const finish = (success: boolean) => {
+    onDisconnectPending?.(true);
+    const finish = (status: NonNullable<GitHostRow["disconnectResult"]>) => {
       setState((current) =>
         typeof current === "string"
           ? current
@@ -67,28 +113,38 @@ export function GitHostConnections({
               item.id === id
                 ? {
                     ...item,
-                    connected: success ? false : item.connected,
-                    disconnectFailed: !success,
+                    connected: status === "unknown" ? item.connected : false,
+                    disconnectResult: status,
                   }
                 : item,
             ),
       );
     };
     try {
-      const response = await fetch(
-        `${gitConnectionsPath}/${encodeURIComponent(id)}`,
-        {
-          method: "DELETE",
-          signal,
-        },
-      );
+      const response = await disconnectGitHost(id, signal);
       if (signal.aborted) return;
-      if (response.status === 401) return setState("login");
-      finish(response.status === 204);
+      if (response.status === 401) {
+        onSessionRejected?.();
+        return setState("login");
+      }
+      const revocationUnconfirmed =
+        await isGitHostRevocationUnconfirmed(response);
+      const alreadyAbsent = await isGitHostLinkAbsent(response);
+      if (signal.aborted) return;
+      finish(
+        response.status === 204
+          ? "disconnected"
+          : revocationUnconfirmed
+            ? "revocation_unavailable"
+            : alreadyAbsent
+              ? "already_absent"
+              : "unknown",
+      );
     } catch {
-      if (!signal.aborted) finish(false);
+      if (!signal.aborted) finish("unknown");
     } finally {
       operations.current.delete(id);
+      if (!signal.aborted) onDisconnectPending?.(false);
     }
   };
   return (
@@ -105,7 +161,7 @@ export function GitHostConnections({
       ) : (
         <ul>
           {state.map(
-            ({ id, host, displayName, connected, disconnectFailed }) => (
+            ({ id, host, displayName, connected, disconnectResult }) => (
               <li key={id}>
                 {displayName} ({host})
                 {connected ? (
@@ -114,13 +170,23 @@ export function GitHostConnections({
                   </button>
                 ) : (
                   <form
-                    action={`${gitConnectionsPath}/${encodeURIComponent(id)}`}
-                    method="post"
+                    {...workbenchPostForm(
+                      ["POST", "/api/session/git/:hostConnectionId"],
+                      { hostConnectionId: id },
+                    )}
                   >
                     <button type="submit">{displayName}を連携</button>
                   </form>
                 )}
-                {disconnectFailed ? (
+                {disconnectResult === "revocation_unavailable" ? (
+                  <p role="status">
+                    CRDDの連携は解除しましたが、Gitホスト側のトークン失効を確認できません。必要に応じてGitホストの設定からアプリの認可を取り消してください。
+                  </p>
+                ) : disconnectResult === "already_absent" ? (
+                  <p role="status">
+                    CRDDに有効な連携はありません。Gitホスト側の失効は確認していません。
+                  </p>
+                ) : disconnectResult === "unknown" ? (
                   <p role="status">
                     このホストの連携解除を確認できません。もう一度お試しください。
                   </p>

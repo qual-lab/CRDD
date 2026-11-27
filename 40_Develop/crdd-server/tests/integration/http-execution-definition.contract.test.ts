@@ -11,6 +11,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { IncomingMessage, ServerResponse } from "node:http";
+import { Socket } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -18,6 +20,7 @@ import {
   executeDefinitionOperation,
   resolveLocalDefinitionAccess,
 } from "../../src/service/execution.ts";
+import { createExecutionDefinitionHandler } from "../../src/transport/api-server.ts";
 import { getRepository } from "@qual-lab/crdd-version-control";
 import { contentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
 import {
@@ -131,7 +134,7 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
     const query=async()=>{const r=await fetch(server.baseUrl+base+'/plan');assert.equal(r.status,200);return r.json();};
     try{
       assert.equal((await write({operation:'initialize',expectedAbsence:true},'https://other.invalid')).status,403);
-      assert.equal((await fetch(server.baseUrl+'/api/execution/definition',{method:'POST'})).status,405);
+      assert.equal((await fetch(server.baseUrl+'/api/execution/definition',{method:'POST'})).status,404);
       assert.equal((await fetch(server.baseUrl+'/api/execution/definition')).status,404);
       for (const [url, body] of [
         [base+'/definition','{"operation":"initialize","expectedAbsence":true}'],
@@ -141,7 +144,12 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
       assert.equal((await fetch(server.baseUrl+base.replace('repository.fixture','other')+'/plan')).status,403);
       assert.equal((await write({operation:'initialize',expectedAbsence:true,unknown:true})).status,400);
       assert.equal(readFileSync(${JSON.stringify(exclude)},'utf8'),'# fixture\\n');
-      const initial=(await write({operation:'initialize',expectedAbsence:true})).value;assert.equal(initial.status,'saved',JSON.stringify(initial));
+      const initialized=await write({operation:'initialize',expectedAbsence:true});
+      assert.equal(initialized.status,201);
+      const initial=initialized.value;assert.equal(initial.status,'saved',JSON.stringify(initial));
+      const notAllowed=await fetch(server.baseUrl+base+'/plan',{method:'POST'});
+      assert.equal(notAllowed.status,405);
+      assert.equal(notAllowed.headers.get('allow'),'GET, HEAD, PUT');
       const registered=readFileSync(${JSON.stringify(exclude)},'utf8');
       assert.equal(registered.split(/\\r?\\n/).filter(line=>line==='.crdd/').length,1);
       const plan={milestoneAcceptanceCriteria:['確認'],objectives:[{id:'objective',acceptanceCriteria:['確認']}],tasks:[{id:'task',objectiveId:'objective',dependencies:[],allowedPaths:['code.ts'],conflictKeys:[]}]};
@@ -171,9 +179,21 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
       const largeSaved=(await write({operation:'plan.save',expected:deleted.version,expectedDefinitionHash:deleted.value.definitionHash??(await query()).value.definitionHash,definition:large})).value;
       assert.equal(largeSaved.status,'saved',JSON.stringify(largeSaved));
       const before=await query();assert.equal(before.status,'available');
+      const planGet=await fetch(server.baseUrl+base+'/plan');
+      const planHead=await fetch(server.baseUrl+base+'/plan',{method:'HEAD'});
+      assert.equal(planHead.status,planGet.status);
+      for(const key of ['content-type','content-length']) assert.equal(planHead.headers.get(key),planGet.headers.get(key));
+      assert.equal(await planHead.text(),'');await planGet.text();
       const {request}=await import('node:http');
       const rejected=await new Promise((resolve,reject)=>{const r=request(server.baseUrl+base+'/plan',{method:'PUT',headers:{origin:server.baseUrl,'content-type':'application/json','content-length':3*16777216+16385}},response=>{response.resume();response.on('end',()=>resolve(response.statusCode));});r.on('error',reject);r.end();});
-      assert.equal(rejected,403);assert.deepEqual(await query(),before);
+      assert.equal(rejected,413);assert.deepEqual(await query(),before);
+      const chunked=await new Promise((resolve,reject)=>{
+        const workspace=server.baseUrl+'/api/repositories/repository.fixture/workspaces';
+        const r=request(workspace,{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/json','transfer-encoding':'chunked'}},
+          response=>{response.resume();response.on('end',()=>{resolve([response.statusCode,response.headers.connection]);r.destroy();});});
+        r.on('error',reject);r.setTimeout(3000,()=>r.destroy(Error('chunked_rejection_timeout')));r.write('x'.repeat(16384));r.write('x');
+      });
+      assert.deepEqual(chunked,[413,'close']);
       await server.close();server=await startWorkbench({workingDirectory:${JSON.stringify(root)}});
       assert.deepEqual(await query(),before);
       const {createQueue}=await import(${JSON.stringify(em)});
@@ -437,7 +457,8 @@ test("Server binは既定で統合しAI Sessionを起動だけでは作らない
       const command=${JSON.stringify(command)};
       const moduleUrl=s=>'data:text/javascript,'+encodeURIComponent(s);
       registerHooks({resolve(s,c,n){
-        if(c.parentURL===command&&s==='../transport/mcp-server.ts')return {shortCircuit:true,url:moduleUrl("export const createMcpServerFactory=()=>({});export const readMcpServerConfiguration=async()=>({});export const runMcpStdio=async()=>({status:'completed',cleanupConfirmed:true})")};
+        if(c.parentURL===command&&s==='../transport/mcp-server.ts')return {shortCircuit:true,url:moduleUrl("export const createMcpServerFactory=()=>({});export const readMcpServerConfiguration=async()=>({})")};
+        if(c.parentURL===command&&s==='../transport/mcp-stdio.ts')return {shortCircuit:true,url:moduleUrl("export const runMcpStdio=async()=>({status:'completed',cleanupConfirmed:true})")};
         if(c.parentURL===command&&s==='../app.ts')return {shortCircuit:true,url:moduleUrl("export async function readProjectViewData(){return {context:{projectId:'fixture'}}};export async function readWorkbenchServerConfiguration(){return {}};const ready=label=>{process.stdout.write(label+'|');setImmediate(()=>process.emit('SIGTERM'));return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}};export async function startWorkbench(input){if(input.apiDocumentation&&input.aiRequests)throw Error('docs_ai');return ready(input.apiDocumentation?'DOCS_STARTED':'CORE_STARTED')};export async function startCrddServer(input){if(!input.localAccessRoot||!input.mcpOAuth||!input.loginProviders?.google||input.gitHosts?.[0]?.provider!=='github')throw Error('shared_missing');if(input.sharedAiRequestsFactory)input.sharedAiRequestsFactory({},'fixture','host',()=>true);return ready('SHARED_STARTED')}")};
         if(c.parentURL===command&&s==='./environment.ts')return {shortCircuit:true,url:moduleUrl("export const consumeOAuthEnvironment=(_environment,shared)=>shared?{loginProviders:{google:{clientId:'synthetic-cli',clientSecret:'synthetic-secret'}},mcpOAuth:{},gitHosts:[{provider:'github',host:'github.com',providerData:{clientId:'synthetic-cli',clientSecret:'synthetic-git-secret'}}]}:undefined;")};
         if(c.parentURL===command&&s==='@qual-lab/crdd-access-management')return {shortCircuit:true,url:moduleUrl("export const resolveHostRootInput=()=>({});export const readExistingHostRoot=()=>({});export const readHostInitializationState=(_root,{acceptsAdministratorIssuer})=>({status:'existing',administratorLinked:acceptsAdministratorIssuer('https://accounts.google.com')&&!acceptsAdministratorIssuer('https://fixture.invalid')});")};
@@ -587,7 +608,7 @@ test("Server binは既定で統合しAI Sessionを起動だけでは作らない
  * @cleanup 既存Fixtureが今回のRootだけを回収する。
  * @boundary 確定した単体リポジトリ→Domain実Writerと既存OS排他。
  */
-test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ接続する", (t) => {
+test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ接続する", async (t) => {
   const f = contentFixture(t);
   const signal = new AbortController().signal;
   execFileSync("git", ["init", "--quiet", f.target.directory], {
@@ -617,6 +638,48 @@ test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ�
   );
   const repository = getRepository(f.target.directory);
   assert.equal(repository.status, "completed");
+  await t.test(
+    "共有セッションがない定義保存は本文を読まない",
+    async (context) => {
+      const origin = new URL("http://127.0.0.1:3000");
+      const socket = new Socket();
+      context.after(() => socket.destroy());
+      const incoming = new IncomingMessage(socket);
+      incoming.method = "PUT";
+      incoming.url = `/api/repositories/${f.target.manifest.repositoryId}/projects/${f.target.manifest.projectId}/milestones/milestone.fixture/plan`;
+      incoming.headers = {
+        host: origin.host,
+        origin: origin.origin,
+        "content-type": "application/json",
+      };
+      incoming.headersDistinct = {
+        host: [origin.host],
+        origin: [origin.origin],
+        "content-type": ["application/json"],
+      };
+      const readBody = context.mock.method(incoming, "iterator", () =>
+        assert.fail("共有セッション確認前に本文を読んだ"),
+      );
+      const readGitHostLinkedSession = context.mock.fn(() => null);
+      const handler = createExecutionDefinitionHandler({
+        getOrigin: () => origin,
+        capability: repository.capability,
+        accessRoot: f.root,
+        readGitHostLinkedSession,
+      });
+      const response = new ServerResponse(incoming);
+      await handler(incoming, response, signal);
+      assert.equal(response.statusCode, 403);
+      assert.equal(readGitHostLinkedSession.mock.callCount(), 1);
+      assert.equal(readBody.mock.callCount(), 0);
+      assert.equal(
+        fs.existsSync(
+          path.join(f.target.directory, ".crdd", "execution-model"),
+        ),
+        false,
+      );
+    },
+  );
   assert.equal(
     resolveLocalDefinitionAccess(
       repository.capability,

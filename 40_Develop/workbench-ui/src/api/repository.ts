@@ -6,10 +6,141 @@
  * @trace ARCH-000012
  * @boundary 同一Origin HTTPとWorkbenchの表示。Gitの許可・結果の意味判定はServerが所有する。
  */
+import type { RepositoryFilesResponse } from "@qual-lab/crdd-server";
+import { requestWorkbench } from "./connection.ts";
+import { RESOURCE_ID, workbenchPath, workbenchRequest } from "./path.ts";
+
+export function readRepositoryFileSelection(search: string) {
+  const parameters = new URLSearchParams(search);
+  return {
+    directory: parameters.get("treeDirectory") ?? "",
+    cursor: parameters.get("treeCursor") ?? "",
+    diff: parameters.get("diffPath") ?? "",
+  };
+}
+
+export function repositoryFilesLocation(
+  currentSearch: string,
+  directory: string,
+  cursor = "",
+  diff = "",
+) {
+  const parameters = new URLSearchParams(currentSearch);
+  for (const [name, value] of [
+    ["treeDirectory", directory],
+    ["treeCursor", cursor],
+    ["diffPath", diff],
+  ] as const) {
+    if (value) parameters.set(name, value);
+    else parameters.delete(name);
+  }
+  const search = parameters.toString();
+  return `${search ? `?${search}` : "?"}#repository`;
+}
+
+/** ツリー／差分を別々に一度読取り、要求した対象と一致する結果だけを採用する。 */
+export async function readRepositoryFiles<
+  K extends RepositoryFilesResponse["kind"],
+>(
+  kind: K,
+  repositoryId: string,
+  target: string,
+  cursor: string,
+  signal: AbortSignal,
+  browserSession: boolean,
+): Promise<Extract<RepositoryFilesResponse, { kind: K }>> {
+  const tree = kind === "tree";
+  const route = tree
+    ? "/api/repositories/:repositoryId/worktree/tree"
+    : "/api/repositories/:repositoryId/worktree/diff";
+  const path = workbenchPath(["GET", route], { repositoryId });
+  const parameters = new URLSearchParams(
+    tree ? { directory: target } : { path: target },
+  );
+  if (tree && cursor) parameters.set("cursor", cursor);
+  const reply = await requestWorkbench(
+    `${path}?${parameters}`,
+    { signal },
+    browserSession,
+  );
+  if (!reply.ok || signal.aborted)
+    throw new Error("repository_files_response_invalid");
+  const value: unknown = await reply.json();
+  if (
+    signal.aborted ||
+    !isRepositoryFilesRecord(value) ||
+    Object.keys(value).sort().join(",") !==
+      (tree ? "kind,repositoryId,tree" : "diff,kind,repositoryId") ||
+    value.repositoryId !== repositoryId ||
+    value.kind !== kind ||
+    !(tree
+      ? validRepositoryTree(value.tree, target)
+      : validRepositoryDiff(value.diff, target))
+  )
+    throw new Error("repository_files_response_invalid");
+  return value as Extract<RepositoryFilesResponse, { kind: K }>;
+}
+
+function isRepositoryFilesRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validRepositoryTree(value: unknown, directory: string) {
+  return (
+    isRepositoryFilesRecord(value) &&
+    Object.keys(value).sort().join(",") === "directory,entries,nextCursor" &&
+    value.directory === directory &&
+    (value.nextCursor === null || typeof value.nextCursor === "string") &&
+    Array.isArray(value.entries) &&
+    value.entries.every(
+      (entry: unknown) =>
+        isRepositoryFilesRecord(entry) &&
+        Object.keys(entry).sort().join(",") ===
+          "kind,name,path,prepared,unregistered,working" &&
+        typeof entry.name === "string" &&
+        entry.name.length !== 0 &&
+        !/[\\/]/u.test(entry.name) &&
+        entry.path ===
+          (directory ? `${directory}/${entry.name}` : entry.name) &&
+        (entry.kind === "directory" || entry.kind === "file") &&
+        typeof entry.prepared === "boolean" &&
+        typeof entry.working === "boolean" &&
+        typeof entry.unregistered === "boolean",
+    )
+  );
+}
+
+function validRepositoryDiff(value: unknown, path: string) {
+  return (
+    isRepositoryFilesRecord(value) &&
+    Object.keys(value).sort().join(",") ===
+      "path,preparedPatch,unregistered,workingPatch" &&
+    value.path === path &&
+    typeof value.preparedPatch === "string" &&
+    typeof value.workingPatch === "string" &&
+    typeof value.unregistered === "boolean"
+  );
+}
+
 export type RepositoryOperationDisplay = Readonly<{
   status: "completed" | "blocked" | "unknown";
   reason: string;
 }>;
+
+/** 一回の送信と、その結果を照合するための画面側の条件。 @trace ARCH-000009 */
+export interface RepositorySubmission {
+  readonly publicationRevision: string | null;
+  readonly completedReason: string;
+  readonly completionHasRevision: boolean;
+  readonly request: Readonly<{
+    path: string;
+    method: "POST" | "DELETE";
+    body: string;
+    token: string;
+  }>;
+}
 
 /**
  * 現在の画面で生成できる一件の入力だけを送信対象にする。
@@ -20,17 +151,7 @@ export function readRepositorySubmission(
   form: URLSearchParams,
   repositoryId: string,
   actionToken: string,
-): Readonly<{
-  publicationRevision: string | null;
-  completedReason: string;
-  completionHasRevision: boolean;
-  request: Readonly<{
-    path: string;
-    method: "POST" | "DELETE";
-    body: string;
-    token: string;
-  }>;
-}> {
+): RepositorySubmission {
   const operation = form.get("operation");
   const fields =
     operation === "prepare" || operation === "unprepare"
@@ -45,7 +166,7 @@ export function readRepositorySubmission(
   if (
     [...form.keys()].some((key) => !keys.includes(key)) ||
     keys.some((key) => form.getAll(key).length !== 1) ||
-    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId) ||
+    !RESOURCE_ID.test(repositoryId) ||
     form.get("repositoryId") !== repositoryId ||
     form.get("actionToken") !== actionToken ||
     (operation === "publish_revision" && form.get("humanConfirmed") !== "true")
@@ -55,12 +176,26 @@ export function readRepositorySubmission(
   const revision = publication ? form.get("revisionIdentity") : null;
   if (publication && !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(revision ?? ""))
     throw new Error("repository_form_selection_invalid");
-  const base = `/api/repositories/${repositoryId}`;
-  const path = publication
-    ? `${base}/revisions/${revision}/publication`
+  const route = publication
+    ? workbenchRequest(
+        [
+          "POST",
+          "/api/repositories/:repositoryId/revisions/:revision/publication",
+        ],
+        { repositoryId, revision: revision ?? "" },
+      )
     : operation === "create_revision"
-      ? `${base}/revisions`
-      : `${base}/staging`;
+      ? workbenchRequest(
+          ["POST", "/api/repositories/:repositoryId/revisions"],
+          { repositoryId },
+        )
+      : workbenchRequest(
+          [
+            operation === "unprepare" ? "DELETE" : "POST",
+            "/api/repositories/:repositoryId/staging",
+          ],
+          { repositoryId },
+        );
   return {
     publicationRevision: revision,
     completedReason:
@@ -72,8 +207,7 @@ export function readRepositorySubmission(
     completionHasRevision:
       operation === "publish_revision" || operation === "create_revision",
     request: {
-      path,
-      method: operation === "unprepare" ? "DELETE" : "POST",
+      ...route,
       body: JSON.stringify(
         Object.fromEntries(
           fields
@@ -95,7 +229,7 @@ export function readRepositorySubmission(
  * @boundary 公開済みの結果JSONと表示。理由とGitの処置効果の対応はServerが検査する。
  */
 export function readRepositoryOperationDisplay(
-  submission: ReturnType<typeof readRepositorySubmission>,
+  submission: RepositorySubmission,
   value: unknown,
 ): RepositoryOperationDisplay {
   if (typeof value !== "object" || value === null || Array.isArray(value))

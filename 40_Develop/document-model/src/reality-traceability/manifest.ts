@@ -9,7 +9,6 @@ export const realitySymbolKinds = [
   "module",
   "file",
   "class",
-  "function",
   "config",
   "schema",
   "migration",
@@ -87,6 +86,7 @@ export type RealitySymbolManifest = Readonly<{
 export type LoadedRealitySymbolManifest = Readonly<{
   manifestPath: string;
   subsystemRoot: string;
+  directoryPaths?: readonly string[];
   manifest: RealitySymbolManifest;
 }>;
 

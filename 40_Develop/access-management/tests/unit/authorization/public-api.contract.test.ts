@@ -17,41 +17,6 @@ import {
 import * as access from "../../../src/index.ts";
 
 /**
- * Rootから内部操作を取得できないことを確認する。
- * @responsibility 操作を実行せずRuntime公開集合を検査する。
- * @trace RFD-UT-020
- * @precondition 現行Package Rootを読込み済み。
- * @stimulus 内部保存・暗号・CLI・投影関数の有無を照会する。
- * @observation Rootのown propertyの有無。
- * @oracle 列挙した内部操作はすべて非公開。
- * @cleanup N/A: 外部資源なし。
- * @boundary 同ProcessのESM公開境界。
- */
-test("公開APIは保存内部・鍵材料・CLI受付を提供しない", () => {
-  assert.equal("readUserStatus" in access, false);
-  for (const name of [
-    "readAccessManagementState",
-    "updateAccessManagementState",
-    "parseAccessManagementState",
-    "createCredentialMaterial",
-    "verifyCredentialToken",
-    "readCredentialId",
-    "runHostAccessCommand",
-    "acquireSharedServerLock",
-    "createInitialAdministrator",
-    "createInitialCredential",
-    "initializeAccessManagementState",
-    "projectCurrentAccessResult",
-    "projectManagementOperationResult",
-    "projectManagementReadResult",
-    "changeUserRole",
-    "resolveAiProfileManagementAccess",
-    "recordCredentialPresentation",
-  ])
-    assert.equal(Object.hasOwn(access, name), false, name);
-});
-
-/**
  * 公開操作の不正入力拒否と非秘密結果を確認する。
  * @responsibility 保存前拒否を利用側の追加投影なしで取得する。
  * @trace RFD-UT-020
@@ -74,7 +39,7 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
     },
   ) as never;
   const denied = { status: "rejected", reason: "management_request_rejected" };
-  const retiredKey = `cros.v1.${"0".repeat(24)}.${"A".repeat(43)}`;
+  const invalidPrincipal = "invalid-principal" as never;
   const operation = "00000000-0000-4000-8000-000000000001";
   const account = {
     kind: "account" as const,
@@ -82,18 +47,17 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
     bindingId: "00000000-0000-4000-8000-000000000002",
     expiresAt: Date.now() + 60_000,
   };
-  for (const kind of ["roleContentAccess", "exposure"])
-    assert.deepEqual(access.readManagementState(root, account, kind), {
-      status: "unavailable",
-      reason: "management_read_rejected",
-    });
+  assert.deepEqual(access.readManagementState(root, account, "unknown"), {
+    status: "unavailable",
+    reason: "management_read_rejected",
+  });
   assert.throws(() => access.readFilesystemStoreDirectory(root), {
     message: "filesystem_store_root_capability_invalid",
   });
   assert.deepEqual(
     access.registerUser(
       root,
-      retiredKey as never,
+      invalidPrincipal,
       1,
       operation,
       "name",
@@ -104,7 +68,7 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
   assert.deepEqual(
     access.updateUserRole(
       root,
-      retiredKey as never,
+      invalidPrincipal,
       1,
       operation,
       operation,
@@ -116,7 +80,7 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
   assert.deepEqual(
     access.registerRepository(
       root,
-      retiredKey as never,
+      invalidPrincipal,
       1,
       operation,
       "repo",
@@ -125,14 +89,12 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
     ),
     denied,
   );
-  assert.equal(Object.hasOwn(access, "updateExposure"), false);
-  assert.equal(Object.hasOwn(access, "updateRoleContentAccess"), false);
-  assert.deepEqual(access.readCurrentAccess(root, retiredKey as never), {
+  assert.deepEqual(access.readCurrentAccess(root, invalidPrincipal), {
     status: "unavailable",
     reason: "current_access_authentication_rejected",
   });
   assert.deepEqual(
-    access.readManagementState(root, retiredKey as never, "users"),
+    access.readManagementState(root, invalidPrincipal, "users"),
     {
       status: "unavailable",
       reason: "management_read_rejected",

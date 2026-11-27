@@ -6,7 +6,6 @@
  */
 
 import { createHash } from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 import { acquireLock } from "@qual-lab/crdd-lock";
 import {
@@ -128,25 +127,6 @@ export function withFilesystemStoreLock<T>(
   operation: () => T,
 ): FilesystemStoreLockResult<T> {
   const lockFile = resolveFilesystemStorePath(capability, lockRelativePath);
-  // 旧清掃義務は読取り拒否だけに使い、自動変換・自動回収しない。
-  try {
-    fs.lstatSync(`${lockFile}.recovery-obligation`);
-    return Object.freeze({
-      acquired: false,
-      reason: "filesystem_store_lock_observation_unknown",
-    });
-  } catch (error) {
-    if (
-      !error ||
-      typeof error !== "object" ||
-      !("code" in error) ||
-      error.code !== "ENOENT"
-    )
-      return Object.freeze({
-        acquired: false,
-        reason: "filesystem_store_lock_observation_unknown",
-      });
-  }
   const identity = createHash("sha256")
     .update("crdd-filesystem-store-lock-v2\0")
     .update(capability.root)

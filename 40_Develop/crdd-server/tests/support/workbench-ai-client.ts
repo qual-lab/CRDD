@@ -180,7 +180,7 @@ export async function readMain(
 ) {
   const response = await requestInChild(
     baseUrl,
-    "/api/workbench/view?route=%2F",
+    "/api/workbench/overview",
     undefined,
     observe,
   );

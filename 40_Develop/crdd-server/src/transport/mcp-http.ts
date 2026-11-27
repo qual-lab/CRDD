@@ -10,78 +10,34 @@ import type {
 } from "node:http";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import {
+  type AuthInfo,
+  bearerAuthChallengeResponse,
   createMcpHandler,
   isJsonContentType,
+  OAuthError,
+  OAuthErrorCode,
+  ProtocolError,
 } from "@modelcontextprotocol/server";
 import { inspectServerPublicOrigin } from "../service/configuration.ts";
 import {
-  createMcpRequestServer,
   finishMcpSdkRequest,
+  acceptMcpRequest,
   inspectProtocolRequest,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
+  isMcpPublicRequest,
   mcpSdkFailure,
   protocolError,
+  createUnsupportedProtocolVersionResponse,
 } from "./mcp-protocol.ts";
 import type {
   McpAuthenticatedHttpOptions,
-  McpAuthenticatedRequestHandlerResolver,
-  McpRequestSource,
+  McpOAuthHttpAccess,
   McpResponse,
+  McpServerFactory,
 } from "./mcp-types.ts";
 import { parseUnambiguousJsonDocument } from "./parse-json.ts";
 
 const ENDPOINT = "/mcp";
 const MAXIMUM_HTTP_REQUEST_BYTES = 128 * 1024;
-
-/**
- * streamable-http-transportをPlain Dataとして検証する。
- *
- * @responsibility streamable-http-transportの許可Property、入れ子値、拒否境界を所有する。
- * @trace ARCH-000012
- * @input value: unknown
- * @returns value is Record<string, unknown>を返す。
- * @precondition 「value: unknown」がisPlainHttpRecordの入力契約を満たす。
- * @postcondition isPlainHttpRecordの責務を完了した結果だけを返す。
- * @effect N/A: isPlainHttpRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isPlainHttpRecordは独自の失敗分岐を所有しない。
- * @invariant isPlainHttpRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: isPlainHttpRecordはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isPlainHttpRecordは共有非同期状態を持たない同期処理である。
- */
-function isPlainHttpRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      Object.getPrototypeOf(value) === Object.prototype,
-  );
-}
-
-/**
- * Tokenが有効か判定する。
- *
- * @responsibility Tokenの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000012
- * @input value: unknown
- * @returns value is stringを返す。
- * @precondition 「value: unknown」がvalidTokenの入力契約を満たす。
- * @postcondition validTokenの責務を完了した結果だけを返す。
- * @effect N/A: validTokenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validTokenは独自の失敗分岐を所有しない。
- * @invariant validTokenは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: validTokenはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: validTokenは共有非同期状態を持たない同期処理である。
- */
-function validToken(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length >= 32 &&
-    value.length <= 512 &&
-    /^[\x21-\x7e]+$/u.test(value)
-  );
-}
 
 /**
  * JsonをProtocol応答として返す。
@@ -141,65 +97,6 @@ function acceptsRequiredRepresentations(headers: IncomingHttpHeaders) {
 }
 
 /**
- * Metadataを要求する。
- *
- * @responsibility Metadataの要求条件、受理結果、Effect未成立との分離境界を所有する。
- * @trace ARCH-000012
- * @input value: unknown
- * @returns requestMetadataの計算結果を返す。
- * @precondition 「value: unknown」がrequestMetadataの入力契約を満たす。
- * @postcondition requestMetadataの責務を完了した結果だけを返す。
- * @effect N/A: requestMetadataは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: requestMetadataは独自の失敗分岐を所有しない。
- * @invariant requestMetadataは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: requestMetadataはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: requestMetadataは共有非同期状態を持たない同期処理である。
- */
-function requestMetadata(value: unknown) {
-  if (!isPlainHttpRecord(value)) return null;
-  const params = value.params;
-  if (!isPlainHttpRecord(params) || !isPlainHttpRecord(params._meta))
-    return null;
-  const protocol = params._meta["io.modelcontextprotocol/protocolVersion"];
-  const name = typeof params.name === "string" ? params.name : null;
-  return typeof value.method === "string" && typeof protocol === "string"
-    ? Object.freeze({ method: value.method, protocol, name })
-    : null;
-}
-
-/**
- * MatchのHeader条件が一致するか判定する。
- *
- * @responsibility Matchの比較対象、必須Header、一致結果境界を所有する。
- * @trace ARCH-000012
- * @input headers: IncomingHttpHeaders、body: unknown
- * @returns headersMatchの計算結果を返す。
- * @precondition 「headers: IncomingHttpHeaders、body: unknown」がheadersMatchの入力契約を満たす。
- * @postcondition headersMatchの責務を完了した結果だけを返す。
- * @effect N/A: headersMatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: headersMatchは独自の失敗分岐を所有しない。
- * @invariant headersMatchは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: headersMatchはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: headersMatchは共有非同期状態を持たない同期処理である。
- */
-function headersMatch(headers: IncomingHttpHeaders, body: unknown) {
-  const metadata = requestMetadata(body);
-  if (!metadata) return false;
-  if (
-    headers["mcp-protocol-version"] !== metadata.protocol ||
-    metadata.protocol !== MCP_COORDINATOR_PROTOCOL_VERSION ||
-    headers["mcp-method"] !== metadata.method
-  )
-    return false;
-  const headerName = headers["mcp-name"];
-  return metadata.method === "tools/call"
-    ? typeof headerName === "string" && headerName === metadata.name
-    : headerName === undefined;
-}
-
-/**
  * Bodyを読み取る。
  *
  * @responsibility Bodyの読取り元、上限、読取不能時の結果境界を所有する。
@@ -252,69 +149,106 @@ async function handleSdkHttpRequest(
   request: IncomingMessage,
   response: ServerResponse,
   body: unknown,
-  handler: McpRequestSource,
+  handler: McpServerFactory | null,
   signal: AbortSignal,
+  authInfo?: AuthInfo,
 ): Promise<void> {
-  const validated = inspectProtocolRequest(body);
-  if (!validated) {
+  const headerOnly = body === undefined;
+  const validated = headerOnly ? null : inspectProtocolRequest(body);
+  if (!headerOnly && !validated) {
     respondJson(response, 200, protocolError(null, -32600, "Invalid Request"));
     return;
   }
+  // SDKはTool呼出し以外で送られたMcp-Nameを検査しない。
   if (
-    !["server/discover", "tools/list", "tools/call"].includes(validated.method)
+    validated &&
+    validated.method !== "tools/call" &&
+    request.headers["mcp-name"] !== undefined
   ) {
-    respondJson(
-      response,
-      404,
-      protocolError(validated.id, -32601, "Method not found"),
-    );
+    respondJson(response, 400, protocolError(null, -32020, "Header mismatch"));
     return;
   }
   if (signal.aborted) return;
   let pending: Promise<McpResponse> | null = null;
   let methodNotFound = false;
-  let server: Awaited<ReturnType<typeof createMcpRequestServer>>;
-  try {
-    server = await createMcpRequestServer(
-      handler,
-      body,
-      signal,
-      (operation) => {
-        pending = operation;
-        void operation.then(
-          (result) => {
-            methodNotFound = result.error?.code === -32601;
+  const factoryFailure: { response?: McpResponse } = {};
+  const sdk = createMcpHandler(
+    async (context) => {
+      try {
+        if (signal.aborted)
+          throw new ProtocolError(-32800, "Request cancelled");
+        if (!handler || !validated)
+          throw new ProtocolError(-32600, "Invalid Request");
+        if (!isMcpPublicRequest(validated))
+          throw new ProtocolError(-32601, "Method not found");
+        const server = await handler.createServer(
+          acceptMcpRequest(validated),
+          signal,
+          (operation) => {
+            pending = operation;
+            void operation.then(
+              (result) => {
+                methodNotFound = result.error?.code === -32601;
+              },
+              () => {},
+            );
           },
-          () => {},
+          context.authInfo,
         );
-      },
-    );
-  } catch (error) {
-    const failure = mcpSdkFailure(validated.id, error);
-    if (!signal.aborted)
-      respondJson(
-        response,
-        failure.error?.code === -32601 ? 404 : 200,
-        failure,
-      );
-    return;
-  }
-  if (signal.aborted) {
-    await server.close();
-    return;
-  }
-  const sdk = createMcpHandler(() => server, {
-    legacy: "reject",
-    maxRequestBodySize: MAXIMUM_HTTP_REQUEST_BYTES,
-  });
-  try {
-    await toNodeHandler(sdk, {
+        if (signal.aborted) {
+          await server.close();
+          throw new ProtocolError(-32800, "Request cancelled");
+        }
+        return server;
+      } catch (error) {
+        if (validated)
+          factoryFailure.response = mcpSdkFailure(validated.id, error);
+        throw error;
+      }
+    },
+    {
+      legacy: "reject",
       maxRequestBodySize: MAXIMUM_HTTP_REQUEST_BYTES,
-    })(
+    },
+  );
+  try {
+    await toNodeHandler(
+      {
+        async fetch(incoming, options) {
+          const result = await sdk.fetch(incoming, options);
+          const failure = factoryFailure.response;
+          if (!failure) {
+            if (result.status !== 400) return result;
+            const payload: McpResponse = await result.clone().json();
+            const code = payload.error?.code;
+            if (code !== -32020 && code !== -32022 && code !== -32602)
+              return result;
+            // SDKの前段エラーに含まれる入力値と検査詳細を公開しない。
+            await result.body?.cancel();
+            return Response.json(
+              code === -32602
+                ? protocolError(null, -32602, "Invalid params")
+                : code === -32022
+                  ? createUnsupportedProtocolVersionResponse(payload)
+                  : protocolError(null, -32020, "Header mismatch"),
+              { status: 400 },
+            );
+          }
+          await result.body?.cancel();
+          return Response.json(failure, {
+            status: failure.error?.code === -32601 ? 404 : 200,
+          });
+        },
+      },
+      {
+        maxRequestBodySize: MAXIMUM_HTTP_REQUEST_BYTES,
+      },
+    )(
       {
         method: request.method ?? "POST",
         url: request.url ?? ENDPOINT,
         headers: request.headers,
+        ...(authInfo && { auth: authInfo }),
         [Symbol.asyncIterator]: () => request[Symbol.asyncIterator](),
       },
       {
@@ -325,7 +259,11 @@ async function handleSdkHttpRequest(
           }
           return response.writeHead(
             statusCode === 200 && methodNotFound ? 404 : statusCode,
-            { ...headers, "cache-control": "no-store" },
+            {
+              ...(statusCode === 405 && { allow: "POST" }),
+              ...headers,
+              "cache-control": "no-store",
+            },
           );
         },
         write: (chunk) => {
@@ -347,7 +285,8 @@ async function handleSdkHttpRequest(
           return response.destroyed;
         },
       },
-      body,
+      // SDKのNode接続が不要な本文を取り込まないよう、HTTP受付だけなら読取り済み値を示す。
+      validated ? { jsonrpc: "2.0", ...validated } : null,
     );
   } finally {
     await finishMcpSdkRequest(pending, () => sdk.close());
@@ -364,9 +303,12 @@ async function handleSdkHttpRequest(
  * @concurrency Listener Ownerが与える要求専用Signalを使い、処理終了まで待つ。
  */
 export function createMcpHttpRequestHandler(
-  resolveHandler: McpAuthenticatedRequestHandlerResolver,
+  access: McpOAuthHttpAccess,
   options: Omit<McpAuthenticatedHttpOptions, "port"> &
-    Readonly<{ resourceMetadataUrl?: URL }>,
+    Readonly<{
+      resourceMetadataUrl?: URL;
+      requiredScopes?: readonly string[];
+    }>,
 ) {
   const publicOrigin = inspectServerPublicOrigin(options.publicOrigin, "mcp");
   const metadata = options.resourceMetadataUrl?.href;
@@ -439,44 +381,68 @@ export function createMcpHttpRequestHandler(
           return;
         }
         if (request.method !== "POST") {
-          response.setHeader("allow", "POST");
-          respondJson(
+          // Fetch Requestではこのメソッドを表現できず、SDKに渡すと405ではなく500になる。
+          if (["CONNECT", "TRACE", "TRACK"].includes(request.method ?? "")) {
+            response.setHeader("allow", "POST");
+            respondJson(
+              response,
+              405,
+              protocolError(null, -32600, "Method not allowed"),
+            );
+            return;
+          }
+          await handleSdkHttpRequest(
+            request,
             response,
-            405,
-            protocolError(null, -32600, "POST required"),
+            undefined,
+            null,
+            signal,
           );
           return;
         }
         const authorization = request.headers.authorization;
-        const token =
-          (metadata === undefined ||
-            request.headersDistinct.authorization?.length === 1) &&
-          typeof authorization === "string" &&
-          authorization.startsWith("Bearer ") &&
-          validToken(authorization.slice("Bearer ".length))
-            ? authorization.slice("Bearer ".length)
-            : null;
-        const handler =
-          token === null ? null : await resolveHandler(token, signal);
-        if (signal.aborted || response.destroyed) return;
-        if (handler === null) {
-          response.setHeader(
-            "www-authenticate",
-            metadata === undefined
-              ? "Bearer"
-              : `Bearer resource_metadata="${metadata}"${authorization === undefined ? "" : ', error="invalid_token"'}`,
-          );
-          respondJson(
+        let authInfo: AuthInfo | undefined;
+        const rejectBearer = async (error: unknown) => {
+          const rejected = bearerAuthChallengeResponse(error, {
+            ...(metadata && { resourceMetadataUrl: metadata }),
+            ...(options.requiredScopes && {
+              requiredScopes: [...options.requiredScopes],
+            }),
+          });
+          const body = await rejected.text();
+          if (signal.aborted || response.destroyed) return;
+          response.writeHead(rejected.status, {
+            ...Object.fromEntries(rejected.headers),
+            "cache-control": "no-store",
+          });
+          response.end(body);
+        };
+        try {
+          if ((request.headersDistinct.authorization?.length ?? 0) > 1)
+            throw new OAuthError(
+              OAuthErrorCode.InvalidToken,
+              "Invalid Authorization header",
+            );
+          authInfo = await access.authenticate(authorization, signal);
+          if (signal.aborted || response.destroyed) return;
+          if (!access.admit(authInfo))
+            throw new OAuthError(OAuthErrorCode.InvalidToken, "Invalid token");
+        } catch (error) {
+          await rejectBearer(error);
+          return;
+        }
+        if (!isJsonContentType(request.headers["content-type"])) {
+          await handleSdkHttpRequest(
+            request,
             response,
-            401,
-            protocolError(null, -32001, "Authentication required"),
+            undefined,
+            null,
+            signal,
+            authInfo,
           );
           return;
         }
-        if (
-          !isJsonContentType(request.headers["content-type"]) ||
-          !acceptsRequiredRepresentations(request.headers)
-        ) {
+        if (!acceptsRequiredRepresentations(request.headers)) {
           respondJson(
             response,
             400,
@@ -495,15 +461,14 @@ export function createMcpHttpRequestHandler(
           );
           return;
         }
-        if (!headersMatch(request.headers, body)) {
-          respondJson(
-            response,
-            400,
-            protocolError(null, -32020, "Header mismatch"),
-          );
-          return;
-        }
-        await handleSdkHttpRequest(request, response, body, handler, signal);
+        await handleSdkHttpRequest(
+          request,
+          response,
+          body,
+          access.factory,
+          signal,
+          authInfo,
+        );
       } catch {
         if (signal.aborted || response.destroyed) response.destroy();
         else if (!response.headersSent)

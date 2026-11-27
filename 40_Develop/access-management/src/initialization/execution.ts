@@ -30,7 +30,6 @@ import type {
   AccessManagementState,
   StateStoreResult,
 } from "../storage/types.ts";
-import { evaluateHostInitializationState } from "./state.ts";
 
 /**
  * Hostで確認済みの外部主体を最初の管理者として一回だけ保存する。
@@ -103,19 +102,16 @@ export function initializeAdministratorFromHost(
       };
       return state;
     },
-    () => {
-      const previous = prepared.observePrevious();
-      return [previous.management, previous.attempt];
-    },
+    prepared.isCurrent,
     signal,
   );
 }
 
-/** 初回保存の排他、旧入力観測、完全読戻しは接続方式で変えない。 */
+/** 初回保存の排他と保存先の実体確認、完全読戻しを行う。 */
 function storeInitialState(
   root: FilesystemStoreRoot,
   build: () => AccessManagementState,
-  observePrevious: () => readonly [unknown, unknown],
+  isCurrent: () => boolean,
   signal: AbortSignal,
 ): StateStoreResult<
   Readonly<{ revision: number; attemptId: string; created: boolean }>
@@ -143,14 +139,11 @@ function storeInitialState(
           revision,
           cleanupConfirmed: true,
         };
-      const observation = observePrevious();
-      if (
-        !Array.isArray(observation) ||
-        observation.length !== 2 ||
-        !evaluateHostInitializationState(observation[0], observation[1], true)
-          .canStart ||
-        signal.aborted
-      )
+      const baseline = build();
+      const expected = serialize(baseline);
+      if (parseAccessManagementState(expected).status !== "parsed")
+        throw new Error("initial_state_invalid");
+      if (!isCurrent() || signal.aborted)
         return {
           status: "unavailable",
           reason: "state_store_initialization_observation_rejected",
@@ -158,10 +151,6 @@ function storeInitialState(
           revision,
           cleanupConfirmed: true,
         };
-      const baseline = build();
-      const expected = serialize(baseline);
-      if (parseAccessManagementState(expected).status !== "parsed")
-        throw new Error("initial_state_invalid");
       publication = "unconfirmed";
       writeExclusive(root, CURRENT, expected);
       const current = readCurrent(root);

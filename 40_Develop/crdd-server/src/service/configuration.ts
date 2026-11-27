@@ -10,8 +10,8 @@ import {
   type FilesystemStoreRoot,
 } from "@qual-lab/crdd-access-management";
 import {
-  resolveHostedDevelopmentAccess,
-  type HostedAccessSession,
+  resolveGitHostLinkedDevelopmentAccess,
+  type GitHostLinkedAccessSession,
 } from "./access.ts";
 import { getModelCatalog, type ModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import {
@@ -33,7 +33,44 @@ import {
   type Repository,
 } from "@qual-lab/crdd-version-control";
 
-type ServerConnection = "workbench" | "mcp";
+type ServerTransport = "workbench" | "mcp";
+
+/** 設定の読取り・保存を同じ検証済みリポジトリへ結ぶ。 @trace ARCH-000012 */
+interface AiSelectionAccess {
+  readonly repositoryRoot: string;
+  readonly authorize: (writeRepository?: Repository) => boolean;
+}
+
+/** 検証済みのリポジトリに、呼出し側が用いる固定領域だけを準備する。 @trace ARCH-000011 */
+export function prepareRepositoryDataDirectory(
+  repository: Repository,
+  area: "config" | "tmp",
+): string {
+  const root = resolveVerifiedRepositoryRoot(repository);
+  if (!root || (area !== "config" && area !== "tmp"))
+    throw new Error("runtime_data_area_boundary_invalid");
+  return prepareDataDirectory(root, area);
+}
+
+function prepareDataDirectory(root: string, area: "config" | "tmp"): string {
+  const storage = path.join(root, ".crdd");
+  const destination = path.join(storage, area);
+  for (const directory of [storage, destination]) {
+    try {
+      fs.mkdirSync(directory, { mode: 0o700 });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    const metadata = fs.lstatSync(directory);
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      fs.realpathSync.native(directory) !== directory
+    )
+      throw new Error("runtime_data_area_boundary_invalid");
+  }
+  return destination;
+}
 
 /**
  * 認可済みのAI選定設定を保存できるようにRepositoryを準備する。
@@ -51,7 +88,7 @@ type ServerConnection = "workbench" | "mcp";
  * @concurrency Git除外と設定保存はそれぞれのOwnerの排他に従う。
  */
 export function updateAiSelection(
-  access: Awaited<ReturnType<typeof resolveAiSelectionAccess>>,
+  access: AiSelectionAccess,
   repository: Repository,
   request: { expectedIdentity: string | null; config: unknown },
   catalog: AiSelectionCatalog,
@@ -97,23 +134,7 @@ export function updateAiSelection(
             setupFailure,
           });
     }
-    for (const directory of [
-      path.join(access.repositoryRoot, ".crdd"),
-      path.join(access.repositoryRoot, ".crdd", "config"),
-    ]) {
-      try {
-        fs.mkdirSync(directory, { mode: 0o700 });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      }
-      const metadata = fs.lstatSync(directory);
-      if (
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink() ||
-        fs.realpathSync.native(directory) !== directory
-      )
-        throw new Error("runtime_data_area_boundary_invalid");
-    }
+    prepareDataDirectory(access.repositoryRoot, "config");
   } catch {
     return Object.freeze({
       status: "unknown" as const,
@@ -154,7 +175,7 @@ export function updateAiSelection(
  */
 export function inspectServerPublicOrigin(
   value: string | undefined,
-  connection: ServerConnection,
+  transport: ServerTransport,
 ): URL | null {
   if (value === undefined) return null;
   try {
@@ -176,7 +197,7 @@ export function inspectServerPublicOrigin(
     return parsed;
   } catch {
     throw new Error(
-      connection === "mcp"
+      transport === "mcp"
         ? "mcp_http_configuration_invalid"
         : "workbench_public_origin_invalid",
     );
@@ -185,7 +206,7 @@ export function inspectServerPublicOrigin(
 
 /**
  * 起動Repositoryの当該Server設定だけを読取り、公開Originを検査する。
- * @responsibility Tool単位の非秘密設定を明示CROS modeへ渡し、設定不存在はlocalhost既定とする。
+ * @responsibility Serverの非秘密設定を明示した起動時に読み、設定不存在はlocalhost既定とする。
  * @trace ARCH-000012
  * @input 起動時に選択したRepository内のworkingDirectory、既存の接続種別。
  * @returns 公開Originだけの閉じた非秘密構成。
@@ -198,14 +219,14 @@ export function inspectServerPublicOrigin(
  * @security 観測時のDirectory/File linkと取得時のFile Identity不一致を拒否し、本文やPathを例外へ含めない。
  * @concurrency 取得済みDescriptorの長さ・mtime相関を検査する。取得後のPath／Directory不変は保証しない。
  */
-export async function readServerConnectionConfiguration(
+export async function readServerTransportConfiguration(
   workingDirectory: string,
-  connection: ServerConnection,
+  transport: ServerTransport,
 ): Promise<Readonly<{ publicOrigin?: string }>> {
   const fileName =
-    connection === "mcp"
+    transport === "mcp"
       ? "mcp-server.json"
-      : connection === "workbench"
+      : transport === "workbench"
         ? "workbench-server.json"
         : null;
   if (fileName === null) throw new Error("crdd_server_connection_invalid");
@@ -278,7 +299,7 @@ export async function readServerConnectionConfiguration(
       )
         throw new Error("invalid");
       const value = JSON.parse(text) as { publicOrigin?: string };
-      const origin = inspectServerPublicOrigin(value.publicOrigin, connection);
+      const origin = inspectServerPublicOrigin(value.publicOrigin, transport);
       const currentArea = observeRepositoryRuntimeDataArea(
         verified.capability,
         "config",
@@ -293,13 +314,13 @@ export async function readServerConnectionConfiguration(
       await handle.close();
     }
   } catch {
-    throw new Error(`${connection}_server_configuration_invalid`);
+    throw new Error(`${transport}_server_configuration_invalid`);
   }
 }
 
-/** 明示CROS起動時に既存の非秘密設定を一回読む。 @trace ARCH-000012 */
+/** Server起動時に既存の非秘密設定を一回読む。 @trace ARCH-000012 */
 export function readWorkbenchServerConfiguration(workingDirectory: string) {
-  return readServerConnectionConfiguration(workingDirectory, "workbench");
+  return readServerTransportConfiguration(workingDirectory, "workbench");
 }
 
 /**
@@ -460,7 +481,7 @@ export function readAiSelectionView(root: string): AiSelectionView {
 
 export function canManageAiSelection(
   accessRoot: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
 ): boolean {
   if (session.isCurrent?.() === false) return false;
   const actor = readCurrentAccess(accessRoot, session.principal);
@@ -494,16 +515,11 @@ export async function resolveAiSelectionAccess(
   localRepositoryId: string | undefined,
   signal: AbortSignal,
   browser?: Readonly<{
-    session: HostedAccessSession | null;
+    session: GitHostLinkedAccessSession | null;
     // 読取りは通常セッション、書込みは元の短命管理セッションも必要。
     confirmManagement: (() => boolean) | null;
   }>,
-): Promise<
-  Readonly<{
-    repositoryRoot: string;
-    authorize: (writeRepository?: Repository) => boolean;
-  }>
-> {
+): Promise<AiSelectionAccess> {
   if (!accessRoot) {
     if (repositoryId !== localRepositoryId)
       throw new Error("ai_selection_input_invalid");
@@ -523,7 +539,7 @@ export async function resolveAiSelectionAccess(
     confirmManagement?.() !== false &&
     canManageAiSelection(accessRoot, session);
   if (!permitted()) throw new Error("ai_selection_access_unavailable");
-  const target = await resolveHostedDevelopmentAccess(
+  const target = await resolveGitHostLinkedDevelopmentAccess(
     accessRoot,
     session,
     repositoryId,

@@ -8,36 +8,41 @@
  * @boundary 実Browserの画面・実Server・実AIは別検証。
  */
 import assert from "node:assert/strict";
-import test from "node:test";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import test from "node:test";
 import {
-  onlineManager,
-  QueryClient,
-  type QueryCache,
   type MutationCache,
+  onlineManager,
+  type QueryCache,
+  QueryClient,
 } from "@tanstack/react-query";
-import {
-  clearWorkbenchQueries,
-  readWorkbenchQuery,
-} from "../../src/api/queries.ts";
+import { requestAiSelection } from "../../src/api/ai-selection.ts";
+import { invalidateWorkbenchRequests } from "../../src/api/connection.ts";
 import {
   requestAiRequestAction,
   requestAiSelectionSave,
   requestSessionManagementChange,
   requestWorkspace,
 } from "../../src/api/mutations.ts";
-import { requestAiSelection } from "../../src/api/ai-selection.ts";
-import { invalidateWorkbenchRequests } from "../../src/api/connection.ts";
 import {
+  clearWorkbenchQueries,
+  readWorkbenchQuery,
+} from "../../src/api/queries.ts";
+import {
+  readRepositoryFileSelection,
+  readRepositoryFiles,
   readRepositoryOperationDisplay,
   readRepositorySubmission,
+  repositoryFilesLocation,
 } from "../../src/api/repository.ts";
 import {
   composeWorkbenchRecordDisplay,
   createSelectedWorkbenchViewUrl,
   readCurrentAiRequest,
+  readExecutionActivityPage,
+  readProjectPage,
   readWorkbenchDisplayQuery,
 } from "../../src/api/view.ts";
 
@@ -325,17 +330,19 @@ test("TopicとMeetingの表示は同種の構成状態・ページ・検索条�
  * @trace ERB-IT-021
  * @boundary Browser URLとビューData要求。ServerのCursorの意味は変更しない。
  */
-test("ビューの検索欄は現在URLから組み立て文書検索だけをServerへ送らない", () => {
+test("ビューのURLは文書とProjectの検索条件を概要APIへ送らない", () => {
   const url = new URL(
-    "http://workbench.invalid/?repositoryId=repo.a&documentQuery=Roadmap&portfolioQuery=CRDD&portfolioState=partial&portfolioCursor=next",
+    "http://workbench.invalid/?repositoryId=repo.a&documentQuery=Roadmap&activityCursor=activity-next&portfolioQuery=CRDD&portfolioState=partial&portfolioCursor=next&treeDirectory=src&treeCursor=more&diffPath=src%2Ftest.ts",
   );
   assert.deepEqual(readWorkbenchDisplayQuery(url.search), {
     document: "Roadmap",
-    portfolio: { query: "CRDD", state: "partial" },
+    activityCursor: "activity-next",
+    portfolio: { query: "CRDD", state: "partial", cursor: "next" },
   });
   assert.deepEqual(readWorkbenchDisplayQuery(""), {
     document: "",
-    portfolio: { query: "", state: "" },
+    activityCursor: "",
+    portfolio: { query: "", state: "", cursor: "" },
   });
   const request = new URL(
     createSelectedWorkbenchViewUrl(url, "repo.a"),
@@ -343,9 +350,235 @@ test("ビューの検索欄は現在URLから組み立て文書検索だけをSe
   );
   assert.equal(request.searchParams.has("documentQuery"), false);
   assert.equal(request.searchParams.get("repositoryId"), "repo.a");
-  assert.equal(request.searchParams.get("portfolioQuery"), "CRDD");
-  assert.equal(request.searchParams.get("portfolioState"), "partial");
-  assert.equal(request.searchParams.get("portfolioCursor"), "next");
+  assert.equal(request.searchParams.has("portfolioQuery"), false);
+  assert.equal(request.searchParams.has("portfolioState"), false);
+  assert.equal(request.searchParams.has("portfolioCursor"), false);
+  assert.equal(request.searchParams.has("activityCursor"), false);
+  for (const name of ["treeDirectory", "treeCursor", "diffPath"])
+    assert.equal(request.searchParams.has(name), false);
+  assert.deepEqual(readRepositoryFileSelection(url.search), {
+    directory: "src",
+    cursor: "more",
+    diff: "src/test.ts",
+  });
+  const parent = new URL(repositoryFilesLocation(url.search, ""), url);
+  assert.equal(parent.searchParams.get("repositoryId"), "repo.a");
+  assert.equal(parent.searchParams.get("portfolioQuery"), "CRDD");
+  assert.equal(parent.searchParams.has("diffPath"), false);
+  assert.equal(parent.hash, "#repository");
+});
+
+/** @trace ERB-IT-021 */
+test("ファイル一覧と差分は専用APIのリポジトリとパスに一致する場合だけ受理する", async (t) => {
+  const location = Object.getOwnPropertyDescriptor(globalThis, "location");
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { origin: "http://workbench.invalid" },
+  });
+  t.after(() => {
+    if (location) Object.defineProperty(globalThis, "location", location);
+    else Reflect.deleteProperty(globalThis, "location");
+  });
+  const entry = {
+    path: "src/a.ts",
+    name: "a.ts",
+    kind: "file",
+    prepared: false,
+    working: true,
+    unregistered: false,
+  };
+  const tree = {
+    repositoryId: "repo.a",
+    kind: "tree",
+    tree: { directory: "src", entries: [entry], nextCursor: null },
+  };
+  const diff = {
+    repositoryId: "repo.a",
+    kind: "diff",
+    diff: {
+      path: "src/a.ts",
+      preparedPatch: "",
+      workingPatch: "+new",
+      unregistered: false,
+    },
+  };
+  let treeWire: unknown = tree;
+  let diffWire: unknown = diff;
+  const fetch = t.mock.method(
+    globalThis,
+    "fetch",
+    async (value: URL | string, init?: RequestInit) => {
+      const url = new URL(value);
+      assert.equal(init?.credentials, "same-origin");
+      if (url.pathname === "/api/repositories/repo.a/worktree/tree") {
+        assert.deepEqual(Object.fromEntries(url.searchParams), {
+          directory: "src",
+          cursor: "next",
+        });
+        return Response.json(treeWire);
+      }
+      assert.equal(url.pathname, "/api/repositories/repo.a/worktree/diff");
+      assert.deepEqual(Object.fromEntries(url.searchParams), {
+        path: "src/a.ts",
+      });
+      return Response.json(diffWire);
+    },
+  );
+  const signal = new AbortController().signal;
+  const readTree = () =>
+    readRepositoryFiles("tree", "repo.a", "src", "next", signal, true);
+  const readDiff = () =>
+    readRepositoryFiles("diff", "repo.a", "src/a.ts", "", signal, true);
+  assert.deepEqual(await readTree(), tree);
+  assert.deepEqual(await readDiff(), diff);
+  treeWire = {
+    ...tree,
+    tree: { ...tree.tree, entries: [{ ...entry, path: "other/a.ts" }] },
+  };
+  await assert.rejects(readTree, /repository_files_response_invalid/u);
+  diffWire = { ...diff, repositoryId: "repo.b" };
+  await assert.rejects(readDiff, /repository_files_response_invalid/u);
+  diffWire = { ...diff, diff: { ...diff.diff, path: "src/b.ts" } };
+  await assert.rejects(readDiff, /repository_files_response_invalid/u);
+  assert.equal(fetch.mock.callCount(), 5);
+});
+
+/** @trace ERB-IT-021 */
+test("Project一覧は専用APIに選択と検索を渡し、別Repositoryの応答を採用しない", async (t) => {
+  const location = Object.getOwnPropertyDescriptor(globalThis, "location");
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { origin: "http://workbench.invalid" },
+  });
+  t.after(() => {
+    if (location) Object.defineProperty(globalThis, "location", location);
+    else Reflect.deleteProperty(globalThis, "location");
+  });
+  let source: string | null = "repo.a";
+  let state: unknown = "partial";
+  let sourceState: unknown = "missing";
+  const call = t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: URL | string, init?: RequestInit) => {
+      const requested = new URL(url);
+      assert.equal(requested.pathname, "/api/projects");
+      assert.deepEqual(Object.fromEntries(requested.searchParams), {
+        limit: "20",
+        repositoryId: "repo.a",
+        q: "CRDD",
+        state: "partial",
+        cursor: "next",
+      });
+      assert.equal(init?.credentials, "same-origin");
+      return Response.json({
+        retainedAsSourceOfTruth: false,
+        nextCursor: null,
+        cursorInvalid: false,
+        projects: [
+          {
+            projectId: "project.example",
+            state,
+            sourceCount: source === null ? 0 : 1,
+            repositoryIds: source === null ? [] : [source],
+            sources:
+              source === null
+                ? []
+                : [{ repositoryId: source, state: sourceState }],
+          },
+        ],
+      });
+    },
+  );
+  const query = { query: "CRDD", state: "partial", cursor: "next" };
+  const signal = new AbortController().signal;
+  assert.equal(
+    (await readProjectPage("repo.a", query, signal)).projects[0]?.sources[0]
+      ?.state,
+    "missing",
+  );
+  source = "repo.other";
+  await assert.rejects(
+    readProjectPage("repo.a", query, signal),
+    /workbench_project_page_invalid/u,
+  );
+  source = null;
+  await assert.rejects(
+    readProjectPage("repo.a", query, signal),
+    /workbench_project_page_invalid/u,
+  );
+  source = "repo.a";
+  state = "complete";
+  await assert.rejects(
+    readProjectPage("repo.a", query, signal),
+    /workbench_project_page_invalid/u,
+  );
+  state = "partial";
+  sourceState = ["conflicting"];
+  await assert.rejects(
+    readProjectPage("repo.a", query, signal),
+    /workbench_project_page_invalid/u,
+  );
+  sourceState = "missing";
+  state = ["partial"];
+  await assert.rejects(
+    readProjectPage("repo.a", query, signal),
+    /workbench_project_page_invalid/u,
+  );
+  assert.equal(call.mock.callCount(), 6);
+});
+
+/** @trace ERB-IT-021 */
+test("活動APIの読取りは対象と継続位置を送り、別対象の結果を拒否する", async (t) => {
+  const location = Object.getOwnPropertyDescriptor(globalThis, "location");
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { origin: "http://workbench.invalid" },
+  });
+  t.after(() => {
+    if (location) Object.defineProperty(globalThis, "location", location);
+    else Reflect.deleteProperty(globalThis, "location");
+  });
+  let projectId = "project.example";
+  let repositoryId = "repo.a";
+  const fetch = t.mock.method(
+    globalThis,
+    "fetch",
+    async (target: URL | string, options?: RequestInit) => {
+      assert.equal(
+        String(target),
+        "http://workbench.invalid/api/repositories/repo.a/activity?cursor=next",
+      );
+      assert.equal(options?.credentials, "same-origin");
+      return Response.json({
+        projectId,
+        state: "absent",
+        reason: "runtime_activity_state_absent",
+        projection: null,
+        currentSourceRepositoryId: null,
+        sources: [{ repositoryId, revision: null }],
+        eventState: "observed",
+        eventReason: "runtime_activity_events_observed",
+        events: [],
+        eventContinuation: null,
+      });
+    },
+  );
+  const read = () =>
+    readExecutionActivityPage(
+      "repo.a",
+      "project.example",
+      "next",
+      new AbortController().signal,
+      true,
+    );
+  assert.equal((await read()).state, "absent");
+  projectId = "project.other";
+  await assert.rejects(read(), /workbench_activity_response_invalid/u);
+  projectId = "project.example";
+  repositoryId = "repo.other";
+  await assert.rejects(read(), /workbench_activity_response_invalid/u);
+  assert.equal(fetch.mock.callCount(), 3);
 });
 
 /**

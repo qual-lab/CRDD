@@ -4,6 +4,22 @@
   "subsystem": "visual-preview",
   "symbols": [
     {
+      "symbolId": "visual-preview.cli.entry",
+      "kind": "file",
+      "path": "bin/visual-preview.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "visual-preview.browser.temporary-directory",
+      "kind": "file",
+      "path": "src/browser/temporary.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
       "symbolId": "visual-preview.public-api",
       "kind": "module",
       "path": "src/index.ts",
@@ -59,7 +75,7 @@
     },
     {
       "symbolId": "visual-preview.application.local-web-visual-verifier",
-      "kind": "function",
+      "kind": "file",
       "path": "src/browser/verify.ts",
       "archIds": [
         "ARCH-000003"

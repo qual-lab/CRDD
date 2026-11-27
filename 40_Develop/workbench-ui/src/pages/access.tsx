@@ -6,92 +6,70 @@
  * @boundary 非秘密の表示ModelとBrowser DOM。
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
+import type { ProjectPageResponse } from "@qual-lab/crdd-server";
 import {
+  type FormEvent,
   type ReactElement,
   useCallback,
   useEffect,
-  useState,
   useRef,
-  type FormEvent,
+  useState,
 } from "react";
-import { EmptyState, WorkbenchPanel } from "../components/elements.ts";
+import {
+  changeBrowserSession,
+  isGitHostRevocationUnconfirmed,
+  type ManagementPermissions,
+  readManagementPermissions,
+  registerAccess,
+  requestBrowserSession,
+  requestManagementUsers,
+  type WorkbenchManagementUsers,
+} from "../api/access.ts";
+import { invalidateWorkbenchRequests } from "../api/connection.ts";
+import { UUID_V4 } from "../api/path.ts";
 import {
   type AccessViewResponse,
-  type ManagementResult,
   validateManagementResponse,
 } from "../api/response.ts";
+import { ProjectLoginRequired, readProjectPage } from "../api/view.ts";
+import {
+  ExternalLoginOptions,
+  GitHostConnections,
+} from "../components/connection.tsx";
+import { EmptyState, WorkbenchPanel } from "../components/elements.ts";
 import { ManagementPanel } from "../components/management-panel.tsx";
-import { invalidateWorkbenchRequests } from "../api/connection.ts";
-import { GitHostConnections } from "../components/connection.tsx";
 import { WORKBENCH_LOGO_PATH } from "../components/shell.ts";
 
 const invitePattern = /^#invite=([A-Za-z0-9_-]{43})$/u;
-const userIdPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
-async function readInvitationForm(signal: AbortSignal) {
-  const list = await fetch("/api/users", { cache: "no-store", signal });
-  if (list.status === 401) return null;
-  const view: unknown = list.ok ? await list.json() : null;
-  if (
-    !view ||
-    typeof view !== "object" ||
-    !("revision" in view) ||
-    typeof view.revision !== "number" ||
-    !Number.isSafeInteger(view.revision) ||
-    view.revision < 1 ||
-    !("formToken" in view) ||
-    typeof view.formToken !== "string" ||
-    !/^[A-Za-z0-9_-]{43}$/u.test(view.formToken)
-  )
-    throw new Error("invitation_form_unavailable");
-  if (!("users" in view) || !Array.isArray(view.users))
-    throw new Error("invitation_form_unavailable");
-  const users = view.users.map((user: unknown) => {
-    if (
-      !user ||
-      typeof user !== "object" ||
-      !("userId" in user) ||
-      typeof user.userId !== "string" ||
-      !userIdPattern.test(user.userId) ||
-      !("username" in user) ||
-      typeof user.username !== "string" ||
-      !("role" in user) ||
-      (user.role !== "developer" &&
-        user.role !== "manager" &&
-        user.role !== "administrator")
-    )
-      throw new Error("invitation_form_unavailable");
-    return { userId: user.userId, username: user.username, role: user.role };
-  });
-  return {
-    revision: view.revision,
-    formToken: view.formToken,
-    users,
-    hostedRegistration:
-      list.headers.get("x-crdd-hosted-registration") === "github.com",
-  };
-}
+const roleLabels = {
+  developer: "開発者",
+  manager: "マネージャー",
+  administrator: "管理者",
+} as const;
 
 function AccountAccess({
   providers,
+  sessionRejected,
   onSessionRejected,
 }: {
   providers: NonNullable<AccessViewResponse["loginProviders"]>;
+  sessionRejected: boolean;
   onSessionRejected: () => void;
 }) {
   const [invite] = useState(
     () => invitePattern.exec(window.location.hash)?.[1],
   );
-  const [role, setRole] = useState<
-    "login" | "developer" | "manager" | "administrator" | "unavailable" | null
+  const [observedSession, setSession] = useState<
+    "login" | "signed_in" | "unavailable" | null
   >(null);
+  const session = sessionRejected ? "login" : observedSession;
+  const [management, setManagement] = useState<ManagementPermissions | null>(
+    null,
+  );
   const [revision, setRevision] = useState<number | null>(null);
   const [formToken, setFormToken] = useState<string | null>(null);
-  const [hostedRegistration, setHostedRegistration] = useState(false);
-  const [users, setUsers] = useState<
-    NonNullable<Awaited<ReturnType<typeof readInvitationForm>>>["users"]
-  >([]);
+  const [users, setUsers] = useState<WorkbenchManagementUsers["users"]>([]);
   const [issued, setIssued] = useState<{
     url: string;
     expiresAt: number;
@@ -101,12 +79,16 @@ function AccountAccess({
   const active = useRef<AbortController | null>(null);
   const initialAccess = useRef<AbortController | null>(null);
   const sessionChanges = useRef<BroadcastChannel | null>(null);
-  const observeUsers = useCallback((result: ManagementResult) => {
-    if (result.status === "completed" && "users" in result && result.users) {
-      setRevision(result.revision);
-      setUsers(result.users);
-    }
+  const observeUsers = useCallback((result: WorkbenchManagementUsers) => {
+    setRevision(result.revision);
+    setUsers(result.users);
   }, []);
+  const observeManagement = useCallback(
+    (permissions: ManagementPermissions) => {
+      setManagement(permissions);
+    },
+    [],
+  );
   const stableResult = useRef<HTMLParagraphElement>(null);
   const [managementResult, setManagementResult] = useState<string | null>(null);
   useEffect(() => {
@@ -118,7 +100,7 @@ function AccountAccess({
       setRevision(null);
       setUsers([]);
       setIssued(null);
-      if (developer) setRole("developer");
+      if (developer) setManagement(null);
       setManagementResult(
         resultNotice
           ? `${resultNotice} ${developer ? "現在のロールでは管理操作を続けられません。" : "管理セッションを確認してください。"}`
@@ -135,7 +117,7 @@ function AccountAccess({
       if (event.data !== "changed") return;
       active.current?.abort();
       initialAccess.current?.abort();
-      setRole((current) => current ?? "unavailable");
+      setSession((current) => current ?? "unavailable");
       setFormToken(null);
       setRevision(null);
       setUsers([]);
@@ -158,42 +140,38 @@ function AccountAccess({
         );
       return;
     }
+    if (sessionRejected) return;
     const controller = new AbortController();
     initialAccess.current = controller;
     void (async () => {
       try {
-        const response = await fetch("/api/session", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
+        const response = await requestBrowserSession(controller.signal);
         if (controller.signal.aborted || response.status === 404) return;
         if (response.status === 401) {
-          setRole("login");
+          setSession("login");
           onSessionRejected();
           return;
         }
-        if (!response.ok) return setRole("unavailable");
+        if (!response.ok) return setSession("unavailable");
         const current: unknown = await response.json();
         if (controller.signal.aborted) return;
         if (
           !current ||
           typeof current !== "object" ||
-          !("role" in current) ||
-          (current.role !== "developer" &&
-            current.role !== "manager" &&
-            current.role !== "administrator")
+          !("management" in current)
         )
-          return setRole("unavailable");
-        setRole(current.role);
-        if (current.role === "developer") return;
-        const view = await readInvitationForm(controller.signal);
+          return setSession("unavailable");
+        const permissions = readManagementPermissions(current.management);
+        setSession("signed_in");
+        setManagement(permissions);
+        if (!permissions.openSession) return;
+        const view = await requestManagementUsers(controller.signal);
         if (controller.signal.aborted) return;
         setRevision(view?.revision ?? null);
         setFormToken(view?.formToken ?? null);
         setUsers(view?.users ?? []);
-        setHostedRegistration(view?.hostedRegistration ?? false);
       } catch {
-        if (!controller.signal.aborted) setRole("unavailable");
+        if (!controller.signal.aborted) setSession("unavailable");
       }
     })();
     return () => {
@@ -201,7 +179,7 @@ function AccountAccess({
       if (initialAccess.current === controller) initialAccess.current = null;
       active.current?.abort();
     };
-  }, [invite, onSessionRejected]);
+  }, [invite, onSessionRejected, sessionRejected]);
 
   async function changeSession(action: "start_management" | "sign_out") {
     if (active.current) return;
@@ -213,21 +191,25 @@ function AccountAccess({
     setRevision(null);
     setFormToken(null);
     setUsers([]);
-    setHostedRegistration(false);
     setNotice("");
     setManagementResult(null);
     sessionChanges.current?.postMessage("changed");
     try {
-      const response = await fetch(
-        manage ? "/api/session/management" : "/api/session",
-        {
-          method: manage ? "POST" : "DELETE",
-          signal: pending.signal,
-        },
-      );
+      const response = await changeBrowserSession(action, pending.signal);
       if (pending.signal.aborted) return;
+      const revocationUnconfirmed =
+        !manage && (await isGitHostRevocationUnconfirmed(response));
+      if (pending.signal.aborted) return;
+      if (revocationUnconfirmed) {
+        setSession("login");
+        onSessionRejected();
+        setNotice(
+          "CRDDからはログアウトしましたが、Gitホスト側のトークン失効を確認できませんでした。必要に応じてGitホストの設定からアプリの認可を取り消してください。",
+        );
+        return;
+      }
       if (!manage && response.status === 401) {
-        setRole("login");
+        setSession("login");
         onSessionRejected();
         setNotice(
           "ログアウトを完了できませんでした。再ログインしてからログアウトしてください。",
@@ -239,13 +221,12 @@ function AccountAccess({
         window.location.reload();
         return;
       }
-      const view = await readInvitationForm(pending.signal);
+      const view = await requestManagementUsers(pending.signal);
       if (pending.signal.aborted) return;
       if (!view) throw new Error("session_unavailable");
       setFormToken(view.formToken);
       setRevision(view.revision);
       setUsers(view.users);
-      setHostedRegistration(view.hostedRegistration);
     } catch {
       if (!pending.signal.aborted)
         setNotice(
@@ -264,7 +245,7 @@ function AccountAccess({
     const repository = form.has("repositoryId");
     if (
       target !== null &&
-      (typeof target !== "string" || !userIdPattern.test(target))
+      (typeof target !== "string" || !UUID_V4.test(target))
     )
       return;
     const operationId = crypto.randomUUID();
@@ -278,37 +259,23 @@ function AccountAccess({
         : "利用者を登録しています。",
     );
     try {
-      const response = await fetch(
+      const response = await registerAccess(
         repository
-          ? "/api/repositories"
+          ? {
+              kind: "repository",
+              repositoryId: form.get("repositoryId"),
+              directory: form.get("directory"),
+            }
           : target
-            ? `/api/users/${target}/invitations`
-            : "/api/users",
-        {
-          method: "POST",
-          cache: "no-store",
-          signal: pending.signal,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...(repository
-              ? {
-                  repositoryId: form.get("repositoryId"),
-                  directory: form.get("directory"),
-                }
-              : {
-                  ...(target
-                    ? {}
-                    : {
-                        username: form.get("username"),
-                        role: form.get("role"),
-                      }),
-                  email: form.get("email"),
-                }),
-            expectedRevision: revision,
-            operationId,
-            formToken,
-          }),
-        },
+            ? { kind: "invitation", userId: target, email: form.get("email") }
+            : {
+                kind: "user",
+                username: form.get("username"),
+                role: form.get("role"),
+                email: form.get("email"),
+              },
+        { expectedRevision: revision, operationId, formToken },
+        pending.signal,
       );
       if (response.status === 409) {
         const result = validateManagementResponse(
@@ -400,24 +367,12 @@ function AccountAccess({
     }
   }
 
-  if (!invite && role === null) return null;
+  if (!invite && session === null) return null;
   return (
     <section aria-label="ログインと利用者招待">
-      {invite || role === "login" ? (
-        providers.map(({ id, displayName }) => (
-          <form
-            key={id}
-            method="post"
-            action={`/api/session/login/${encodeURIComponent(id)}${invite ? "/invitation" : ""}`}
-          >
-            {invite && <input type="hidden" name="invitation" value={invite} />}
-            <button type="submit">
-              {invite ? "招待を使って" : ""}
-              {displayName}でログイン
-            </button>
-          </form>
-        ))
-      ) : role === "unavailable" ? (
+      {invite || session === "login" ? (
+        <ExternalLoginOptions providers={providers} invitation={invite} />
+      ) : session === "unavailable" ? (
         <p role="status">ログインの状態を確認できません。</p>
       ) : (
         <>
@@ -425,7 +380,7 @@ function AccountAccess({
           <button type="button" onClick={() => void changeSession("sign_out")}>
             ログアウト
           </button>
-          {(role === "manager" || role === "administrator") &&
+          {management?.openSession &&
             (formToken === null ? (
               <button
                 type="button"
@@ -435,36 +390,38 @@ function AccountAccess({
               </button>
             ) : (
               <>
-                <form onSubmit={register}>
-                  <fieldset disabled={revision === null || issued !== null}>
-                    <legend>ログインする利用者を登録</legend>
-                    <label>
-                      表示名
-                      <input name="username" required maxLength={256} />
-                    </label>
-                    <label>
-                      初回ログイン用メール
-                      <input
-                        name="email"
-                        type="email"
-                        required
-                        maxLength={254}
-                      />
-                    </label>
-                    <label>
-                      ロール
-                      <select name="role">
-                        <option value="developer">開発者</option>
-                        <option value="manager">マネージャー</option>
-                        {role === "administrator" && (
-                          <option value="administrator">管理者</option>
-                        )}
-                      </select>
-                    </label>
-                    <button type="submit">登録して招待リンクを発行</button>
-                  </fieldset>
-                </form>
-                {role === "administrator" && (
+                {management.registerRoles.length > 0 && (
+                  <form onSubmit={register}>
+                    <fieldset disabled={revision === null || issued !== null}>
+                      <legend>ログインする利用者を登録</legend>
+                      <label>
+                        表示名
+                        <input name="username" required maxLength={256} />
+                      </label>
+                      <label>
+                        初回ログイン用メール
+                        <input
+                          name="email"
+                          type="email"
+                          required
+                          maxLength={254}
+                        />
+                      </label>
+                      <label>
+                        ロール
+                        <select name="role">
+                          {management.registerRoles.map((role) => (
+                            <option key={role} value={role}>
+                              {roleLabels[role]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button type="submit">登録して招待リンクを発行</button>
+                    </fieldset>
+                  </form>
+                )}
+                {users.some(({ actions }) => actions.renewInvitation) && (
                   <form onSubmit={register}>
                     <fieldset disabled={revision === null || issued !== null}>
                       <legend>既存利用者の招待を再発行</legend>
@@ -474,11 +431,13 @@ function AccountAccess({
                           <option value="" disabled>
                             対象を選択
                           </option>
-                          {users.map((user) => (
-                            <option key={user.userId} value={user.userId}>
-                              {user.username} ({user.userId})
-                            </option>
-                          ))}
+                          {users
+                            .filter(({ actions }) => actions.renewInvitation)
+                            .map((user) => (
+                              <option key={user.userId} value={user.userId}>
+                                {user.username} ({user.userId})
+                              </option>
+                            ))}
                         </select>
                       </label>
                       <label>
@@ -497,7 +456,7 @@ function AccountAccess({
                     </fieldset>
                   </form>
                 )}
-                {hostedRegistration && (
+                {management.registerRepository && (
                   <form onSubmit={register}>
                     <fieldset disabled={revision === null || issued !== null}>
                       <legend>共有リポジトリを登録</legend>
@@ -521,6 +480,7 @@ function AccountAccess({
                   key={`${formToken}:${managementRefresh}`}
                   actionToken={formToken}
                   onSessionUsers={observeUsers}
+                  onPermissions={observeManagement}
                   onSessionUnavailable={endManagementView}
                 />
               </>
@@ -557,14 +517,18 @@ export function AccessWorkbench({
 }): ReactElement {
   const model = initialModel;
   const [sessionRejected, setSessionRejected] = useState(false);
+  const [disconnectsPending, setDisconnectsPending] = useState(0);
   const rejectSession = useCallback(() => setSessionRejected(true), []);
+  const observeDisconnect = useCallback((pending: boolean) => {
+    setDisconnectsPending((count) => count + (pending ? 1 : -1));
+  }, []);
   return (
     <div className="app-shell">
       <header className="topbar">
         <a className="brand" href="/">
           <img src={WORKBENCH_LOGO_PATH} width="36" height="36" alt="CRDD" />
           <span>
-            CROS Workbench<small>接続と管理</small>
+            CRDD Workbench<small>接続と管理</small>
           </span>
         </a>
       </header>
@@ -572,62 +536,135 @@ export function AccessWorkbench({
         {model.loginProviders && (
           <AccountAccess
             providers={model.loginProviders}
+            sessionRejected={sessionRejected}
             onSessionRejected={rejectSession}
           />
         )}
-        {!sessionRejected && <GitHostConnections showLogin={false} />}
-        {model.loginProviders && model.authenticated && !sessionRejected ? (
-          <WorkbenchPanel
-            id="projects"
-            eyebrow="Current access"
-            title="利用できるProject"
-            status={model.portfolio === null ? "未確認" : "現在の許可範囲"}
-          >
-            {model.portfolio === null ? (
-              <EmptyState>現在の内容を確認できません。</EmptyState>
-            ) : model.portfolio.projects.length === 0 ? (
-              <EmptyState>現在許可されたRepositoryはありません。</EmptyState>
-            ) : (
-              model.portfolio.projects.map((project) => (
-                <div key={project.projectId}>
-                  <h3>
-                    {project.projectId} —{" "}
-                    {
-                      {
-                        complete: "確認済み",
-                        partial: "一部未確認",
-                        conflicting: "競合あり",
-                      }[project.state]
-                    }
-                  </h3>
-                  {project.sources.map((source) => (
-                    <div key={source.repositoryId}>
-                      {source.state === "complete" ? (
-                        <a
-                          href={`/?repositoryId=${encodeURIComponent(source.repositoryId)}`}
-                        >
-                          {source.repositoryId}
-                        </a>
-                      ) : (
-                        <span>{source.repositoryId}</span>
-                      )}{" "}
-                      —{" "}
-                      {
-                        {
-                          complete: "確認済み",
-                          missing: "文書未提供",
-                          unavailable: "文書未確認",
-                          conflicting: "文書競合",
-                        }[source.state]
-                      }
-                    </div>
-                  ))}
-                </div>
-              ))
-            )}
-          </WorkbenchPanel>
-        ) : null}
+        {model.authenticated && !sessionRejected && (
+          <GitHostConnections
+            showLogin={false}
+            onDisconnectPending={observeDisconnect}
+            onSessionRejected={rejectSession}
+          />
+        )}
+        {model.authenticated &&
+          !sessionRejected &&
+          disconnectsPending === 0 && (
+            <AvailableProjects onSessionRejected={rejectSession} />
+          )}
       </main>
     </div>
+  );
+}
+
+/** ログイン状態とは独立に、現在許可された一覧を取得する。 @trace ARCH-000012 */
+function AvailableProjects({
+  onSessionRejected,
+}: {
+  onSessionRejected: () => void;
+}) {
+  const [{ cursor, generation }, select] = useState({
+    cursor: "",
+    generation: 0,
+  });
+  const [observed, publish] = useState<{
+    generation: number;
+    page: ProjectPageResponse | null;
+  }>();
+  useEffect(() => {
+    const pending = new AbortController();
+    const publishCurrent = (page: ProjectPageResponse | null) => {
+      if (!pending.signal.aborted) publish({ generation, page });
+    };
+    void readProjectPage(
+      null,
+      { query: "", state: "", cursor },
+      pending.signal,
+    ).then(
+      (page) => publishCurrent(page.cursorInvalid ? null : page),
+      (error: unknown) => {
+        if (pending.signal.aborted) return;
+        if (error instanceof ProjectLoginRequired) onSessionRejected();
+        else publishCurrent(null);
+      },
+    );
+    return () => pending.abort();
+  }, [cursor, generation, onSessionRejected]);
+  const page = observed?.generation === generation ? observed.page : undefined;
+  const open = (cursor: string) =>
+    select({ cursor, generation: generation + 1 });
+  return (
+    <WorkbenchPanel
+      id="projects"
+      eyebrow="Current access"
+      title="利用できるProject"
+      status={
+        page === undefined
+          ? "取得中"
+          : page === null
+            ? "未確認"
+            : "現在の許可範囲"
+      }
+    >
+      {page === undefined ? (
+        <EmptyState>利用できるProjectを取得しています。</EmptyState>
+      ) : page === null ? (
+        <EmptyState>現在の内容を確認できません。</EmptyState>
+      ) : page.projects.length === 0 ? (
+        <EmptyState>現在許可されたRepositoryはありません。</EmptyState>
+      ) : (
+        page.projects.map((project) => (
+          <div key={project.projectId}>
+            <h3>
+              {project.projectId} —{" "}
+              {
+                {
+                  complete: "確認済み",
+                  partial: "一部未確認",
+                  conflicting: "競合あり",
+                }[project.state]
+              }
+            </h3>
+            {project.sources.map((source) => (
+              <div key={source.repositoryId}>
+                {source.state === "complete" ? (
+                  <a
+                    href={`/?repositoryId=${encodeURIComponent(source.repositoryId)}`}
+                  >
+                    {source.repositoryId}
+                  </a>
+                ) : (
+                  <span>{source.repositoryId}</span>
+                )}{" "}
+                —{" "}
+                {
+                  {
+                    complete: "確認済み",
+                    missing: "文書未提供",
+                    unavailable: "文書未確認",
+                    conflicting: "文書競合",
+                  }[source.state]
+                }
+              </div>
+            ))}
+          </div>
+        ))
+      )}
+      {page === null && !cursor && (
+        <button type="button" onClick={() => open("")}>
+          再取得
+        </button>
+      )}
+      {cursor && (
+        <button type="button" onClick={() => open("")}>
+          最初の一覧へ
+        </button>
+      )}
+      {page?.nextCursor && (
+        <button type="button" onClick={() => open(page.nextCursor ?? "")}>
+          次のProject
+        </button>
+      )}
+    </WorkbenchPanel>
   );
 }

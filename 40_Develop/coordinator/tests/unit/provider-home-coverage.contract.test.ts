@@ -16,9 +16,9 @@ import {
   PROVIDER_HOME_COVERAGE_MINIMUM_NODE_VERSION,
   PROVIDER_HOME_COVERAGE_SOURCES,
   PROVIDER_HOME_COVERAGE_TESTS,
-  requireProviderHomeCoverageOutput,
   serializeProviderHomeCoverage,
 } from "../support/check-provider-home-coverage.ts";
+import { requireCoverageProcessOutput } from "../support/coverage.ts";
 
 /**
  * Provider Home coverageはRepository基準Node以上だけを受理するを検証する。
@@ -73,7 +73,7 @@ test("Provider Home coverageは正常終了と既知警告一件だけを受け�
     "(Use `node --trace-warnings ...` to show where the warning was created)\n";
   for (const stderr of ["", known, known.replaceAll("\n", "\r\n")])
     assert.equal(
-      requireProviderHomeCoverageOutput({ ...child, stderr }),
+      requireCoverageProcessOutput({ ...child, stderr }, "Provider Home"),
       "lcov",
     );
   for (const stderr of [
@@ -86,14 +86,14 @@ test("Provider Home coverageは正常終了と既知警告一件だけを受け�
     known.replace("node:24", "node:0"),
   ])
     assert.throws(() =>
-      requireProviderHomeCoverageOutput({ ...child, stderr }),
+      requireCoverageProcessOutput({ ...child, stderr }, "Provider Home"),
     );
   for (const result of [
     { ...child, status: 1, stderr: known },
     { ...child, status: null, signal: "SIGTERM" as const, stderr: known },
     { ...child, error: new Error("spawn"), stderr: known },
   ])
-    assert.throws(() => requireProviderHomeCoverageOutput(result));
+    assert.throws(() => requireCoverageProcessOutput(result, "Provider Home"));
 });
 
 /**
@@ -122,7 +122,6 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
     "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
-    "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
     "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
   ]);
 });

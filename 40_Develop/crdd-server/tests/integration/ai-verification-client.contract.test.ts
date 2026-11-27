@@ -50,7 +50,7 @@ test("IPC子は不正入力でもchannelを残さず終了する", async () => {
     assert.ok(address && typeof address === "object");
     const input = {
       baseUrl: `http://127.0.0.1:${address.port}`,
-      route: "/api/workbench/view?route=%2F",
+      route: "/api/workbench/overview",
       write: null,
     };
     for (const message of [
@@ -219,7 +219,7 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
             ? '{"route":"a","route":"b"}'
             : JSON.stringify({
                 baseUrl: "http://127.0.0.1:12345",
-                route: "/api/workbench/view?route=%2F",
+                route: "/api/workbench/overview",
                 write: null,
               });
       fake.emit("message", message);
@@ -269,7 +269,7 @@ test("HTTP送出時計はServer受信前のevent loop待ちを区別する", asy
   try {
     const pending = requestInChild(
       base,
-      "/api/workbench/view?route=%2F",
+      "/api/workbench/overview",
       undefined,
       timing.client,
     );
@@ -364,7 +364,7 @@ test("IPC入力は親22秒停止中にも子のHTTP完了を妨げない", async
     const timings: { startedAt: number; completedAt: number }[] = [];
     const result = await requestInChild(
       `http://127.0.0.1:${port}`,
-      "/api/workbench/view?route=%2F",
+      "/api/workbench/overview",
       undefined,
       (t) => timings.push(t),
     );
@@ -455,7 +455,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
   for (const { route, scenario } of [
     "/api/repositories/fixture/workspaces?projectId=project&limit=20",
     "/api/repositories/fixture/ai-requests",
-    "/api/workbench/view?route=%2F",
+    "/api/workbench/overview",
   ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     const child = new EventEmitter() as EventEmitter & {
       send: (input: string, callback: (error: Error | null) => void) => boolean;
@@ -832,13 +832,13 @@ test("実HTTP子は通常・切断・15秒期限を区別して終了する", as
     assert.ok(address && typeof address === "object");
     const url = `http://127.0.0.1:${address.port}/`;
     assert.equal(
-      (await requestInChild(url, "/api/workbench/view?route=%2F")).body,
+      (await requestInChild(url, "/api/workbench/overview")).body,
       "synthetic",
     );
     for (const next of ["disconnect", "timeout"]) {
       mode = next;
       await assert.rejects(
-        requestInChild(url, "/api/workbench/view?route=%2F"),
+        requestInChild(url, "/api/workbench/overview"),
         (error: unknown) => {
           const failure = projectVerificationTransportFailure(error);
           assert.equal(

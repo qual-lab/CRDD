@@ -6,6 +6,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
+import type { RepositoryObservationPort } from "../repository/types.ts";
 
 export const testLevels = [
   "unit",
@@ -29,16 +31,18 @@ export const testLevels = [
  */
 export type TestLevel = (typeof testLevels)[number];
 export const testKinds = ["unit", "contract", "integration"] as const;
-export const testEnvironments = [
-  "fixed_system_runtime",
-  "local_component_boundary",
-  "node_process",
-  "windows_rust_runtime",
-] as const;
-export const executionProfiles = [
-  "restricted_process",
-  "windows_process_control",
-] as const;
+export const testCatalogPath = "07_Quality/Registry/test-catalog.json";
+
+export type TestCatalogOwner = Readonly<{
+  id: string;
+  root: string;
+  runner: string;
+  coverage?: Readonly<{
+    implementation: readonly string[];
+    tests: readonly string[];
+    exclude: readonly string[];
+  }>;
+}>;
 export const integrationLifecycleProfiles = [
   "pure_component",
   "read_only_boundary",
@@ -60,28 +64,13 @@ export const integrationLifecycleProfiles = [
  */
 export type TestCatalogEntry = Readonly<{
   id: string;
-  owner:
-    | "access-management"
-    | "ai-adapter"
-    | "checker"
-    | "coordinator"
-    | "docker-isolation"
-    | "document-model"
-    | "execution-model"
-    | "configuration-model"
-    | "execution-intelligence"
-    | "executor"
-    | "lock"
-    | "crdd-server"
-    | "version-control"
-    | "visual-preview"
-    | "workbench-ui";
+  owner: string;
   path: string;
   level: TestLevel;
   kind: (typeof testKinds)[number];
   semanticTags: readonly string[];
-  environment: (typeof testEnvironments)[number];
-  executionProfiles?: readonly (typeof executionProfiles)[number][];
+  environment: string;
+  executionProfiles?: readonly string[];
   externalProviderEffect: boolean;
   humanInput: boolean;
   postconditions: readonly string[];
@@ -101,27 +90,14 @@ export type TestCatalogEntry = Readonly<{
  */
 export type TestCatalog = Readonly<{
   contract: "crdd/test-catalog";
-  contractRevision: 10;
+  contractRevision: 11;
   levels: readonly TestLevel[];
   regressionIsSelection: true;
   resourceIntensiveLevels: readonly ["performance", "longevity"];
-  runnerProfiles: Readonly<{
-    "access-management": "node_test";
-    "ai-adapter": "node_test";
-    checker: "node_test";
-    coordinator: "node_test";
-    "docker-isolation": "node_test";
-    "document-model": "node_test";
-    "execution-model": "node_test";
-    "configuration-model": "node_test";
-    "execution-intelligence": "node_test";
-    executor: "node_test";
-    lock: "node_test";
-    "crdd-server": "node_test";
-    "version-control": "node_test";
-    "visual-preview": "node_test";
-    "workbench-ui": "node_test";
-  }>;
+  owners: readonly TestCatalogOwner[];
+  environments: readonly string[];
+  executionProfiles: readonly string[];
+  sharedRuntimePaths: readonly string[];
   integrationBlocks: readonly Readonly<{
     id: string;
     owner: TestCatalogEntry["owner"];
@@ -153,51 +129,18 @@ const RESOURCE_INTENSIVE_LEVELS = new Set<TestLevel>([
   "performance",
   "longevity",
 ]);
-const RUNNER_SUPPORTED_OWNERS = new Set([
-  "access-management",
-  "ai-adapter",
-  "checker",
-  "coordinator",
-  "docker-isolation",
-  "document-model",
-  "execution-model",
-  "configuration-model",
-  "execution-intelligence",
-  "executor",
-  "lock",
-  "crdd-server",
-  "version-control",
-  "visual-preview",
-  "workbench-ui",
-]);
-const RUNNER_PROFILES = Object.freeze({
-  "access-management": "node_test",
-  "ai-adapter": "node_test",
-  checker: "node_test",
-  coordinator: "node_test",
-  "docker-isolation": "node_test",
-  "document-model": "node_test",
-  "execution-model": "node_test",
-  "configuration-model": "node_test",
-  "execution-intelligence": "node_test",
-  executor: "node_test",
-  lock: "node_test",
-  "crdd-server": "node_test",
-  "version-control": "node_test",
-  "visual-preview": "node_test",
-  "workbench-ui": "node_test",
-});
-const validExecutionProfiles = new Set(executionProfiles);
 const validIntegrationLifecycleProfiles = new Set(integrationLifecycleProfiles);
 const validTestKinds = new Set(testKinds);
-const validTestEnvironments = new Set(testEnvironments);
 const ROOT_KEYS = new Set([
   "contract",
   "contractRevision",
   "levels",
   "regressionIsSelection",
   "resourceIntensiveLevels",
-  "runnerProfiles",
+  "owners",
+  "environments",
+  "executionProfiles",
+  "sharedRuntimePaths",
   "integrationBlocks",
   "integrationCorridors",
   "consumerBindings",
@@ -241,9 +184,6 @@ const ENTRY_KEYS = new Set([
   "postconditions",
   "mandatoryByDefault",
 ]);
-const IGNORED_WALK_DIRECTORIES = new Set([".git", "node_modules", "target"]);
-const WINDOWS_PROCESS_GATE_DECLARATION =
-  /\btest\s*\(\s*(?:[`"]Windows Process Gate:|[`"]Host Windows:|`Host Windows:)/u;
 
 /**
  * ordinalを決定する。
@@ -266,104 +206,6 @@ function ordinal(left: string, right: string): number {
 }
 
 /**
- * repository Pathを決定する。
- *
- * @responsibility repository Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000003
- * @input root: string、absolutePath: string
- * @returns stringを返す。
- * @precondition 「root: string、absolutePath: string」がrepositoryPathの入力契約を満たす。
- * @postcondition repositoryPathの責務を完了した結果だけを返す。
- * @effect N/A: repositoryPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: repositoryPathは独自の失敗分岐を所有しない。
- * @invariant repositoryPathは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: repositoryPathはProcess内の同一Subsystemで完結する。
- * @security N/A: repositoryPathはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: repositoryPathは共有非同期状態を持たない同期処理である。
- */
-function repositoryPath(root: string, absolutePath: string): string {
-  return path.relative(root, absolutePath).split(path.sep).join("/");
-}
-
-/**
- * walk Filesを決定する。
- *
- * @responsibility walk Filesの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000003
- * @input root: string、directory: string
- * @returns string[]を返す。
- * @precondition 「root: string、directory: string」がwalkFilesの入力契約を満たす。
- * @postcondition walkFilesの責務を完了した結果だけを返す。
- * @effect walkFilesはFilesystemの読取りまたは書込みを実行する。
- * @failure walkFilesは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant walkFilesは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: walkFilesはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: walkFilesは共有非同期状態を持たない同期処理である。
- */
-function walkFiles(root: string, directory: string): string[] {
-  if (!fs.existsSync(directory)) return [];
-  const discoveredFiles: string[] = [];
-  for (const name of fs.readdirSync(directory).sort(ordinal)) {
-    if (IGNORED_WALK_DIRECTORIES.has(name)) continue;
-    const target = path.join(directory, name);
-    const metadata = fs.lstatSync(target);
-    if (metadata.isSymbolicLink())
-      throw new Error(
-        `test_catalog_symbolic_path:${repositoryPath(root, target)}`,
-      );
-    if (metadata.isDirectory())
-      discoveredFiles.push(...walkFiles(root, target));
-    else if (metadata.isFile()) discoveredFiles.push(target);
-  }
-  return discoveredFiles;
-}
-
-/**
- * Repository Test Filesを探索する。
- *
- * @responsibility Repository Test Filesの探索Root、対象母集団、未観測境界を所有する。
- * @trace ARCH-000003
- * @input repositoryRoot: string
- * @returns string[]を返す。
- * @precondition 「repositoryRoot: string」がdiscoverRepositoryTestFilesの入力契約を満たす。
- * @postcondition discoverRepositoryTestFilesの責務を完了した結果だけを返す。
- * @effect discoverRepositoryTestFilesはFilesystemの読取りまたは書込みを実行する。
- * @failure N/A: discoverRepositoryTestFilesは独自の失敗分岐を所有しない。
- * @invariant discoverRepositoryTestFilesは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: discoverRepositoryTestFilesはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: discoverRepositoryTestFilesは共有非同期状態を持たない同期処理である。
- */
-export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
-  const nodeTests = [
-    "access-management",
-    "ai-adapter",
-    "checker",
-    "coordinator",
-    "docker-isolation",
-    "document-model",
-    "execution-model",
-    "configuration-model",
-    "execution-intelligence",
-    "executor",
-    "lock",
-    "crdd-server",
-    "version-control",
-    "visual-preview",
-    "workbench-ui",
-  ].flatMap((owner) =>
-    walkFiles(
-      repositoryRoot,
-      path.join(repositoryRoot, "40_Develop", owner, "tests"),
-    )
-      .filter((file) => file.endsWith(".test.ts"))
-      .map((file) => repositoryPath(repositoryRoot, file)),
-  );
-  return nodeTests.sort(ordinal);
-}
-
-/**
  * Test Levelかを判定する。
  *
  * @responsibility Test Levelの判定条件とtrue／false境界を所有する。
@@ -381,31 +223,6 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
  */
 function isTestLevel(value: unknown): value is TestLevel {
   return typeof value === "string" && testLevels.includes(value as TestLevel);
-}
-
-/**
- * expected Node Levelを決定する。
- *
- * @responsibility expected Node Levelの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000003
- * @input entryPath: string
- * @returns string | nullを返す。
- * @precondition 「entryPath: string」がexpectedNodeLevelの入力契約を満たす。
- * @postcondition expectedNodeLevelの責務を完了した結果だけを返す。
- * @effect N/A: expectedNodeLevelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: expectedNodeLevelは独自の失敗分岐を所有しない。
- * @invariant expectedNodeLevelは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: expectedNodeLevelはProcess内の同一Subsystemで完結する。
- * @security N/A: expectedNodeLevelはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: expectedNodeLevelは共有非同期状態を持たない同期処理である。
- */
-function expectedNodeLevel(entryPath: string): string | null {
-  if (!entryPath.endsWith(".test.ts")) return null;
-  return (
-    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|crdd-server|docker-isolation|document-model|execution-model|configuration-model|execution-intelligence|executor|lock|version-control|visual-preview|workbench-ui)\/tests\/([^/]+)\//u.exec(
-      entryPath,
-    )?.[1] ?? null
-  );
 }
 
 /**
@@ -523,7 +340,8 @@ function isNonEmptyUniqueStringArray(value: unknown): value is string[] {
 function isSafeRepositoryPath(value: string): boolean {
   return (
     value.length > 0 &&
-    !path.isAbsolute(value) &&
+    !path.posix.isAbsolute(value) &&
+    !value.includes(":") &&
     !value.includes("\\") &&
     !/[\u0000-\u001f\u007f]/u.test(value) &&
     value
@@ -533,6 +351,47 @@ function isSafeRepositoryPath(value: string): boolean {
       ) &&
     path.posix.normalize(value) === value
   );
+}
+
+function declaredStrings(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === "string" &&
+        item.length > 0 &&
+        item.trim() === item &&
+        !/[\r\n]/u.test(item),
+    ) &&
+    new Set(value).size === value.length
+  );
+}
+
+export function observeCatalogPath(
+  root: string,
+  relative: string,
+  directories: Map<string, boolean>,
+): "file" | "directory" | "missing" | "unobservable" {
+  const segments = relative.split("/");
+  try {
+    for (let index = 1; index < segments.length; index += 1) {
+      const parent = segments.slice(0, index).join("/");
+      let directory = directories.get(parent);
+      if (directory === undefined) {
+        directory = fs.lstatSync(path.join(root, parent)).isDirectory();
+        directories.set(parent, directory);
+      }
+      if (!directory) return "unobservable";
+    }
+    const stat = fs.lstatSync(path.join(root, relative));
+    if (stat.isFile()) return "file";
+    if (stat.isDirectory()) return "directory";
+    return "unobservable";
+  } catch (error) {
+    return isRecord(error) && error.code === "ENOENT"
+      ? "missing"
+      : "unobservable";
+  }
 }
 
 /**
@@ -552,8 +411,9 @@ function isSafeRepositoryPath(value: string): boolean {
  * @concurrency N/A: markdownHeadingAnchorExistsは共有非同期状態を持たない同期処理である。
  */
 function markdownHeadingAnchorExists(
-  repositoryRoot: string,
+  repository: RepositoryObservationPort,
   architectureAnchor: string,
+  cache: Map<string, ReadonlySet<string>>,
 ): boolean {
   const [repositoryRelativePath, fragment, ...extraFragments] =
     architectureAnchor.split("#");
@@ -564,25 +424,27 @@ function markdownHeadingAnchorExists(
     !isSafeRepositoryPath(repositoryRelativePath)
   )
     return false;
-  const absolutePath = path.join(
-    repositoryRoot,
-    ...repositoryRelativePath.split("/"),
-  );
-  if (!fs.existsSync(absolutePath) || !fs.lstatSync(absolutePath).isFile())
-    return false;
-  return fs
-    .readFileSync(absolutePath, "utf8")
-    .split(/\r?\n/u)
-    .filter((line) => /^#{1,6}\s+/u.test(line))
-    .map((line) =>
-      line
-        .replace(/^#{1,6}\s+/u, "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s_-]/gu, "")
-        .replace(/\s+/gu, "-"),
-    )
-    .includes(fragment);
+  let headings = cache.get(repositoryRelativePath);
+  if (headings === undefined) {
+    const observed = repository.observeFile(repositoryRelativePath);
+    headings = new Set(
+      observed.status === "resolved"
+        ? observed.source
+            .split(/\r?\n/u)
+            .filter((line) => /^#{1,6}\s+/u.test(line))
+            .map((line) =>
+              line
+                .replace(/^#{1,6}\s+/u, "")
+                .trim()
+                .toLowerCase()
+                .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+                .replace(/\s+/gu, "-"),
+            )
+        : [],
+    );
+    cache.set(repositoryRelativePath, headings);
+  }
+  return headings.has(fragment);
 }
 
 /**
@@ -604,19 +466,28 @@ function markdownHeadingAnchorExists(
 export function inspectTestCatalog(
   repositoryRoot: string,
   candidate: unknown,
-): Readonly<{ failures: readonly string[]; observedFiles: readonly string[] }> {
+): Readonly<{
+  failures: readonly string[];
+  warnings: readonly string[];
+  observedFiles: readonly string[];
+}> {
   const failures: string[] = [];
-  let observedFiles: readonly string[] = [];
+  const observedFiles: string[] = [];
+  const warnings: string[] = [];
   if (!isRecord(candidate))
-    return { failures: ["test_catalog_not_object"], observedFiles };
+    return { failures: ["test_catalog_not_object"], warnings, observedFiles };
   failures.push(...inspectExactKeys(candidate, ROOT_KEYS, "root"));
   if (!Array.isArray(candidate.tests)) {
     failures.push("test_catalog_tests_not_array");
-    return { failures: [...new Set(failures)].sort(ordinal), observedFiles };
+    return {
+      failures: [...new Set(failures)].sort(ordinal),
+      warnings,
+      observedFiles,
+    };
   }
   const catalog = candidate as unknown as TestCatalog;
   if (catalog.contract !== "crdd/test-catalog") failures.push("contract");
-  if (catalog.contractRevision !== 10) failures.push("contract_revision");
+  if (catalog.contractRevision !== 11) failures.push("contract_revision");
   if (catalog.regressionIsSelection !== true)
     failures.push("regression_selection_contract");
   if (JSON.stringify(catalog.levels) !== JSON.stringify(testLevels))
@@ -626,12 +497,115 @@ export function inspectTestCatalog(
     JSON.stringify(["performance", "longevity"])
   )
     failures.push("resource_intensive_level_population");
+  const directories = new Map<string, boolean>();
+  const owners = new Map<string, string>();
+  const repository = createFilesystemRepositoryObservationPort(repositoryRoot);
+  const architectureHeadings = new Map<string, ReadonlySet<string>>();
+  const roots = new Set<string>();
+  const ownerKeys = new Set(["id", "root", "runner", "coverage"]);
+  const coverageKeys = new Set(["implementation", "tests", "exclude"]);
+  if (!Array.isArray(candidate.owners)) failures.push("owners_not_array");
+  else
+    for (const [index, owner] of candidate.owners.entries()) {
+      if (!isRecord(owner)) {
+        failures.push(`invalid_owner:${index}`);
+        continue;
+      }
+      failures.push(
+        ...inspectExactKeys(
+          owner,
+          ownerKeys,
+          `owner_${index}`,
+          new Set(["coverage"]),
+        ),
+      );
+      if (
+        typeof owner.id !== "string" ||
+        !/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/u.test(owner.id)
+      ) {
+        failures.push(`invalid_owner_id:${index}`);
+        continue;
+      }
+      if (
+        typeof owner.runner !== "string" ||
+        owner.runner.length === 0 ||
+        owner.runner.trim() !== owner.runner ||
+        /[\r\n]/u.test(owner.runner)
+      )
+        failures.push(`invalid_owner_runner:${owner.id}`);
+      if (owner.coverage !== undefined) {
+        if (!isRecord(owner.coverage))
+          failures.push(`invalid_owner_coverage:${owner.id}`);
+        else {
+          failures.push(
+            ...inspectExactKeys(
+              owner.coverage,
+              coverageKeys,
+              `coverage_${owner.id}`,
+            ),
+          );
+          for (const key of coverageKeys) {
+            const patterns = owner.coverage[key];
+            if (
+              !declaredStrings(patterns) ||
+              patterns.some(
+                (pattern) =>
+                  !isSafeRepositoryPath(pattern) ||
+                  /[[\]{}!]/u.test(pattern) ||
+                  pattern
+                    .split("/")
+                    .some(
+                      (segment) => segment !== "**" && segment.includes("**"),
+                    ),
+              )
+            )
+              failures.push(`invalid_coverage_${key}:${owner.id}`);
+          }
+        }
+      }
+      if (typeof owner.root !== "string" || !isSafeRepositoryPath(owner.root)) {
+        failures.push(`invalid_owner_root:${owner.id}`);
+        continue;
+      }
+      if (owners.has(owner.id)) failures.push(`duplicate_owner_id:${owner.id}`);
+      const root = owner.root.toLowerCase();
+      if (
+        [...roots].some(
+          (other) =>
+            root === other ||
+            root.startsWith(`${other}/`) ||
+            other.startsWith(`${root}/`),
+        )
+      )
+        failures.push(`overlapping_owner_root:${owner.id}`);
+      roots.add(root);
+      owners.set(owner.id, owner.root);
+      const observation = observeCatalogPath(
+        repositoryRoot,
+        owner.root,
+        directories,
+      );
+      if (observation !== "directory")
+        failures.push(`owner_root_${observation}:${owner.id}`);
+    }
+  const environments = new Set(
+    declaredStrings(candidate.environments) ? candidate.environments : [],
+  );
+  if (!declaredStrings(candidate.environments))
+    failures.push("invalid_environments");
+  const profiles = new Set(
+    declaredStrings(candidate.executionProfiles)
+      ? candidate.executionProfiles
+      : [],
+  );
+  if (!declaredStrings(candidate.executionProfiles))
+    failures.push("invalid_execution_profiles");
   if (
-    JSON.stringify(catalog.runnerProfiles) !== JSON.stringify(RUNNER_PROFILES)
+    !declaredStrings(candidate.sharedRuntimePaths) ||
+    candidate.sharedRuntimePaths.some((entry) => !isSafeRepositoryPath(entry))
   )
-    failures.push("runner_profile_population");
-  if (!isRecord(candidate.runnerProfiles))
-    failures.push("runner_profiles_not_object");
+    failures.push("invalid_shared_runtime_paths");
+  const usedEnvironments = new Set<string>();
   if (!Array.isArray(candidate.consumerBindings))
     failures.push("consumer_bindings_not_array");
   if (!Array.isArray(candidate.integrationBlocks))
@@ -641,7 +615,7 @@ export function inspectTestCatalog(
 
   const ids = new Set<string>();
   const paths = new Set<string>();
-  const validPaths: string[] = [];
+  const testsById = new Map<string, TestCatalogEntry>();
   for (const [index, rawEntry] of candidate.tests.entries()) {
     if (!isRecord(rawEntry)) {
       failures.push(`invalid_entry:${index}`);
@@ -664,39 +638,42 @@ export function inspectTestCatalog(
       failures.push(`invalid_path:${entry.id}`);
       continue;
     }
-    validPaths.push(entry.path);
     if (ids.has(entry.id)) failures.push(`duplicate_id:${entry.id}`);
     ids.add(entry.id);
+    if (!testsById.has(entry.id)) testsById.set(entry.id, entry);
     if (paths.has(entry.path.toLowerCase()))
       failures.push(`duplicate_path:${entry.path}`);
     paths.add(entry.path.toLowerCase());
     if (!isTestLevel(entry.level)) failures.push(`invalid_level:${entry.path}`);
-    if (!RUNNER_SUPPORTED_OWNERS.has(entry.owner))
+    const ownerRoot = owners.get(entry.owner);
+    if (ownerRoot === undefined)
       failures.push(`unsupported_owner:${entry.path}`);
+    else if (!entry.path.startsWith(`${ownerRoot}/`))
+      failures.push(`test_outside_owner_root:${entry.path}`);
+    else {
+      const observation = observeCatalogPath(
+        repositoryRoot,
+        entry.path,
+        directories,
+      );
+      if (observation === "file") observedFiles.push(entry.path);
+      else if (observation === "missing")
+        failures.push(`registered_test_missing:${entry.path}`);
+      else failures.push(`registered_test_not_observable_file:${entry.path}`);
+    }
     if (!validTestKinds.has(entry.kind))
       failures.push(`invalid_kind:${entry.path}`);
-    if (!validTestEnvironments.has(entry.environment))
+    if (!environments.has(entry.environment))
       failures.push(`invalid_environment:${entry.path}`);
-    const nodeLevel = expectedNodeLevel(entry.path);
-    if (nodeLevel !== null && nodeLevel !== entry.level)
-      failures.push(`directory_level_mismatch:${entry.path}`);
-    if (!isNonEmptyUniqueStringArray(entry.semanticTags))
-      failures.push(`invalid_semantic_tags:${entry.path}`);
+    else usedEnvironments.add(entry.environment);
     if (
       entry.executionProfiles !== undefined &&
-      (!Array.isArray(entry.executionProfiles) ||
-        entry.executionProfiles.length === 0 ||
-        new Set(entry.executionProfiles).size !==
-          entry.executionProfiles.length ||
-        entry.executionProfiles.some(
-          (profile) =>
-            typeof profile !== "string" ||
-            !validExecutionProfiles.has(
-              profile as (typeof executionProfiles)[number],
-            ),
-        ))
+      (!isNonEmptyUniqueStringArray(entry.executionProfiles) ||
+        entry.executionProfiles.some((profile) => !profiles.has(profile)))
     )
       failures.push(`invalid_execution_profiles:${entry.path}`);
+    if (!isNonEmptyUniqueStringArray(entry.semanticTags))
+      failures.push(`invalid_semantic_tags:${entry.path}`);
     if (!isNonEmptyUniqueStringArray(entry.postconditions))
       failures.push(`invalid_postconditions:${entry.path}`);
     if (typeof entry.externalProviderEffect !== "boolean")
@@ -707,23 +684,10 @@ export function inspectTestCatalog(
       failures.push(`invalid_mandatory_by_default:${entry.path}`);
     if (RESOURCE_INTENSIVE_LEVELS.has(entry.level) && entry.mandatoryByDefault)
       failures.push(`resource_intensive_default:${entry.path}`);
-    if (!fs.existsSync(path.join(repositoryRoot, ...entry.path.split("/"))))
-      failures.push(`registered_test_missing:${entry.path}`);
   }
-
-  const actualPaths = discoverRepositoryTestFiles(repositoryRoot);
-  observedFiles = actualPaths;
-  const registeredPaths = validPaths.sort(ordinal);
-  const actualSet = new Set(actualPaths.map((entry) => entry.toLowerCase()));
-  const registeredSet = new Set(
-    registeredPaths.map((entry) => entry.toLowerCase()),
-  );
-  for (const entry of actualPaths)
-    if (!registeredSet.has(entry.toLowerCase()))
-      failures.push(`unregistered_test:${entry}`);
-  for (const entry of registeredPaths)
-    if (!actualSet.has(entry.toLowerCase()))
-      failures.push(`nonexistent_catalog_entry:${entry}`);
+  for (const environment of environments)
+    if (!usedEnvironments.has(environment))
+      warnings.push(`unused_environment:${environment}`);
 
   const ownerEdges = new Set<string>();
   const bindings = Array.isArray(candidate.consumerBindings)
@@ -744,19 +708,21 @@ export function inspectTestCatalog(
     const binding =
       rawBinding as unknown as TestCatalog["consumerBindings"][number];
     if (
-      !RUNNER_SUPPORTED_OWNERS.has(binding.producerOwner) ||
-      !RUNNER_SUPPORTED_OWNERS.has(binding.consumerOwner) ||
+      !owners.has(binding.producerOwner) ||
+      !owners.has(binding.consumerOwner) ||
       binding.producerOwner === binding.consumerOwner
     )
       failures.push(`invalid_consumer_owner:${index}`);
     if (binding.consumerStatic !== true)
       failures.push(`consumer_static_missing:${index}`);
+    const producerRoot = owners.get(binding.producerOwner);
     if (
+      !producerRoot ||
       !isNonEmptyUniqueStringArray(binding.producerPaths) ||
       binding.producerPaths.some(
         (entry) =>
           !isSafeRepositoryPath(entry) ||
-          !entry.startsWith(`40_Develop/${binding.producerOwner}/`),
+          (entry !== producerRoot && !entry.startsWith(`${producerRoot}/`)),
       )
     )
       failures.push(`invalid_consumer_producer_paths:${index}`);
@@ -764,9 +730,7 @@ export function inspectTestCatalog(
       failures.push(`invalid_consumer_test_ids:${index}`);
     else
       for (const testId of binding.testIds) {
-        const entry = catalog.tests.find(
-          (candidateEntry) => candidateEntry.id === testId,
-        );
+        const entry = testsById.get(testId);
         if (!entry) failures.push(`consumer_test_missing:${testId}`);
         else if (entry.owner !== binding.consumerOwner)
           failures.push(`consumer_test_owner_mismatch:${testId}`);
@@ -803,12 +767,16 @@ export function inspectTestCatalog(
     if (blockIds.has(block.id))
       failures.push(`duplicate_integration_block_id:${block.id}`);
     blockIds.add(block.id);
-    if (!RUNNER_SUPPORTED_OWNERS.has(block.owner))
+    if (!owners.has(block.owner))
       failures.push(`invalid_integration_block_owner:${block.id}`);
     else blockOwners.add(block.owner);
     if (
       typeof block.architectureAnchor !== "string" ||
-      !markdownHeadingAnchorExists(repositoryRoot, block.architectureAnchor)
+      !markdownHeadingAnchorExists(
+        repository,
+        block.architectureAnchor,
+        architectureHeadings,
+      )
     )
       failures.push(`invalid_integration_block_architecture:${block.id}`);
     if (!isNonEmptyUniqueStringArray(block.responsibilities))
@@ -824,9 +792,7 @@ export function inspectTestCatalog(
     else {
       let hasIntegrationTest = false;
       for (const testId of block.testIds) {
-        const entry = catalog.tests.find(
-          (candidateEntry) => candidateEntry.id === testId,
-        );
+        const entry = testsById.get(testId);
         if (!entry)
           failures.push(`integration_block_test_missing:${block.id}:${testId}`);
         else if (entry.level === "integration") hasIntegrationTest = true;
@@ -835,7 +801,7 @@ export function inspectTestCatalog(
         failures.push(`integration_block_integration_test_missing:${block.id}`);
     }
   }
-  for (const owner of RUNNER_SUPPORTED_OWNERS)
+  for (const owner of owners.keys())
     if (!blockOwners.has(owner as TestCatalogEntry["owner"]))
       failures.push(`integration_block_owner_missing:${owner}`);
 
@@ -867,7 +833,11 @@ export function inspectTestCatalog(
     corridorIds.add(corridor.id);
     if (
       typeof corridor.architectureAnchor !== "string" ||
-      !markdownHeadingAnchorExists(repositoryRoot, corridor.architectureAnchor)
+      !markdownHeadingAnchorExists(
+        repository,
+        corridor.architectureAnchor,
+        architectureHeadings,
+      )
     )
       failures.push(`invalid_integration_corridor_architecture:${corridor.id}`);
     if (
@@ -893,9 +863,7 @@ export function inspectTestCatalog(
     else {
       let hasIntegrationTest = false;
       for (const testId of corridor.testIds) {
-        const entry = catalog.tests.find(
-          (candidateEntry) => candidateEntry.id === testId,
-        );
+        const entry = testsById.get(testId);
         if (!entry)
           failures.push(
             `integration_corridor_test_missing:${corridor.id}:${testId}`,
@@ -912,39 +880,11 @@ export function inspectTestCatalog(
     if (!corridorBlocks.has(blockId))
       failures.push(`integration_corridor_block_uncovered:${blockId}`);
 
-  const windowsGatePaths = actualPaths
-    .filter((entry) => entry.endsWith(".test.ts"))
-    .filter((entry) =>
-      fs
-        .readFileSync(path.join(repositoryRoot, ...entry.split("/")), "utf8")
-        .match(WINDOWS_PROCESS_GATE_DECLARATION),
-    );
-  const windowsProfileEntries = candidate.tests
-    .filter(isRecord)
-    .map((entry) => entry as unknown as TestCatalogEntry)
-    .filter(
-      (entry) =>
-        typeof entry.path === "string" &&
-        Array.isArray(entry.executionProfiles) &&
-        entry.executionProfiles.includes("windows_process_control"),
-    );
-  const windowsProfilePaths = windowsProfileEntries.map((entry) => entry.path);
-  const windowsGateSet = new Set(
-    windowsGatePaths.map((entry) => entry.toLowerCase()),
-  );
-  const windowsProfileSet = new Set(
-    windowsProfilePaths.map((entry) => entry.toLowerCase()),
-  );
-  for (const entry of windowsGatePaths)
-    if (!windowsProfileSet.has(entry.toLowerCase()))
-      failures.push(`windows_process_profile_missing:${entry}`);
-  for (const entry of windowsProfileEntries) {
-    if (!windowsGateSet.has(entry.path.toLowerCase()))
-      failures.push(`windows_process_profile_unexpected:${entry.path}`);
-    if (!entry.executionProfiles?.includes("restricted_process"))
-      failures.push(`windows_process_restricted_profile_missing:${entry.path}`);
-  }
-  return { failures: [...new Set(failures)].sort(ordinal), observedFiles };
+  return {
+    failures: [...new Set(failures)].sort(ordinal),
+    warnings: warnings.sort(ordinal),
+    observedFiles: [...new Set(observedFiles)].sort(ordinal),
+  };
 }
 
 /**
@@ -957,9 +897,7 @@ export function inspectTestCatalog(
  * @failure 読取り不能・JSON不正は例外を伝播し、空台帳へ畳まない。
  */
 export function readTestCatalog(repositoryRoot: string): TestCatalogReadResult {
-  const candidate = loadTestCatalog(
-    path.join(repositoryRoot, "07_Quality", "Registry", "test-catalog.json"),
-  );
+  const candidate = loadTestCatalog(path.join(repositoryRoot, testCatalogPath));
   const checked = inspectTestCatalog(repositoryRoot, candidate);
   return checked.failures.length
     ? { status: "invalid", catalog: null, ...checked }
@@ -972,11 +910,13 @@ export type TestCatalogReadResult =
       status: "complete";
       catalog: TestCatalog;
       failures: readonly string[];
+      warnings: readonly string[];
       observedFiles: readonly string[];
     }>
   | Readonly<{
       status: "invalid";
       catalog: null;
       failures: readonly string[];
+      warnings: readonly string[];
       observedFiles: readonly string[];
     }>;

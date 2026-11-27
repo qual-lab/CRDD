@@ -31,8 +31,6 @@ import {
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   getTopicMeetingToolDefinitions,
-  handleMcpTopicMeetingRequest,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_MEETING_CREATE_TOOL,
   MCP_MEETING_TREAT_OUTCOME_TOOL,
   MCP_MEETING_UPDATE_TOOL,
@@ -43,11 +41,40 @@ import {
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
 } from "../../src/transport/mcp-server.ts";
-import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
+import {
+  invokeMcpRequest,
+  isMcpInvalidArguments,
+  mcpToolErrorText,
+} from "../fixtures/sdk-request.ts";
 
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
+});
+
+test("MCPは使わないログ水準と追加メタデータを無視する", async () => {
+  for (const extra of [
+    { "io.modelcontextprotocol/logLevel": "warning" },
+    { "io.modelcontextprotocol/unknown": "unused" },
+  ] as const) {
+    const request = call(MCP_TOPIC_LIST_TOOL, { repositoryId: "repository.a" });
+    let resolutions = 0;
+    const response = await invokeMcpRequest(
+      {
+        ...request,
+        params: { ...request.params, _meta: { ...META, ...extra } },
+      },
+      {
+        topicMeetingRepositoryResolver: () => {
+          resolutions++;
+          return null;
+        },
+      },
+    );
+    assert.equal(mcpToolErrorText(response), "Invalid arguments");
+    assert.equal(resolutions, 1);
+  }
 });
 
 /**
@@ -107,12 +134,12 @@ test("一覧の四状態は既存MCPの非開示と取消区分を維持する",
       else assert.equal(intake.page, null);
       resolutions = 0;
       reads = 0;
-      const response = await handleMcpTopicMeetingRequest(
-        call(
-          kind === "topic" ? MCP_TOPIC_LIST_TOOL : "crdd.list_meetings",
-          conditions,
-        ),
-        resolve,
+      const response = await invokeMcpRequest(
+        call(kind === "topic" ? MCP_TOPIC_LIST_TOOL : "crdd.list_meetings", {
+          repositoryId: "repository.a",
+          ...conditions,
+        }),
+        { topicMeetingRepositoryResolver: resolve },
         controller.signal,
       );
       if (state === "complete") {
@@ -125,19 +152,18 @@ test("一覧の四状態は既存MCPの非開示と取消区分を維持する",
           _meta: {
             "io.modelcontextprotocol/serverInfo": {
               name: "crdd-mcp",
-              version: "0.20.0-development",
+              version: "0.22.0-development",
             },
           },
         });
-      } else {
+      } else if (state === "cancelled") {
         assert.deepEqual(response, {
           jsonrpc: "2.0",
           id: 1,
-          error:
-            state === "cancelled"
-              ? { code: -32800, message: "Request cancelled" }
-              : { code: -32602, message: "Invalid params" },
+          error: { code: -32800, message: "Request cancelled" },
         });
+      } else {
+        assert.equal(mcpToolErrorText(response), "Invalid arguments");
       }
       assert.equal(
         resolutions,
@@ -190,6 +216,48 @@ test("非同期一覧は対象解決待ちの取消を反映し、検査済み�
  * @cleanup N/A: メモリ内の入力とcallbackのみ。
  * @boundary 完全Schema→取消→Repository解決→操作直前取消。
  */
+test("Topic／Meetingの読取りは入力の形をSDKで拒否し対象に触れない", async () => {
+  let observations = 0;
+  const observed = () => {
+    observations++;
+    throw new Error("unexpected record observation");
+  };
+  const application = {
+    topic: { list: observed, getDocumentWithRelations: observed },
+    meeting: { list: observed, getDocumentWithRelations: observed },
+  } as unknown as TopicMeetingAccess;
+  for (const shared of [false, true]) {
+    const target = shared ? { repositoryId: "repository.a" } : {};
+    const dependencies = shared
+      ? { topicMeetingRepositoryResolver: observed }
+      : { topicMeeting: application };
+    for (const suffix of ["topic", "meeting"]) {
+      const list = `crdd.list_${suffix}s`;
+      const get = `crdd.get_${suffix}`;
+      const invalidCases = [
+        [list, { limit: 0 }],
+        [list, { limit: 101 }],
+        [list, { limit: 1.5 }],
+        [list, { cursor: 3 }],
+        [list, { query: true }],
+        [list, { states: ["open", "open", "open", "open", "open"] }],
+        [list, { states: [3] }],
+        [list, { pendingOnly: "false" }],
+        [get, {}],
+        [get, { id: suffix === "topic" ? "MTG-000042" : "TOPIC-000042" }],
+      ] as const;
+      for (const [name, input] of invalidCases) {
+        const result = await invokeMcpRequest(
+          call(name, { ...target, ...input }),
+          dependencies,
+        );
+        assert.equal(mcpToolErrorText(result), "Invalid arguments", name);
+      }
+      assert.equal(observations, 0);
+    }
+  }
+});
+
 test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決する", async () => {
   const commands: Readonly<Record<string, Readonly<Record<string, unknown>>>> =
     {
@@ -247,6 +315,68 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
     Object.keys(commands).sort(),
     [...MCP_TOPIC_MEETING_TOOLS].sort(),
   );
+  let openedRecords = 0;
+  const schemaOnlyDependencies = {
+    projectContext: {
+      readPortfolio: async () => ({
+        projects: [],
+        retainedAsSourceOfTruth: false as const,
+      }),
+    },
+    recordOperations: () => {
+      openedRecords++;
+      throw new Error("Record operations must not open for invalid arguments");
+    },
+  };
+  for (const [name, overrides] of [
+    [MCP_TOPIC_UPDATE_TOOL, { expectedRevision: Number.MAX_SAFE_INTEGER + 1 }],
+    [MCP_MEETING_TREAT_OUTCOME_TOOL, { outcomeId: "OUT-01" }],
+    [MCP_TOPIC_LIST_TOOL, { states: ["corrected"] }],
+    [MCP_TOPIC_LIST_TOOL, { sort: "occurred_desc" }],
+    [MCP_TOPIC_LIST_TOOL, { relation: "unknown" }],
+    ["crdd.list_meetings", { states: ["promoted"] }],
+    ["crdd.list_meetings", { sort: "date" }],
+    ["crdd.list_meetings", { occurredFrom: "2026/11/28" }],
+    ["crdd.list_meetings", { occurredTo: "11-28-2026" }],
+    [
+      MCP_MEETING_TREAT_OUTCOME_TOOL,
+      { targetKind: "topic", targetReference: "bad" },
+    ],
+    [
+      MCP_MEETING_TREAT_OUTCOME_TOOL,
+      { targetKind: "change", targetReference: "bad" },
+    ],
+  ] as const) {
+    const response = await invokeMcpRequest(
+      call(name, {
+        ...commands[name],
+        ...overrides,
+        repositoryId: "repository.a",
+      }),
+      schemaOnlyDependencies,
+    );
+    assert.ok(isMcpInvalidArguments(response, name));
+    assert.equal(openedRecords, 0);
+  }
+  const reservedArgument = {
+    repositoryId: "repository.a",
+    ["__proto__"]: null,
+  };
+  const rejected = await invokeMcpRequest(
+    call(MCP_TOPIC_LIST_TOOL, reservedArgument),
+    schemaOnlyDependencies,
+  );
+  assert.deepEqual(rejected.error, { code: -32602, message: "Invalid params" });
+  assert.equal(openedRecords, 0);
+  const validRelation = await invokeMcpRequest(
+    call(MCP_TOPIC_LIST_TOOL, {
+      repositoryId: "repository.a",
+      relation: " \tREQ-000001 ",
+    }),
+    schemaOnlyDependencies,
+  );
+  assert.equal(mcpToolErrorText(validRelation), "Tool execution failed");
+  assert.equal(openedRecords, 1, "正しい関連IDの前後空白はSDKで拒否しない");
   for (const name of MCP_TOPIC_MEETING_TOOLS) {
     const args = commands[name];
     assert.ok(args);
@@ -267,8 +397,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
       call(name, { ...args, repositoryId: "repository.a", extra: true }),
       dependencies,
     );
-    assert.ok("error" in invalid);
-    assert.equal(invalid.error.code, -32602);
+    assert.ok(isMcpInvalidArguments(invalid, name));
     assert.equal(resolutions, 0);
     const cancelled = new AbortController();
     cancelled.abort();
@@ -284,8 +413,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
       call(name, { ...args, repositoryId: "repository.a" }),
       dependencies,
     );
-    assert.ok("error" in denied);
-    assert.equal(denied.error.code, -32602);
+    assert.ok(isMcpInvalidArguments(denied, name));
     assert.equal(resolutions, 1);
     const abort = new AbortController();
     const resolving = await invokeMcpRequest(
@@ -300,8 +428,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
       },
       abort.signal,
     );
-    assert.ok("error" in resolving);
-    assert.equal(resolving.error.code, -32800);
+    assert.equal(mcpToolErrorText(resolving), "Request cancelled");
     assert.equal(resolutions, 2);
     const failed = await invokeMcpRequest(
       call(name, { ...args, repositoryId: "repository.a" }),
@@ -312,11 +439,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
         },
       },
     );
-    assert.deepEqual(failed, {
-      jsonrpc: "2.0",
-      id: 1,
-      error: { code: -32603, message: "Internal error" },
-    });
+    assert.equal(mcpToolErrorText(failed), "Tool execution failed");
     if (name === "crdd.list_topics" || name === "crdd.list_meetings") {
       for (const reason of [
         "project_operation_list_limit_invalid",
@@ -332,11 +455,10 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
             },
           },
         );
-        assert.ok("error" in resolverFailure);
-        assert.deepEqual(resolverFailure.error, {
-          code: -32603,
-          message: "Internal error",
-        });
+        assert.equal(
+          mcpToolErrorText(resolverFailure),
+          "Tool execution failed",
+        );
         /**
          * Domain列挙の固定失敗をAdapterへ返す。
          * @responsibility Domain列挙の固定失敗をAdapterへ返す。
@@ -352,15 +474,13 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
         const list = () => {
           throw new Error(reason);
         };
-        const direct = await handleMcpTopicMeetingRequest(call(name, {}), {
-          topic: { list },
-          meeting: { list },
-        } as unknown as TopicMeetingAccess);
-        assert.ok("error" in direct);
-        assert.deepEqual(direct.error, {
-          code: -32602,
-          message: "Invalid params",
+        const fromOwner = await invokeMcpRequest(call(name, {}), {
+          topicMeeting: {
+            topic: { list },
+            meeting: { list },
+          } as unknown as TopicMeetingAccess,
         });
+        assert.equal(mcpToolErrorText(fromOwner), "Invalid arguments");
       }
       // 旧容量境界は入力不正ではない。認可済み対象の解決まで進む。
       const beforeLongQuery = resolutions;
@@ -368,8 +488,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
         call(name, { query: "x".repeat(129), repositoryId: "repository.a" }),
         dependencies,
       );
-      assert.ok("error" in longQuery);
-      assert.equal(longQuery.error.code, -32602);
+      assert.ok(isMcpInvalidArguments(longQuery, name));
       assert.equal(resolutions, beforeLongQuery + 1);
       const invalidQueries = [
         { states: ["unknown"] },
@@ -392,8 +511,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
           call(name, { ...invalidQuery, repositoryId: "repository.a" }),
           dependencies,
         );
-        assert.ok("error" in invalidList);
-        assert.equal(invalidList.error.code, -32602);
+        assert.ok(isMcpInvalidArguments(invalidList, name));
         assert.equal(resolutions, before);
       }
     }
@@ -449,9 +567,9 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
             calls++;
             return topics.list(input);
           },
-          getDocument: (id: string) => {
+          getDocumentWithRelations: (id: string) => {
             calls++;
-            return topics.getDocument(id);
+            return topics.getDocumentWithRelations(id);
           },
           create: (_markdown: string) => {
             calls++;
@@ -543,11 +661,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       ),
     ] as const) {
       const response = await invokeMcpRequest(call(name, args), dependencies);
-      assert.deepEqual(response, {
-        jsonrpc: "2.0",
-        id: 1,
-        error: { code: -32602, message: "Invalid params" },
-      });
+      assert.ok(isMcpInvalidArguments(response, name));
       assert.equal(calls, 0);
     }
     for (const args of [
@@ -560,11 +674,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
         call(MCP_TOPIC_LIST_TOOL, args),
         dependencies,
       );
-      assert.deepEqual(response, {
-        jsonrpc: "2.0",
-        id: 1,
-        error: { code: -32602, message: "Invalid params" },
-      });
+      assert.ok(isMcpInvalidArguments(response, MCP_TOPIC_LIST_TOOL));
       assert.equal(calls, previous);
     }
     const previous = calls;
@@ -572,11 +682,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       call(MCP_TOPIC_CREATE_TOOL, { markdown: topic(1) }),
       dependencies,
     );
-    assert.deepEqual(failed, {
-      jsonrpc: "2.0",
-      id: 1,
-      error: { code: -32603, message: "Internal error" },
-    });
+    assert.equal(mcpToolErrorText(failed), "Tool execution failed");
     assert.equal(calls, previous + 1);
     assert.equal(topics.get("TOPIC-000042"), null);
     assert.equal(topics.create(topic(1)).status, "completed");
@@ -614,11 +720,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       ),
     ] as const) {
       const response = await invokeMcpRequest(call(name, args), dependencies);
-      assert.deepEqual(response, {
-        jsonrpc: "2.0",
-        id: 1,
-        error: { code: -32602, message: "Invalid params" },
-      });
+      assert.ok(isMcpInvalidArguments(response, name));
       assert.equal(calls, previous + 1);
     }
     const updated = await invokeMcpRequest(
@@ -629,11 +731,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       }),
       dependencies,
     );
-    assert.deepEqual(updated, {
-      jsonrpc: "2.0",
-      id: 1,
-      error: { code: -32603, message: "Internal error" },
-    });
+    assert.equal(mcpToolErrorText(updated), "Tool execution failed");
     assert.equal(calls, previous + 2);
     assert.equal(topics.get("TOPIC-000042")?.revision, 2);
     const listFailure = await invokeMcpRequest(call(MCP_TOPIC_LIST_TOOL, {}), {
@@ -648,11 +746,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
         },
       },
     });
-    assert.deepEqual(listFailure, {
-      jsonrpc: "2.0",
-      id: 1,
-      error: { code: -32603, message: "Internal error" },
-    });
+    assert.equal(mcpToolErrorText(listFailure), "Tool execution failed");
     for (const definition of getTopicMeetingToolDefinitions()) {
       const properties = definition.inputSchema.properties;
       if ("id" in properties) {

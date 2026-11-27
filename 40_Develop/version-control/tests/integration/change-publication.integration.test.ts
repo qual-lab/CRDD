@@ -129,8 +129,23 @@ test("共有登録用のorigin観測は資格なしの単一HTTPS設定だけを
     const origin = "https://example.invalid/team/project.git";
     git(fixture, "config", "--local", "remote.origin.url", origin);
     assert.equal(readOriginHttpsRemote(verified.capability), origin);
+    const captured = readOriginHttpsRemote(verified.capability, {
+      captureConfiguration: true,
+    });
+    assert.ok(captured);
+    assert.equal(captured.address, origin);
+    assert.equal(captured.configurationIsCurrent(), true);
+    git(fixture, "config", "--local", "user.name", "Fixture");
+    assert.equal(captured.configurationIsCurrent(), false);
+    assert.equal(readOriginHttpsRemote(verified.capability), origin);
     git(fixture, "config", "--local", "--add", "remote.origin.url", origin);
     assert.equal(readOriginHttpsRemote(verified.capability), null);
+    assert.equal(
+      readOriginHttpsRemote(verified.capability, {
+        captureConfiguration: true,
+      }),
+      null,
+    );
     git(
       fixture,
       "config",

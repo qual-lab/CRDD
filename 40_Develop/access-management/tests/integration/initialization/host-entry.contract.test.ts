@@ -1,7 +1,7 @@
 /**
  * Host保存先準備とCLI起動条件を検証する。
  * @packageDocumentation
- * @responsibility 自己生成Rootだけで部分作成・旧入力・本人確認済み初期化の拒否を反証する。
+ * @responsibility 自己生成Rootだけで部分作成・保存競合・本人確認済み初期化の拒否を反証する。
  * @trace RFD-IT-017
  * @trace RFD-IT-024
  * @trace RFD-IT-025
@@ -403,12 +403,10 @@ test("現行初回設定の別プロセス競合は管理者一人だけを保�
   assert.deepEqual(fs.readdirSync(f.state), ["access-management.json"]);
 });
 
-test("Google初回設定は処理途中の記録や旧管理状態を置き換えない", async (t) => {
+test("初回設定は現行の保存ファイルを置き換えない", async (t) => {
   for (const artifact of [
     "access-management.pending.json",
     "access-management.replace.json",
-    "credential-registry",
-    "credential-access-recovery",
     "access-management.json",
   ])
     await t.test(artifact, (caseContext) => {
@@ -597,7 +595,7 @@ test("通常Host ReaderはLinkと入力不正と二観測のIdentity差を拒否
  * @trace RFD-IT-024
  * @precondition 空の模擬OS base。
  * @stimulus 準備を二回呼び、無関係なFileも置く。
- * @observation 作成Path集合、Capability、旧入力分類とAM current不存在。
+ * @observation 作成先、保存先の実体一致と現在状態ファイルの不存在。
  * @oracle 初回3Directory、再入場0、無関係Fileで開始分類を変えない。
  * @cleanup FixtureがRootを回収する。
  * @boundary 公開Host Root準備と実Filesystem。
@@ -612,19 +610,12 @@ test("Host Rootは不足chainだけ作成し再入場で追加作成しない", 
     f.state,
   ]);
   if (first.status !== "ready") return;
-  assert.deepEqual(first.observePrevious(), {
-    management: "uninitialized",
-    attempt: "absent",
-    reason: "legacy_inputs_absent",
-  });
+  assert.equal(first.isCurrent(), true);
   fs.writeFileSync(path.join(f.state, "unrelated.txt"), "not-management");
   const again = prepareHostInitializationRoot(f.input);
   assert.equal(again.status, "ready");
   assert.deepEqual(again.createdDirectories, []);
-  assert.equal(
-    again.status === "ready" && again.observePrevious().reason,
-    "legacy_inputs_absent",
-  );
+  assert.equal(again.status === "ready" && again.isCurrent(), true);
   assert.equal(
     fs.existsSync(path.join(f.state, "access-management.json")),
     false,
@@ -813,10 +804,10 @@ test("Host Rootは不正親と部分作成・競合を別に処置する", (t) =
  * @trace RFD-IT-025
  * @precondition 自己生成Rootとrealpath中の置換注入。
  * @stimulus Capability作成時または準備後にRootを退避し別実体を置く。
- * @observation blockedまたは旧入力unknown、作成集合、対象外保持。
+ * @observation 準備拒否または実体の不一致、作成集合、対象外保持。
  * @oracle 根拠不一致から初期化0、自動回収0。
  * @cleanup 注入を戻しFixtureが両自己生成Rootを回収する。
- * @boundary Root実体とHost準備・旧入力Observer。
+ * @boundary Root実体とHost準備・実体の再照合。
  */
 test("Host Rootは準備中と準備後の実体置換を受理しない", (t) => {
   const f = fixture(t);
@@ -853,132 +844,56 @@ test("Host Rootは準備中と準備後の実体置換を受理しない", (t) =
         newIdentity.ino <= BigInt(Number.MAX_SAFE_INTEGER),
     }),
   );
-  assert.equal(
-    prepared.observePrevious().reason,
-    "host_previous_inputs_unknown",
-  );
+  assert.equal(prepared.isCurrent(), false);
 });
 
 /**
- * 旧入力の存在・不明を確認済み不存在へ変換しない。
- * @responsibility 旧本文を読まず正規不在だけ初回tupleへ渡す。
- * @trace RFD-IT-024
+ * Lock内で異なる保存先実体を観測した場合は新規保存しない。
  * @trace RFD-IT-025
- * @precondition 自己生成Rootと旧二領域のdirectory／file／link／観測故障。
- * @stimulus 各旧入力とRoot linkを配置して観測する。
- * @observation 既知存在・unknown理由、生成AM current不存在。
- * @oracle linkも既知存在、EACCESはunknown。旧内容採用・削除0。
- * @cleanup Fixture回収と故障注入解除。
- * @boundary Host旧入力metadata観測。
+ * @boundary 実Lockを用い、書込み直前の実体観測だけを差し替える。
  */
-test("Host旧入力は存在と観測不能を区別して新初期化しない", (t) => {
-  for (const mode of [
-    "management",
-    "recovery",
-    "both",
-    "link",
-    "unknown",
-  ] as const) {
-    const f = fixture(t);
-    const prepared = prepareHostInitializationRoot(f.input);
-    assert.equal(prepared.status, "ready");
-    if (prepared.status !== "ready") return;
-    const management = path.join(f.state, "credential-registry");
-    if (mode === "management" || mode === "both") fs.mkdirSync(management);
-    if (mode === "recovery" || mode === "both")
-      fs.writeFileSync(
-        path.join(f.state, "credential-access-recovery"),
-        "old-input",
-      );
-    if (mode === "link") fs.symlinkSync(f.base, management, "junction");
-    const lstat = fs.lstatSync;
-    if (mode === "unknown")
-      Object.defineProperty(fs, "lstatSync", {
-        value: ((target: fs.PathLike, options?: fs.StatOptions) => {
-          if (String(target) === management)
-            throw Object.assign(new Error("synthetic_access_denied"), {
-              code: "EACCES",
-            });
-          return lstat(target, options);
-        }) as typeof fs.lstatSync,
-      });
-    try {
-      const observed = prepared.observePrevious();
-      assert.equal(
-        observed.reason,
-        mode === "unknown"
-          ? "host_previous_inputs_unknown"
-          : mode === "both"
-            ? "legacy_inputs_present"
-            : mode === "recovery"
-              ? "legacy_recovery_present"
-              : "legacy_management_present",
-      );
-      const result = initializeAdministratorFromHost(
-        f.input,
-        "管理者",
-        {
-          issuer: "https://accounts.google.com",
-          subject: "first-admin",
-        },
-        new AbortController().signal,
-      );
-      assert.equal(result.status, "unavailable");
-      assert.equal(result.publication, "not_attempted");
-      assert.equal(
-        fs.existsSync(path.join(f.state, "access-management.json")),
-        false,
-      );
-    } finally {
-      Object.defineProperty(fs, "lstatSync", { value: lstat });
-    }
-  }
-});
-
-/**
- * 初回保存のLock内で旧入力を観測し、出現した旧保存物を保全する。
- * @trace RFD-IT-025
- * @boundary 事前観測→現行Host入口→AM保存Lock内の観測。
- */
-test("Host旧入力の観測間変化は初回出版を停止する", (t) => {
+test("初回保存はLock内で保存先の実体不一致を観測したら書き込まない", (t) => {
   const f = fixture(t);
-  const prepared = prepareHostInitializationRoot(f.input);
-  assert.equal(prepared.status, "ready");
-  if (prepared.status !== "ready") return;
-  assert.equal(prepared.observePrevious().management, "uninitialized");
-  const legacy = path.join(f.state, "credential-registry");
+  const replacement = fs.lstatSync(f.base, { bigint: true });
+  const lock = path.join(f.state, "access-management.state.lock");
+  const current = path.join(f.state, "access-management.json");
   const lstat = fs.lstatSync;
-  let observedWithLock = false;
+  let checkedCurrent = false;
+  let lockedRootReads = 0;
+  let observedReplacement = false;
   const hook = t.mock.method(
     fs,
     "lstatSync",
     (target: fs.PathLike, options?: fs.StatOptions) => {
-      if (target === legacy && !observedWithLock) {
-        assert.ok(
-          fs.existsSync(path.join(f.state, "access-management.state.lock")),
-        );
-        observedWithLock = true;
-        fs.mkdirSync(legacy);
+      if (target === current && fs.existsSync(lock)) checkedCurrent = true;
+      if (
+        checkedCurrent &&
+        !observedReplacement &&
+        path.resolve(String(target)) === f.state &&
+        options?.bigint &&
+        fs.existsSync(lock) &&
+        ++lockedRootReads === 2
+      ) {
+        observedReplacement = true;
+        return replacement;
       }
       return lstat(target, options);
     },
   );
-  const result = initializeAdministratorFromHost(
-    f.input,
-    "管理者",
-    { issuer: "https://accounts.google.com", subject: "first-admin" },
-    new AbortController().signal,
-  );
-  hook.mock.restore();
-  assert.equal(result.status, "unavailable");
-  assert.equal(result.publication, "not_attempted");
-  assert.equal(observedWithLock, true);
-  assert.equal(
-    fs.existsSync(path.join(f.state, "access-management.json")),
-    false,
-  );
-  assert.equal(
-    fs.statSync(path.join(f.state, "credential-registry")).isDirectory(),
-    true,
-  );
+  try {
+    const result = initializeAdministratorFromHost(
+      f.input,
+      "管理者",
+      { issuer: "https://accounts.google.com", subject: "first-admin" },
+      new AbortController().signal,
+    );
+    assert.equal(observedReplacement, true, JSON.stringify(result));
+    assert.equal(result.status, "unavailable");
+    assert.equal(result.publication, "not_attempted");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(fs.existsSync(current), false);
+    assert.deepEqual(fs.readdirSync(f.state), []);
+  } finally {
+    hook.mock.restore();
+  }
 });

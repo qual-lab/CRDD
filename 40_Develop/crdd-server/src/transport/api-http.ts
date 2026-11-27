@@ -7,10 +7,25 @@ import {
   createServer,
   type IncomingMessage,
   type RequestListener,
+  type Server,
   type ServerResponse,
 } from "node:http";
 import type { Socket } from "node:net";
-import { matchesSecret } from "../secret.ts";
+import { matchesSecret } from "../service/secret.ts";
+import { parseUnambiguousJsonDocument } from "./parse-json.ts";
+
+export type AsyncHttpHandler = (
+  request: IncomingMessage,
+  response: ServerResponse,
+  signal: AbortSignal,
+) => Promise<void>;
+
+/** 起動側へ渡すHTTP待受と、要求・終了の所有契約。 */
+export interface ApiServer {
+  readonly server: Server;
+  handleRequest(handler: AsyncHttpHandler): RequestListener;
+  close(): Promise<void>;
+}
 
 /**
  * HTTP要求の取消・終了とHandler接続を構成する。
@@ -27,7 +42,7 @@ import { matchesSecret } from "../secret.ts";
  * @security Body解析・静的配信・信頼Proxy・Session保存を追加しない。未送信時だけ共通保護Headerを設定し、切断・取消済み要求へ失敗応答を送らない。
  * @concurrency 要求専用Controllerを使い、接続終了後も全保留処理をjoinして監視を解除する。
  */
-export function createApiServer() {
+export function createApiServer(): ApiServer {
   const connections = new Set<Socket>();
   const pendingRequests = new Set<Promise<void>>();
   const controllers = new Set<AbortController>();
@@ -49,13 +64,7 @@ export function createApiServer() {
    * @concurrency 各要求で一回生成し、Listenerを使う複数要求のControllerを混在させない。
    */
   const handleRequest =
-    (
-      handler: (
-        incoming: IncomingMessage,
-        response: ServerResponse,
-        signal: AbortSignal,
-      ) => Promise<void>,
-    ): RequestListener =>
+    (handler: AsyncHttpHandler): RequestListener =>
     (incoming, response) => {
       if (closing) {
         incoming.destroy();
@@ -250,6 +259,24 @@ export function sendResponseBody(
   response.end(head ? undefined : body);
 }
 
+/** JSONの送信だけを担当する。要求の認可とHEADの選択は呼出し側に残す。 */
+export function createJsonReply(
+  response: ServerResponse,
+  options: Readonly<{ signal?: AbortSignal; head?: boolean }> = {},
+) {
+  return (status: number, value: unknown): void => {
+    if (options.signal && (options.signal.aborted || response.destroyed))
+      return;
+    sendResponseBody(
+      response,
+      "application/json; charset=utf-8",
+      JSON.stringify(value),
+      options.head,
+      status,
+    );
+  };
+}
+
 /** 受付で確定したHostに対して、単一のHostヘッダーだけを受け付ける。 */
 export function matchesRequestHost(
   incoming: IncomingMessage,
@@ -322,7 +349,28 @@ export async function readActionForm(
 }
 
 /** 指定した上限までの要求本文を、解析せず一回だけ捕捉する。 */
-export async function readRequestBody(
+export class RequestBodyTooLarge extends Error {
+  constructor() {
+    super("workbench_action_body_too_large");
+  }
+}
+
+/** 上限超過で読取りを打ち切った接続は次の要求へ再利用しない。 */
+export function requestFailureStatus(
+  error: unknown,
+  response: ServerResponse,
+): 400 | 413 {
+  if (!(error instanceof RequestBodyTooLarge)) return 400;
+  response.setHeader("Connection", "close");
+  return 413;
+}
+
+/** HEADは照会ルート選定だけGETと同じにし、生のRequestは変更しない。 */
+export function readRouteMethod(method: string | undefined) {
+  return method === "HEAD" ? "GET" : method;
+}
+
+async function readRequestBody(
   incoming: IncomingMessage,
   maxBytes: number,
 ): Promise<Buffer> {
@@ -330,14 +378,25 @@ export async function readRequestBody(
     throw new Error("workbench_action_body_limit_invalid");
   const declaredLength = incoming.headers["content-length"];
   if (declaredLength !== undefined && Number(declaredLength) > maxBytes)
-    throw new Error("workbench_action_body_too_large");
+    throw new RequestBodyTooLarge();
   const chunks: Buffer[] = [];
   let size = 0;
-  for await (const chunk of incoming) {
+  for await (const chunk of incoming.iterator({ destroyOnReturn: false })) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.byteLength;
-    if (size > maxBytes) throw new Error("workbench_action_body_too_large");
+    if (size > maxBytes) throw new RequestBodyTooLarge();
     chunks.push(buffer);
   }
   return Buffer.concat(chunks);
+}
+
+/** 前段確認済みのJSON本文を、指定の上限と既存の厳密な構文条件で一度だけ読む。 */
+export async function readJsonRequestBody(
+  incoming: IncomingMessage,
+  maxBytes: number,
+) {
+  const bytes = await readRequestBody(incoming, maxBytes);
+  return parseUnambiguousJsonDocument(
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+  );
 }

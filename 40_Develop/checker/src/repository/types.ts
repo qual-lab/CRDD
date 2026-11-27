@@ -40,6 +40,7 @@ export type BaselineSubmoduleState = Readonly<{
  */
 export type Discovery = Readonly<{
   files: string[];
+  trackedFilePaths: readonly string[] | null;
   source: string;
   git_failure: string | null;
   gitlink_detection: string;

@@ -138,7 +138,12 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     }
     const registry = path.join(root, "07_Quality", "Registry");
     fs.mkdirSync(registry);
-    const target = path.join(registry, "semantic-coverage-pilot.json");
+    const target = path.join(registry, "explicit-coverage.json");
+    const publication = [
+      "--write",
+      "--output",
+      "07_Quality/Registry/explicit-coverage.json",
+    ];
     const inputs = [
       "--architecture",
       "billing=06_Architecture/Details/billing/design.md",
@@ -162,6 +167,20 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     assert.equal(view.status, 0, view.stderr);
     assert.equal(JSON.parse(view.stdout).semanticIrs.length, 2);
     assert.equal(fs.existsSync(target), false);
+    for (const args of [
+      ["--write"],
+      ["--output", "07_Quality/Registry/explicit-coverage.json"],
+      ["--write", "--output", "snapshot.json"],
+      ["--write", "--output", "../outside.json"],
+    ]) {
+      const invalidOutput = spawnSync(
+        process.execPath,
+        [cli, "--semantic", "--root", root, ...inputs, ...args],
+        { encoding: "utf8", windowsHide: true },
+      );
+      assert.equal(invalidOutput.status, 64, invalidOutput.stderr);
+      assert.equal(fs.existsSync(target), false);
+    }
     for (const qualityPath of ["missing-quality.md", "../outside-quality.md"]) {
       const missingQuality = spawnSync(
         process.execPath,
@@ -173,7 +192,7 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
           ...inputs,
           "--quality",
           qualityPath,
-          "--write",
+          ...publication,
         ],
         { encoding: "utf8", windowsHide: true },
       );
@@ -204,7 +223,7 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     assert.equal(fs.existsSync(target), false);
     const write = spawnSync(
       process.execPath,
-      [cli, "--semantic", "--root", root, ...inputs, "--write"],
+      [cli, "--semantic", "--root", root, ...inputs, ...publication],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(write.status, 0, write.stderr);
@@ -214,6 +233,36 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
       JSON.parse(snapshot).contract,
       "crdd/semantic-coverage-pilot-bundle",
     );
+    const nested = path.join(root, "nested");
+    fs.mkdirSync(nested);
+    execFileSync("git", ["init", "--quiet", nested], { windowsHide: true });
+    const unrelated = path.join(registry, "application.json");
+    const untouched = '{"contract":"fixture/application"}\n';
+    fs.writeFileSync(unrelated, untouched);
+    for (const output of [
+      "nested/not-allowed.json",
+      "07_Quality/Registry/application.json",
+    ]) {
+      const blocked = spawnSync(
+        process.execPath,
+        [
+          cli,
+          "--semantic",
+          "--root",
+          root,
+          ...inputs,
+          "--write",
+          "--output",
+          output,
+        ],
+        { encoding: "utf8", windowsHide: true },
+      );
+      assert.equal(blocked.status, 2, blocked.stderr);
+      assert.match(blocked.stderr, /semantic_coverage_publication_failed/u);
+    }
+    assert.equal(fs.existsSync(path.join(nested, "not-allowed.json")), false);
+    assert.equal(fs.readFileSync(unrelated, "utf8"), untouched);
+    fs.unlinkSync(unrelated);
     const source = path.join(
       root,
       "06_Architecture",
@@ -225,7 +274,7 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     fs.writeFileSync(source, "# 欠測\n");
     const invalid = spawnSync(
       process.execPath,
-      [cli, "--semantic", "--root", root, ...inputs, "--write"],
+      [cli, "--semantic", "--root", root, ...inputs, ...publication],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(invalid.status, 1);
@@ -236,15 +285,13 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     fs.mkdirSync(target);
     const failure = spawnSync(
       process.execPath,
-      [cli, "--semantic", "--root", root, ...inputs, "--write"],
+      [cli, "--semantic", "--root", root, ...inputs, ...publication],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(failure.status, 2);
     assert.match(failure.stderr, /semantic_coverage_publication_failed/);
     assert.equal(fs.statSync(target).isDirectory(), true);
-    assert.deepEqual(fs.readdirSync(registry), [
-      "semantic-coverage-pilot.json",
-    ]);
+    assert.deepEqual(fs.readdirSync(registry), ["explicit-coverage.json"]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);

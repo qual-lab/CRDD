@@ -6,15 +6,65 @@
  * @boundary 非秘密の表示ModelとBrowser DOM。
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
-import { type ReactElement, useState } from "react";
+import type { ExecutionActivityObservation } from "@qual-lab/crdd-server";
+import { type ReactElement, useEffect, useState } from "react";
+import { readExecutionActivityPage } from "../api/view.ts";
 import { EmptyState, WorkbenchPanel } from "./elements.ts";
-import type { MainViewResponse } from "../api/response.ts";
+
+/** 明示の画面更新・対象・履歴ページごとに活動だけを取り直す。 */
+export function RepositoryExecutionActivity({
+  repositoryId,
+  projectId,
+  browserSession,
+  cursor,
+  refresh,
+}: {
+  repositoryId: string;
+  projectId: string;
+  browserSession: boolean;
+  cursor: string;
+  refresh: string;
+}): ReactElement {
+  const scope = JSON.stringify([
+    repositoryId,
+    projectId,
+    browserSession,
+    cursor,
+    refresh,
+  ]);
+  const [observed, setObserved] = useState<{
+    scope: string;
+    value: ExecutionActivityObservation | null;
+  } | null>(null);
+  useEffect(() => {
+    const owner = new AbortController();
+    const publish = (value: ExecutionActivityObservation | null) => {
+      if (!owner.signal.aborted) setObserved({ scope, value });
+    };
+    void readExecutionActivityPage(
+      repositoryId,
+      projectId,
+      cursor,
+      owner.signal,
+      browserSession,
+    ).then(publish, () => publish(null));
+    return () => owner.abort();
+  }, [repositoryId, projectId, browserSession, cursor, scope]);
+  const current = observed?.scope === scope ? observed : null;
+  return (
+    <ExecutionActivity
+      observation={current?.value ?? null}
+      waiting={current === null}
+      repositoryId={browserSession ? repositoryId : null}
+    />
+  );
+}
 
 /**
  * Coordinatorの現在状態とEventを成功・不在・不明の区別付きで表示する。
  * @responsibility Runtime Activityの状態、Eventと回復参照を一貫表示する。
  * @trace ARCH-000012
- * @input modelにRuntime Activity Snapshotを受け取る。
+ * @input 専用APIから受理した活動データと、取得中かどうか。
  * @returns Runtime Panelを返す。
  * @precondition EventはProject範囲と上限をServerで確定済みである。
  * @postcondition 観測不能と0件を区別する。
@@ -26,11 +76,14 @@ import type { MainViewResponse } from "../api/response.ts";
  * @concurrency Serverが確定したSnapshot順序を保つ。
  */
 export function ExecutionActivity({
-  model,
+  observation,
+  waiting = false,
+  repositoryId = null,
 }: {
-  model: MainViewResponse;
+  observation: ExecutionActivityObservation | null;
+  waiting?: boolean;
+  repositoryId?: string | null;
 }): ReactElement {
-  const observation = model.executionActivity;
   const graphs = observation?.graphs ?? [];
   const [selection, setSelection] = useState("");
   const graphKey = (graph: (typeof graphs)[number]) =>
@@ -53,7 +106,7 @@ export function ExecutionActivity({
           ? selected
             ? (progress?.milestoneState ?? "観測不能")
             : "実行を選択"
-          : (observation?.state ?? "Not connected")
+          : (observation?.state ?? (waiting ? "取得中" : "観測不能"))
       }
     >
       {(observation?.singleTasks ?? []).length ? (
@@ -91,7 +144,11 @@ export function ExecutionActivity({
         </label>
       )}
       {observation === null ? (
-        <EmptyState>Task状態の観測は未接続です。</EmptyState>
+        <EmptyState>
+          {waiting
+            ? "実行活動を取得しています。"
+            : "実行活動を確認できません。"}
+        </EmptyState>
       ) : choosingGraph && !selected ? (
         <EmptyState>
           {graphs.length > 0
@@ -146,7 +203,7 @@ export function ExecutionActivity({
           {observation.eventContinuation === null ? null : (
             <a
               className="page-link"
-              href={`/?activityCursor=${encodeURIComponent(observation.eventContinuation)}#runtime-activity`}
+              href={`/?${new URLSearchParams({ ...(repositoryId !== null && { repositoryId }), activityCursor: observation.eventContinuation })}#runtime-activity`}
             >
               次の実行履歴
             </a>

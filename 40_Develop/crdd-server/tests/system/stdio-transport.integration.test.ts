@@ -8,6 +8,7 @@
  * @scope mcp、project、runtime、stdio
  * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
+import { runMcpStdioFixture } from "../support/mcp-factory.ts";
 import assert from "node:assert/strict";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { spawn, spawnSync } from "node:child_process";
@@ -19,7 +20,6 @@ import { fileURLToPath } from "node:url";
 import { runCoordinatorStdioFixture } from "../fixtures/sdk-request.ts";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { runMcpStdio } from "../../src/transport/mcp-stdio.ts";
 import { objectiveRunTools } from "../../src/transport/mcp-types.ts";
 
 /**
@@ -95,7 +95,15 @@ test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用でき
     );
     const httpOnly = [
       "readWorkbenchHealth",
-      "readWorkbenchView",
+      "readWorkbenchOverview",
+      "readWorkbenchContext",
+      "get_project",
+      "get_change_document",
+      "get_owner_artifact",
+      "readRepositoryTree",
+      "headRepositoryTree",
+      "readRepositoryFileDiff",
+      "headRepositoryFileDiff",
       "readAiSelection",
       "probeAiSelection",
       "saveAiSelection",
@@ -195,7 +203,7 @@ test("stdioの状態照会と明示取消だけが実行中の要求に割り込
         },
       })}\n`,
     );
-  const running = runMcpStdio(
+  const running = runMcpStdioFixture(
     async (raw, signal) => {
       const {
         id,
@@ -264,7 +272,7 @@ test("stdioのObjective実行中は同一要求IDを別の取消に割り当て�
         },
       })}\n`,
     );
-  const running = runMcpStdio(
+  const running = runMcpStdioFixture(
     async (_raw, signal) => {
       deliveries++;
       await new Promise<void>((resolve) => {
@@ -319,7 +327,7 @@ test("stdioのEOFと重複IDは実行と状態照会の両方を取消し終了�
             })}\n`,
           );
         let closed = false;
-        const running = runMcpStdio(
+        const running = runMcpStdioFixture(
           async (raw, signal) => {
             const { id } = raw as { id: string };
             deliveries.push(id);
@@ -646,7 +654,7 @@ test("template toolsの公開入口はRepository Project Contextを取得する"
     stderr,
   )?.[1];
   assert.ok(address, "stdio mode announces the HTTP address to stderr");
-  const view = await fetch(`${address}/api/workbench/view`);
+  const view = await fetch(`${address}/api/workbench/overview`);
   assert.equal(view.status, 200);
   assert.equal((await view.json()).contract, "crdd/workbench/view/v1");
   const docs = await fetch(`${address}/openapi.json`);

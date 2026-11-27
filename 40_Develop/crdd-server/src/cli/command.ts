@@ -7,6 +7,7 @@
  * @security 外部Bind、共有から単体への切替、認証省略を行わない。
  */
 
+import { UUID_V4 } from "../service/identity.ts";
 import {
   readExistingHostRoot,
   readHostInitializationState,
@@ -40,19 +41,30 @@ import {
 } from "../service/execution.ts";
 import { readLocalProjectPortfolio } from "../service/project-context.ts";
 import { createLocalRecords } from "../service/topic.ts";
-import { configuredLoginProviders } from "../transport/login-providers.ts";
+import {
+  configuredLoginProviders,
+  isLoginProviderId,
+  loginFailure,
+  type LoginProviderId,
+  loginProviderProfiles,
+  readLoginFailure,
+} from "../service/login-providers.ts";
 import {
   createMcpServerFactory,
   type McpServerDependencies,
   readMcpServerConfiguration,
-  runMcpStdio,
 } from "../transport/mcp-server.ts";
-import { consumeOAuthEnvironment } from "./environment.ts";
+import { runMcpStdio } from "../transport/mcp-stdio.ts";
+import {
+  consumeOAuthEnvironment,
+  type SharedOAuthConfiguration,
+} from "./environment.ts";
 
 const usage = [
   "使い方: crdd-server [--shared | --mcp-stdio] [--port <0-65535>] [--docs]",
-  "        crdd-server --initialize --provider google --port <固定ポート>",
-  "        crdd-server --link-admin <管理者UUID> --provider google --port <固定ポート>",
+  "        crdd-server --initialize --provider <提供元> --port <固定ポート>",
+  "        crdd-server --link-admin <管理者UUID> --provider <提供元> --port <固定ポート>",
+  `--provider: ${Object.keys(loginProviderProfiles).join(", ")}`,
   "        crdd-server --help",
   "HTTP API・Workbench UIは127.0.0.1のみ。ポート省略または0で自動割当て。",
   "--shared: 既存Hostの管理状態と共有OAuth設定を使用します。--docs・--mcp-stdioと併用できません。",
@@ -71,7 +83,7 @@ type ServerOptions = Readonly<{
 }>;
 type AdminOptions = Readonly<{
   operation: { kind: "initialize" } | { kind: "link"; userId: string };
-  provider: "google";
+  provider: LoginProviderId;
   port: number;
 }>;
 
@@ -82,7 +94,7 @@ function readOptions(
   if (args.length === 1 && args[0] === "--help") return "help";
   const seen = new Set<string>();
   let port = 0;
-  let provider: string | undefined;
+  let provider: LoginProviderId | undefined;
   let userId: string | undefined;
   for (let index = 0; index < args.length; index++) {
     const option = args[index] ?? "";
@@ -106,17 +118,12 @@ function readOptions(
       port = Number(text);
       if (port > 65535) return null;
     } else if (option === "--provider") {
-      provider = args[++index];
-      if (provider !== "google") return null;
+      const requested = args[++index];
+      if (!isLoginProviderId(requested)) return null;
+      provider = requested;
     } else if (option === "--link-admin") {
       userId = args[++index];
-      if (
-        !userId ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
-          userId,
-        )
-      )
-        return null;
+      if (!userId || !UUID_V4.test(userId)) return null;
     }
   }
   const shared = seen.has("--shared");
@@ -129,7 +136,7 @@ function readOptions(
       shared ||
       mcpStdio ||
       documentation ||
-      provider !== "google" ||
+      provider === undefined ||
       port < 1
     )
       return null;
@@ -409,7 +416,7 @@ function createLocalMcpDependencies(
 async function startShared(
   repositoryRoot: string,
   port: number,
-  oauth: ReturnType<typeof consumeOAuthEnvironment>,
+  oauth: SharedOAuthConfiguration | undefined,
 ): Promise<WorkbenchHandle> {
   const configuration = await readWorkbenchServerConfiguration(repositoryRoot);
   const { publicOrigin: mcpPublicOrigin } =
@@ -421,7 +428,7 @@ async function startShared(
   const loginProviders = configuredLoginProviders(oauth.loginProviders);
   const initialization = readHostInitializationState(root, {
     acceptsAdministratorIssuer: (issuer) =>
-      loginProviders.some(({ profile }) => profile.acceptsIssuer(issuer)),
+      loginProviders.some((profile) => profile.acceptsIssuer(issuer)),
   });
   if (initialization.status === "fresh" || initialization.status === "unknown")
     throw new Error("workbench_host_initialization_unavailable");
@@ -429,7 +436,7 @@ async function startShared(
     initialization.status !== "existing" ||
     initialization.administratorLinked !== true
   )
-    throw new Error("host_google_administrator_unavailable");
+    throw loginFailure("host_administrator_unavailable");
   return startCrddServer({
     workingDirectory: repositoryRoot,
     port,
@@ -492,8 +499,11 @@ export async function runCrddServerCommand(): Promise<void> {
         process.stdout,
         stop.signal,
       );
-    } catch {
-      process.stderr.write("管理者設定を確認できませんでした。\n");
+    } catch (error) {
+      const reason = readLoginFailure(error);
+      process.stderr.write(
+        `管理者設定を確認できませんでした。${reason ? ` 理由: ${reason}` : ""}\n`,
+      );
       process.exitCode = 2;
     } finally {
       process.removeListener("SIGINT", cancel);
@@ -584,7 +594,8 @@ export async function runCrddServerCommand(): Promise<void> {
     }
   } catch (error) {
     const reason =
-      error instanceof Error &&
+      readLoginFailure(error) ??
+      (error instanceof Error &&
       [
         "workbench_host_configuration_unavailable",
         "workbench_host_initialization_unavailable",
@@ -595,15 +606,10 @@ export async function runCrddServerCommand(): Promise<void> {
         "mcp_oauth_configuration_invalid",
         "mcp_oauth_configuration_required",
         "git_hosts_configuration_required",
-        "google_login_configuration_invalid",
         "git_hosts_configuration_invalid",
         "git_host_connection_configuration_invalid",
         "git_host_connection_requires_client_login",
-        "github_connection_configuration_invalid",
         "git_host_monitor_configuration_invalid",
-        "google_login_unavailable",
-        "host_google_administrator_unavailable",
-        "host_google_initialization_unavailable",
         "crdd_server_public_origin_mismatch",
         "crdd_api_documentation_requires_local_mode",
         "workbench_shared_access_required",
@@ -618,7 +624,7 @@ export async function runCrddServerCommand(): Promise<void> {
         "repository_working_directory_invalid",
       ].includes(error.message)
         ? error.message
-        : "crdd_server_startup_unavailable";
+        : "crdd_server_startup_unavailable");
     process.stderr.write(
       `CRDD Serverの起動または終了を確認できません。${options.shared ? "単体へ切り替えず停止しました。" : ""}理由: ${reason}${reason === "shared_repository_roots_invalid" ? " (CRDD_SHARED_REPOSITORY_ROOTS)" : ""}\n`,
     );

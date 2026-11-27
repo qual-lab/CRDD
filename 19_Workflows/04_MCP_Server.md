@@ -30,6 +30,10 @@ Serverの準備には `lock`、`ai-adapter`、`version-control`、`configuration
 
 単体は信頼できる個人PC向けで、同じPC上の別ユーザーを分離する保証はない。単体では `--mcp-stdio`、共有ではOAuthで認証するHTTPをMCPの入口とする。どちらもObjective実行・判断送信・実行状態照会は通常のToolとして利用できる。単体は起動Repository、共有は指定した `repositoryId` と開発権限に結び付ける。起動や一覧取得だけで実行Ownerを開始しない。旧MCP単独コマンド・旧フラグの互換入口は設けない。
 
+単体stdio・共有HTTPのどちらも、公式SDKが対応する `server/discover` 方式を使う。v0.22で採用しているSDKのこの方式での対応版は `2026-07-28`。版の判定はSDKに委ね、旧方式の `initialize` は受け付けない。クライアントにサーバー名が表示されるだけでは接続成立ではないため、ツール一覧まで取得できることを確認する。固定版SDKと実クライアントの確認範囲は[接続確認の記録](../99_Roadmap/Changes/CHG-000082/Evidence/261127_mcp-client-connection.md)を参照する。
+
+Codexでこの版が試験機能になっている場合、利用者の `~/.codex/config.toml` の `[features]` に `mcp_2026_07_28 = true` を指定してCodexを再起動する。単体stdioでは、さらに対象サーバーの `[mcp_servers.<名前>.env]` に `CODEX_MCP_PROTOCOL_VERSION = "2026-07-28"` を指定する。この環境変数はCodexがstdioのプロトコルを選ぶ目印であり、共有HTTPの資格やCRDD Serverの起動設定ではない。
+
 ## 共有モードの初期設定と起動
 
 MCPとWorkbenchは独立した公開契約であり、一つの待受でも資格・認可を相互代用しない。明示 `--shared` は既存Hostのアクセス管理を使い、設定ファイルの存在で自動切替しない。最初の管理者はHost端末で設定し、利用者、管理ロール、リポジトリの登録はWorkbenchで管理する。MCPのアクセス管理は本人照会・利用者一覧・登録リポジトリ一覧のうち現在権限で許されたものだけを公開する。アクセス管理の書込みはMCPから行えない。
@@ -38,7 +42,9 @@ MCPとWorkbenchは独立した公開契約であり、一つの待受でも資�
 2. [共有OAuthの起動設定](#shared-oauth-startup)を揃え、起動リポジトリで、同じOSユーザーと `CROS_TRUST_DOMAIN_ID` を使い、`node 00_CRDD/template/tools/crdd-server.ts --shared --port <port>` を実行する。公式Repository内の確認ではコマンドの `00_CRDD/` を省く。初期設定済みのHostを再起動するときは、この手順から始める。
 3. 初回管理者は起動URLをブラウザーで開き、「Googleでログイン」から紐付けたアカウントでログインする。初期設定の状態が不明なら、表示された状態を確認し、保存物を消す・上書きする・初期化し直す操作は行わない。
 
-共有時は公開Originの両設定を同じ値にするか、両方とも省略する。違う値や一方だけの指定では起動しない。`--shared` は `--docs`・`--mcp-stdio` と併用できない。どのモードもLANやインターネットに直接公開しない。
+Gitホストへの参照が欠けたリポジトリ登録が保存されている場合は、共有Serverは起動しない。保存の版が4でも、欠けた登録を読み飛ばしたり自動補完したりしない。管理者の紐付け直しでは修復できないため、保存物を保全して運用担当者に確認する。単体モードはこの登録を使わない。
+
+共有時は公開Originの両設定を同じHTTPS Originにするか、両方とも省略する。違う値や一方だけの指定では起動しない。省略時のループバックHTTPでは、ブラウザーのCookieを同じ端末の別ポートから隔離できないため、端末の利用者とローカルサービスを信頼できる検証だけに使う。共有運用ではHTTPSの公開Originとリバースプロキシを使う。`--shared` は `--docs`・`--mcp-stdio` と併用できない。どのモードでもServer自身をLANやインターネットへ直接公開しない。
 
 <a id="shared-oauth-startup"></a>
 
@@ -55,6 +61,8 @@ GitHub Appは、組織が所有する非公開AppをServerごとに一つ登録�
 共有起動で有効にするログイン提供元は、起動環境の `CRDD_LOGIN_PROVIDERS` にJSON配列で指定する。v0.22は `["google"]` のみ対応する。未指定・空・重複・未対応は拒否する。Googleの `CRDD_GOOGLE_CLIENT_ID` と `CRDD_GOOGLE_CLIENT_SECRET`、登録クライアント一覧の `CRDD_MCP_OAUTH_CLIENTS`（`[{"id":"desktop","redirects":["http://127.0.0.1:18443/callback"]}]` 形式）、署名用RSA秘密鍵PEMの `CRDD_MCP_OAUTH_SIGNING_KEY` が必要。提供元の一覧と必要な設定はすべてHostの起動環境へ渡す。不足している場合は起動しない。Googleの戻り先には共有Originの `/api/session/login/google/callback` を登録する。公開Originを指定しないときは固定の `--port` が必要。例のクライアントIDと戻り先は実値に置き換える。Serverを再起動したら、MCPクライアントは接続許可をやり直す。
 
 ログアウト時にブラウザーのセッションが切れている場合は、本人を確認できないためMCPの利用許可やGitホスト連携を解除しない。Workbenchで再ログインしてから、改めてログアウトする。
+
+明示ログアウトやGitホスト連携解除で、CRDD内の連携を無効にできてもGitホスト側のトークン失効を確認できない場合がある。Workbenchにその旨が表示された場合、CRDD内の連携は既に解除されている。外部でも直ちに無効にする必要があれば、Gitホストのアカウント設定で該当アプリの認可を取り消す。ブラウザーを閉じるだけではログアウトにはならない。
 
 共有起動には、上記のログイン・OAuth設定に加え、`CRDD_GIT_HOSTS` にホストごとの設定をJSON配列で渡す。v0.22で指定できるのは `github.com`／`github` の組だけ。資格は配列に値ではなく環境変数名を記載する。
 
@@ -76,9 +84,11 @@ GitHub Appは、組織が所有する非公開AppをServerごとに一つ登録�
 
 GitHub Appには共有Originの `/api/session/git/github/callback` を登録する。GitHub固有の環境変数名は `providerData` に置く。共有Objectiveを実行する場合は、指定した環境変数に同じGitHub AppのRSA秘密鍵をPEMで渡す。実行監視を使わない構成では `privateKeyEnv` を省略できる。その構成では共有Objectiveの開始・再開を許可しない。任意指定の `apiBase` はGitHubでは既定の `https://api.github.com` のみ受理する。資格用の環境変数名は `CRDD_GITHUB_` または `CRDD_GIT_HOST_` で始まる大文字に限る。未設定・空一覧・重複・未対応ホストを受け付けず、旧形式への読み替えは行わない。変更は再起動で反映する。Gitホスト一覧を `.crdd/config` や起動オプションへ重複設定せず、秘密をRepository設定・CLI引数・ログへ書かない。
 
-公開HTTPS Originを指定する場合は、同じ値を起動リポジトリの`.crdd/config/mcp-server.json`と`.crdd/config/workbench-server.json`の両方へ設定する。ポートはCLI引数で指定する。[MCP設定例](../template/.crdd/config/mcp-server.example.json)と[Workbench設定例](../template/.crdd/config/workbench-server.example.json)は同じ例示用Originを使用し、実設定として自動採用しない。User・Credential・Binding・Exposureは既存Host管理状態が正本であり、手編集する`cros.json`や管理状態の設定例を別に作らない。保存境界と移行は[Access Management設計](../06_Architecture/Details/access-management/02_Management_State_and_API.md)を参照する。
+公開HTTPS Originを指定する場合は、同じ値を起動リポジトリの`.crdd/config/mcp-server.json`と`.crdd/config/workbench-server.json`の両方へ設定する。ポートはCLI引数で指定する。[MCP設定例](../template/.crdd/config/mcp-server.example.json)と[Workbench設定例](../template/.crdd/config/workbench-server.example.json)は同じ例示用Originを使用し、実設定として自動採用しない。利用者、外部ログインとの紐付け、登録済みリポジトリはアクセス管理の状態が正本であり、手編集する設定を別に作らない。保存境界と移行は[Access Management設計](../06_Architecture/Details/access-management/02_Management_State_and_API.md)を参照する。
 
-外部TLS終端はClient由来のForwarded Headerを除去し、`x-forwarded-proto=https`と期待する`x-forwarded-host`を上書きし、公開Hostを保持する。内部Listenerへの直接到達を運用側で禁止する。MCPのProtocol公開Pathは`/mcp`だけで、旧REST同一Origin・Gateway health・HTTP入口のstdin EOF終了を維持しない。BearerやTLS秘密鍵をRepository設定・argv・logへ保存しない。旧設定の移行・清掃はフロントAIがOwner停止・明示対応・読戻しを確認して実施し、Runtimeに旧形式fallbackを追加しない。
+共有運用には専用のHTTPSホスト名を使う。`127.0.0.1` のHTTPで共有を試す場合、Cookieは同じホストの別ポートから隔離されない。同居する利用者とローカルサービスを信頼できる検証用端末だけで使う。
+
+外部TLS終端はクライアント由来の転送ヘッダーを除去し、`x-forwarded-proto=https`と期待する`x-forwarded-host`を設定して公開Hostを保持する。内部の待受への直接到達は運用側で禁止する。WorkbenchとMCPは同じ公開Originを使い、MCPのプロトコル要求は `/mcp` に送る。HTTPのServerは標準入力の終了で停止しない。BearerやTLS秘密鍵をリポジトリ設定・起動引数・ログへ保存しない。旧設定の移行・清掃はフロントAIがOwner停止・明示対応・読戻しを確認して実施し、Serverに旧形式の代替処理を追加しない。
 
 <a id="google-host-setup"></a>
 
@@ -86,7 +96,7 @@ GitHub Appには共有Originの `/api/session/git/github/callback` を登録す�
 
 1. Host操作に使うGoogleクライアントに `http://127.0.0.1:<固定ポート>/api/session/host-admin/callback` を登録する。Hostの対話端末に `CRDD_GOOGLE_CLIENT_ID` と `CRDD_GOOGLE_CLIENT_SECRET` を設定する。この操作にはMCPのクライアント一覧・署名鍵は不要。
 2. `crdd-server` を、新規Hostでは `--initialize`、初期設定済みHostでは対象の管理者UUIDを指定して `--link-admin` で実行する。どちらも `--provider google` と登録した固定ポートを指定し、`--shared`・`--mcp-stdio`・`--docs` とは併用しない。端末のURLを同じPCのブラウザーで開く。
-3. Googleで本人確認したあと、画面に表示された8桁の確認コードをHost端末に入力する。初回設定では最初の管理者の表示名も入力する。既存管理者の再紐付けが確定すると、以前の紐付けによる接続は無効になる。
+3. Googleで本人確認したあと、Host端末に表示された確認済みアカウントが意図したものか確かめ、ブラウザーに出た8桁の確認コードを入力する。初回設定では最初の管理者の表示名も入力する。既存管理者の再紐付けが確定すると、以前の紐付けによる接続は無効になる。
 4. 設定完了後、通常の共有Serverは[共有OAuthとGitホストの起動設定](#shared-oauth-startup)を用意して別途起動する。Workbenchで「Googleでログイン」を選び、確認したGoogleアカウントで入る。
 
 共有ServerのHTTP APIでは、ブラウザーでGoogleにログインした後のセッションを使う。同じ待受の `/mcp` には、そのMCP向けに発行されたOAuthトークンを渡す。
@@ -101,7 +111,7 @@ GitHub Appには共有Originの `/api/session/git/github/callback` を登録す�
 
 一覧の取得後に管理状態が更新されていた場合、Workbenchは改訂競合（HTTP `409`）を表示して最新の一覧を取得する。その操作は保存されていない。内容を確認したうえで必要なら利用者が操作し直す。権限不足・対象不成立や保存結果不明は、改訂競合とは区別する。
 
-GitHub連携を有効にした場合、Googleでログイン後にWorkbenchの「GitHubを連携」から、組織が発行済みのアカウントを選ぶ。CRDDはGitホスト側のアカウントを作らない。連携後は許可されたProjectの一覧からリポジトリを選ぶ。開発範囲がありGitHubでは読取りだけが許された場合、作業領域では受付一覧のみ利用できる。画面の「このセッションのGitHub連携を解除」はCRDD内の切断で、GitHub上のアプリ許可全体を取り消さない。MCPからGitHub連携の対象を読む場合は、連携した同じブラウザーでMCP接続を許可する。連携を解除またはやり直した場合、古いMCP接続には別の資格が引き継がれない。
+GitHub連携を有効にした場合、Googleでログイン後にWorkbenchの「GitHubを連携」から、組織が発行済みのアカウントを選ぶ。CRDDはGitホスト側のアカウントを作らない。連携後は許可されたProjectの一覧からリポジトリを選ぶ。本人のGitホスト権限が読取りだけの場合、作業領域は照会できるが変更できない。画面の「このセッションのGitHub連携を解除」はCRDD内の切断で、GitHub上のアプリ許可全体を取り消さない。MCPからGitHub連携の対象を読む場合は、連携した同じブラウザーでMCP接続を許可する。同じGitHubアカウントで連携し直す場合は、既に許可したMCP接続を使い続けられる。別アカウントへ切り替えても既存のMCP接続はそのアカウントには移らない。新しいアカウントで使うにはMCP接続を許可し直す。明示的に連携解除した参照は、同じアカウントをつなぎ直しても復活しない。
 
 共有モードでリポジトリを登録するには、管理担当者本人がGoogleでログインしてGitHubを連携し、「管理セッションを開始」から「共有リポジトリを登録」を使う。起動元ではなく、登録対象のServer上の絶対パスと、対象の設定にあるリポジトリIDを入力する。対象のローカルGit設定に単一のHTTPS `origin` が必要で、本人とGitHub Appの両方に登録先を読める権限がなければ登録しない。登録時にGitHubを照会するが、クローンや内容のアップロードは行わない。
 
@@ -111,17 +121,17 @@ Topic・Meetingの一覧と詳細には、同じRepository配下の `GET …/top
 
 共有では両方の通信入口で、登録されたリポジトリに対する本人の現在の実効権限（読み取り／書き込み）をGitホストで確認する。GitHub Appの権限確認はGitHub固有の条件である。ローカルのHTTPS接続先も認可済みの外部リポジトリと一致させ、CRDDの管理ロールを内容の権限として扱わない。
 
-共有の書き込みにはCRDDの開発権限が必要。GitHub連携が必須の登録先には、本人・GitHub App双方の書き込み許可も必要。HTTPでは一覧URLへの `POST` で作成、詳細URLへの `PATCH` で更新、`DELETE` で削除する。昇格は Topic詳細URLの `/promotion` に `POST`、Outcome処置は Meeting詳細URLの `/outcomes/{outcomeId}/treatment` に `PUT` を送る。HTTPでの書き込みは同一OriginからJSONで受け付ける。MCPは対応する `create`・`update`・`delete`・`promote_topic`・`treat_meeting_outcome` の各ツールを使う。
+共有の書き込みには、登録済みの対象に対する本人のGitホストでの実効的な書き込み権限が必要。GitHubの場合はAppの書き込み許可も確認する。HTTPでは一覧URLへの `POST` で作成、詳細URLへの `PATCH` で更新、`DELETE` で削除する。昇格は Topic詳細URLの `/promotion` に `POST`、Outcome処置は Meeting詳細URLの `/outcomes/{outcomeId}/treatment` に `PUT` を送る。HTTPでの書き込みは同一OriginからJSONで受け付ける。MCPは対応する `create`・`update`・`delete`・`promote_topic`・`treat_meeting_outcome` の各ツールを使う。
 
 保存先は指定されたリポジトリの作業ツリー。削除時の参照確認もそのリポジトリ内に限り、Gitのコミットやpushは行わない。結果を確認できない場合は、権限を回復して現在の記録を取り直し、未保存と決めつけて再送しない。Gitホスト連携を必須とする登録先について、本人資格でのGitリモート操作はまだ接続していない。
 
-作業領域（Workspace）のHTTP操作は `/api/repositories/{repositoryId}/workspaces` とその下位リソースを使う。MCPでは `crdd.list_workspaces`、`crdd.get_workspace`、`crdd.create_workspace`、`crdd.rename_workspace` など、操作名のツールへ対象と必要な入力だけを渡す。GitHub付きの登録では、閲覧にもCRDDの開発範囲とGitHubの閲覧許可の両方が必要。名前変更や選択も含め、変更には追加でGitHubの書き込み許可が必要。失効・切断後に結果が不明な場合は、同じ要求を自動再送せず、作業領域の状態と回復案内を確認する。
+作業領域（Workspace）のHTTP操作は `/api/repositories/{repositoryId}/workspaces` とその下位リソースを使う。MCPでは `crdd.list_workspaces`、`crdd.get_workspace`、`crdd.create_workspace`、`crdd.rename_workspace` など、操作名のツールへ対象と必要な入力だけを渡す。共有での照会には、登録済みの対象に対する本人の実効的な読取り権限が必要。名前変更や選択も含め、変更には書き込み権限が必要。GitHubの場合はAppにも対応する権限が必要。失効・切断後に結果が不明な場合は、同じ要求を自動再送せず、作業領域の状態と回復案内を確認する。
 
 実行定義は、HTTPでは `/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}` 配下の計画・Objective・Taskを使う。MCPでは `crdd.get_execution_plan`、`crdd.list_objectives`、`crdd.list_tasks` と、初期化・保存・対象別の変更ツールを使う。Task一覧だけ任意の `queueId` を指定できる。定義の保存だけではAI実行を開始しない。結果が不明なときは現在の定義を確認し、自動再送しない。
 
 Gitホストを有効にしない構成では、Googleが設定済みでも共有サーバーは起動しない。[共有OAuthの起動設定](#shared-oauth-startup)に従って対応ホストを有効にし、リポジトリを登録する担当者本人がアカウントを連携する。
 
-`GET /api/workbench/view` はWorkbenchの画面専用。Project・Topic・Meetingなどの一覧だけが必要な場合は、各リソースのHTTP APIまたは対応するMCPツールを利用する。旧候補の採用入口は設けず、作業領域の固定・採用を用途別の操作から行う。
+`GET /api/workbench/overview` はWorkbenchの概要画面専用。Project・Topic・Meetingなどの一覧だけが必要な場合は、各リソースのHTTP APIまたは対応するMCPツールを利用する。旧候補の採用入口は設けず、作業領域の固定・採用を用途別の操作から行う。
 
 実行状態は、対応するリポジトリで `GET /api/repositories/{repositoryId}/runs/{requestId}` または `crdd.get_execution_state` から照会する。HTTPでは `projectId` と `repositoryRevision` をクエリに指定し、特定のキューを照会する場合だけ `queueId` を追加する。この照会で新しい実行は始まらない。
 
@@ -129,7 +139,7 @@ Objectiveを開始するときは `crdd.start_objective`、既存の実行IDを�
 
 判断は `crdd.request_decision`（要求）、`crdd.answer_decision`（回答）、`crdd.apply_decision`（適用）、`crdd.close_decision`（閉鎖）のいずれかを使う。HTTPではリポジトリ・プロジェクト・マイルストーン配下の `/decisions`、または判断ID配下の `/answers`、`/application`、`/closure` へ、開始・再開と同じ条件で `POST` する。回答だけでは実行は再開されない。すべての判断操作で、対象の世代と改訂を指定する。
 
-共有モードでも、実行状態の照会と判断操作を使える。WorkbenchではGoogleでログインしてGitHubを連携し、MCPでは連携済みのブラウザーから接続を許可する。照会にはCRDDの開発権限とGitHubの読み取り権限、判断の変更には本人とGitHub Appの書き込み権限が必要。利用できるセッションまたはMCPのOAuthトークンがなければ拒否する。判断後に応答を確認できないときは保存されていないと決めつけず、認可を回復して現在状態を確認する。
+共有モードでも、実行状態の照会と判断操作を使える。WorkbenchではGoogleでログインしてGitHubを連携し、MCPでは連携済みのブラウザーから接続を許可する。照会には登録済みの対象に対する本人の読み取り権限、判断の変更には書き込み権限が必要。GitHubの場合はAppの権限も確認する。利用できるセッションまたはMCPのOAuthトークンがなければ拒否する。判断後に応答を確認できないときは保存されていないと決めつけず、認可を回復して現在状態を確認する。
 
 ## ログインと連携の復旧
 
@@ -152,7 +162,11 @@ Objectiveを開始するときは `crdd.start_objective`、既存の実行IDを�
 
 共有Objectiveの実行中に、対象リポジトリの開発権限が失われたと確認できた場合は、その実行に取消を要求する。同じサーバーでの変更は保存通知を受けて確認し、別プロセスのHost操作は15秒間隔の確認で拾う。確認が遅れる場合があり、15秒以内の停止を保証するものではない。影響のない別のリポジトリの実行は止めない。終了や後片付けが不明なら、現在の実行状態と回復案内を確認し、自動で同じ要求を再送しない。
 
-Gitホスト連携が必須の登録先でObjectiveを開始・再開するには、CRDDの開発権限と本人・GitHub Appの書き込み権限が必要。Serverは実行中にも資格と対象を見直し、失効や接続先の変更を確認したら同じ実行に取消を要求する。一時的な観測不能だけでは実行中のTaskを即時取消ししないが、次のTaskを始める前や結果を返す前に確認できなければ許可しない。
+Workbenchで開始済みの共有AI依頼を監視中に同じ選択のまま画面を更新すると、同じブラウザーセッション・本人・Gitホスト連携・依頼に限り、観測から25秒未満の成功結果を使う。監視は15秒間隔で続け、画面の更新ではGitホストへ再照会しない。監視が観測不能・失効・対象変更になった場合や、結果の有効期間が過ぎた場合は以前の成功結果を使わない。別の依頼を照会するときや監視終了後の通常照会では、現在の認可を確認する。
+
+共有Objectiveは、最初のTaskが認可される前に受付の接続が切れると取り消される。認可された後は、ブラウザーやMCPクライアントが切断されても、切断だけでは実行を止めない。再接続したら新しく開始せず、元の実行IDで状態を確認する。
+
+共有でObjectiveを開始・再開するには、登録済みの対象に対する本人の実効的な書き込み権限が必要。GitHubの場合はAppの書き込み権限も確認する。Serverは実行中にも資格と対象を見直し、失効や接続先の変更を確認したら同じ実行に取消を要求する。一時的な観測不能だけでは実行中のTaskを即時取消ししないが、次のTaskを始める前や結果を返す前に確認できなければ許可しない。
 
 本人が実行に取消を要求する場合は、実行状態に表示された今回の `launchId` を使う。HTTPは実行状態URL配下の `/cancellation` に `projectId` と `launchId` を、開始・再開と同じ受付条件で `POST` する。MCPは `crdd.cancel_objective` に `projectId`、`requestId`、`launchId` を渡し、共有では `repositoryId` も指定する。HTTP `202` とMCPの `cancellation_requested` は取消要求を受理したことだけを表す。実行終了・回収は元の実行結果か状態照会で確認する。標準入出力では、同じ接続でObjectiveが実行中でも `crdd.get_execution_state` と `crdd.cancel_objective` を一件ずつ先に処理できる。開始要求そのものを取り消す既存のMCP要求取消通知も引き続き使える。
 
@@ -163,6 +177,10 @@ MCPの型、Lint、Formatおよび試験は`40_Develop/crdd-server`の`package.j
 ### 開発用HTTP API参照
 
 `crdd-server` の開発依存と `workbench-ui` の依存を導入し、公式Repositoryで `npm --prefix 40_Develop/crdd-server start -- --docs --port <port>` を実行する。起動が案内したlocalhost URLの `/docs` でSwagger UI、`/openapi.json` でOpenAPIを取得する。共有モード・AI有効化とは併用しない。Swagger UIからの操作送信、外部バリデーターへの送信、資格の保存は無効にしている。MCP Toolは次のInspectorで確認し、OpenAPIにJSON-RPCを重ねて定義しない。
+
+### HTTP APIとMCP stdioの性能計測
+
+`40_Develop/crdd-server` で `npm run benchmark -- 3` を実行する。反復回数は1〜10、既定は3。Workbenchの配布物がない場合は先に `npm run build:ui` を実行する。出力には、実行定義の初回保存と未設定Planの照会について、時間（最小／中央値／最大）とGit起動回数が含まれる。単体CLIと合成リポジトリだけを使用し、共有OAuthや外部Gitホストの待ち時間は含まない。[計測境界](../06_Architecture/Details/workbench-server/01_Architecture.md#http-apiとmcp-stdioの開発計測)も参照する。
 
 ### 公式MCP Inspector
 

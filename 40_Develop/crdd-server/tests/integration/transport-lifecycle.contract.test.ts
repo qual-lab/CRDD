@@ -9,24 +9,31 @@
  * @scope mcp、transport、lifecycle、cancellation、cleanup
  * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract / EST-IT-002=Adjacent 1 Block: Transport stream→Adapter→Application入口
  */
+
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
 import { createConnection } from "node:net";
 import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
-import { Server } from "@modelcontextprotocol/server";
+import { setImmediate as nextTurn } from "node:timers/promises";
+import {
+  fromJsonSchema,
+  McpServer,
+  Server,
+  type ServerContext,
+} from "@modelcontextprotocol/server";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-
 import {
   createMcpServerFactory,
   type McpCoordinatorDependencies,
-  runMcpStdio,
 } from "../../src/transport/mcp-server.ts";
+import type { McpServerFactory } from "../../src/transport/mcp-types.ts";
 import {
   runCoordinatorStdioFixture,
   startCoordinatorHttpFixture,
   startMcpHttpFixture,
 } from "../fixtures/sdk-request.ts";
+import { runMcpStdioFixture } from "../support/mcp-factory.ts";
 
 const SDK_META = {
   "io.modelcontextprotocol/protocolVersion": "2026-07-28",
@@ -44,11 +51,19 @@ function protocolComplete<T extends Readonly<Record<string, unknown>>>(
   };
 }
 
+function executionGate() {
+  let resolve = () => {};
+  const promise = new Promise<void>((open) => {
+    resolve = open;
+  });
+  return { promise, resolve };
+}
+
 /**
  * Factory拒否でも後続frameを壊さずJSON-lines応答を完了する。
  * @responsibility 入力拒否・初回保存失敗の改行と次要求を確認する。
  * @trace EST-IT-002
- * @precondition 不正cursorと正常一覧、初回保存失敗の合成Source。
+ * @precondition 版違い、無視されるカーソルとメタデータ、正常一覧の合成Source。
  * @stimulus 拒否と正常を連続送信し、初回拒否も別に送る。
  * @observation 改行終端、個別JSON解析、codeとOwner呼出し数を確認する。
  * @oracle frameは結合せず、拒否でOwner非実行、後続は通常成功する。
@@ -66,7 +81,7 @@ test("SDK stdioは入力拒否とFactory失敗を改行終端し次要求を維�
     write(chunk, _encoding, callback) {
       frames.push(String(chunk));
       callback();
-      if (frames.length === 2) finish();
+      if (frames.length === 9) finish();
     },
   });
   let reads = 0;
@@ -78,24 +93,118 @@ test("SDK stdioは入力拒否とFactory失敗を改行終端し次要求を維�
       },
     },
   });
-  const running = runMcpStdio(factory, input, sink);
+  let builds = 0;
+  const running = runMcpStdioFixture(
+    {
+      async createServer(...args) {
+        builds++;
+        return factory.createServer(...args);
+      },
+    },
+    input,
+    sink,
+  );
   try {
-    input.write(
-      `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { _meta: SDK_META, cursor: "invalid" } })}\n${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: { _meta: SDK_META } })}\n`,
-    );
+    const unsupported = {
+      ...SDK_META,
+      "io.modelcontextprotocol/protocolVersion": "2099-01-01",
+    };
+    for (const request of [
+      { id: 10, method: "server/discover", params: { _meta: unsupported } },
+      {
+        id: 1,
+        method: "tools/list",
+        params: { _meta: SDK_META, cursor: "ignored" },
+      },
+      {
+        id: 12,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "fixture", version: "1" },
+        },
+      },
+      {
+        id: 13,
+        method: "server/discover",
+        params: {
+          _meta: {
+            ...unsupported,
+            "io.modelcontextprotocol/clientCapabilities": {
+              experimental: { "private-marker": 42 },
+            },
+          },
+        },
+      },
+      {
+        id: 14,
+        method: "tools/list",
+        unusedEnvelopeField: true,
+        params: { _meta: { ...SDK_META, "private-marker": true } },
+      },
+      { id: 11, method: "server/discover", params: { _meta: SDK_META } },
+      { id: 2, method: "tools/list", params: { _meta: SDK_META } },
+      {
+        id: 15,
+        method: "tools/list",
+        params: { _meta: SDK_META, unusedParamsField: true },
+      },
+      {
+        id: 16,
+        method: "tools/call",
+        params: {
+          _meta: SDK_META,
+          name: "crdd.list_projects",
+          arguments: { unusedArgumentMarker: true },
+        },
+      },
+    ])
+      input.write(`${JSON.stringify({ jsonrpc: "2.0", ...request })}\n`);
     await both;
     input.end();
     assert.equal((await running).status, "completed");
     assert.ok(frames.every((frame) => frame.endsWith("\n")));
-    assert.equal(JSON.parse(frames[0] ?? "").error.code, -32602);
-    assert.equal(JSON.parse(frames[1] ?? "").result.tools.length, 2);
+    const wrongVersion = JSON.parse(frames[0] ?? "");
+    assert.equal(wrongVersion.id, 10);
+    assert.equal(wrongVersion.error.code, -32022);
+    assert.deepEqual(wrongVersion.error.data.supported, ["2026-07-28"]);
+    assert.equal(JSON.parse(frames[2] ?? "").error.code, -32601);
+    assert.deepEqual(JSON.parse(frames[3] ?? ""), {
+      jsonrpc: "2.0",
+      id: 13,
+      error: { code: -32602, message: "Invalid params" },
+    });
+    assert.deepEqual(JSON.parse(frames[5] ?? "").result.supportedVersions, [
+      "2026-07-28",
+    ]);
+    const listed = JSON.parse(frames[6] ?? "").result;
+    assert.equal(listed.tools.length, 2);
+    assert.equal(Object.hasOwn(listed, "nextCursor"), false);
+    assert.deepEqual(JSON.parse(frames[1] ?? "").result, listed);
+    assert.deepEqual(JSON.parse(frames[4] ?? "").result, listed);
+    assert.deepEqual(JSON.parse(frames[7] ?? ""), {
+      jsonrpc: "2.0",
+      id: 15,
+      error: { code: -32602, message: "Invalid params" },
+    });
+    const invalidArguments = JSON.parse(frames[8] ?? "");
+    assert.equal(invalidArguments.id, 16);
+    assert.equal(invalidArguments.error, undefined);
+    assert.equal(invalidArguments.result.isError, true);
+    assert.deepEqual(invalidArguments.result.content, [
+      { type: "text", text: "Invalid arguments" },
+    ]);
+    assert.equal(invalidArguments.result.structuredContent, undefined);
+    assert.doesNotMatch(frames[8] ?? "", /unusedArgumentMarker/u);
+    assert.equal(builds, 5);
     assert.equal(reads, 0);
   } finally {
     input.end();
     await running;
   }
   const failed = output();
-  await runMcpStdio(
+  await runMcpStdioFixture(
     {
       async createServer() {
         throw new Error("fixture_factory_unavailable");
@@ -153,7 +262,7 @@ test("SDK stdioはFactory生成中の取消を保持し次IDへ流用しない",
   });
   let settled = false;
   let nextAborted: boolean | null = null;
-  const running = runMcpStdio(
+  const running = runMcpStdioFixture(
     {
       async createServer(raw, signal, observe) {
         if ((raw as { id: number }).id === 1) {
@@ -242,7 +351,7 @@ test("SDK stdioは出力故障でもOwnerを取消してjoinする", async () =>
     started = resolve;
   });
   let joined = false;
-  const running = runMcpStdio(
+  const running = runMcpStdioFixture(
     async (_raw, signal) => {
       started();
       await new Promise<void>((resolve) =>
@@ -322,7 +431,7 @@ test("SDK stdioは通常要求の入力と出力callbackを逐次に保つ", {
       }
     },
   });
-  const running = runMcpStdio(
+  const running = runMcpStdioFixture(
     async (raw) => {
       const request = raw as {
         id: number;
@@ -396,7 +505,7 @@ test("SDK stdioは実行中取消を伝播してOwner joinと意味結果を保�
     release = resolve;
   });
   let settled = false;
-  const running = runMcpStdio(
+  const running = runMcpStdioFixture(
     async (_raw, signal) => {
       started();
       await new Promise<void>((resolve) =>
@@ -459,6 +568,254 @@ test("SDK stdioは実行中取消を伝播してOwner joinと意味結果を保�
 });
 
 /**
+ * 高水準SDKの候補でも、応答を失った実行の終了と回復情報を追跡できることを確認する。
+ * @trace EST-IT-002
+ * @boundary ローカルHTTP／stdioストリームと合成Objective。実AI・実回復・保存なし。
+ */
+test("McpServer候補はHTTP切断とstdio通知を実行側へ伝え、回復結果まで待つ", {
+  timeout: 10_000,
+}, async () => {
+  const tool = "crdd.start_objective";
+  const inputSchema = fromJsonSchema({
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  });
+  const bearerToken = "local-mcp-migration-lifecycle-bearer";
+  const call = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { _meta: SDK_META, name: tool, arguments: {} },
+  };
+  const recovery = {
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    effectState: "unknown",
+    recoveryIds: ["host.fixture"],
+    recoveryObligations: [{ kind: "host", recoveryId: "host.fixture" }],
+  };
+  for (const transport of ["http", "stdio"] as const) {
+    const started = executionGate();
+    const cancelled = executionGate();
+    const release = executionGate();
+    const deadline = AbortSignal.timeout(2500);
+    const waitFor = (phase: string, operation: Promise<void>) =>
+      new Promise<void>((resolve, reject) => {
+        const onTimeout = () => reject(new Error(`${transport}: ${phase}`));
+        if (deadline.aborted) return onTimeout();
+        deadline.addEventListener("abort", onTimeout, { once: true });
+        void operation.then(() => {
+          deadline.removeEventListener("abort", onTimeout);
+          resolve();
+        });
+      });
+    let ownerResult: typeof recovery | undefined;
+    let cancellationSourceObserved = false;
+    let calls = 0;
+    const candidate: McpServerFactory = {
+      async createServer(_raw, transportSignal, observe) {
+        const server = new McpServer(
+          { name: "crdd-mcp-migration-probe", version: "1" },
+          { capabilities: { tools: { listChanged: false } } },
+        );
+        server.registerTool(
+          tool,
+          { inputSchema },
+          async (_args: unknown, context: ServerContext) => {
+            const signal = AbortSignal.any([
+              transportSignal,
+              context.mcpReq.signal,
+            ]);
+            const pending = (async () => {
+              calls++;
+              await new Promise<void>((resolve) => {
+                const onAbort = () => {
+                  cancellationSourceObserved =
+                    transport === "http"
+                      ? transportSignal.aborted
+                      : context.mcpReq.signal.aborted &&
+                        !transportSignal.aborted;
+                  cancelled.resolve();
+                  resolve();
+                };
+                if (signal.aborted) onAbort();
+                else signal.addEventListener("abort", onAbort, { once: true });
+                started.resolve();
+              });
+              await release.promise;
+              ownerResult = recovery;
+              return protocolComplete(call.id, {
+                content: [],
+                structuredContent: recovery,
+                isError: true,
+              });
+            })();
+            observe?.(pending, context.mcpReq.signal);
+            return (await pending).result;
+          },
+        );
+        return server.server;
+      },
+    };
+    if (transport === "http") {
+      const listener = await startMcpHttpFixture(candidate, {
+        port: 0,
+        bearerToken,
+      });
+      const socket = new AbortController();
+      const request = fetch(
+        `http://${listener.host}:${listener.port}${listener.endpoint}`,
+        {
+          method: "POST",
+          signal: socket.signal,
+          headers: {
+            authorization: `Bearer ${bearerToken}`,
+            accept: "application/json, text/event-stream",
+            "content-type": "application/json",
+            "mcp-protocol-version": "2026-07-28",
+            "mcp-method": call.method,
+            "mcp-name": tool,
+          },
+          body: JSON.stringify(call),
+        },
+      );
+      const reply = request.then(
+        (response) => ({ status: response.status }),
+        (error: unknown) => ({ error }),
+      );
+      try {
+        await waitFor("実行開始を観測できない", started.promise);
+        assert.equal(cancellationSourceObserved, false);
+        socket.abort();
+        assert.ok("error" in (await reply));
+        await waitFor("切断が実行側へ届かない", cancelled.promise);
+        assert.equal(cancellationSourceObserved, true);
+        let closed = false;
+        let resultAtClose: typeof recovery | undefined;
+        const end = listener.close().then(() => {
+          closed = true;
+          resultAtClose = ownerResult;
+        });
+        await nextTurn();
+        assert.equal(closed, false);
+        assert.equal(ownerResult, undefined);
+        release.resolve();
+        await end;
+        assert.deepEqual(resultAtClose, recovery);
+      } finally {
+        socket.abort();
+        release.resolve();
+        await listener.close();
+      }
+    } else {
+      const input = new PassThrough();
+      const sink = output();
+      let ended = false;
+      let resultAtClose: typeof recovery | undefined;
+      const running = runMcpStdioFixture(
+        candidate,
+        input,
+        sink.stream,
+        deadline,
+      ).then((result) => {
+        ended = true;
+        resultAtClose = ownerResult;
+        return result;
+      });
+      try {
+        input.write(`${JSON.stringify(call)}\n`);
+        await waitFor("実行開始を観測できない", started.promise);
+        assert.equal(cancellationSourceObserved, false);
+        input.write(
+          `${JSON.stringify({
+            jsonrpc: "2.0",
+            method: "notifications/cancelled",
+            params: {
+              requestId: call.id,
+              _meta: { ...SDK_META, progressToken: 0 },
+            },
+          })}\n`,
+        );
+        await nextTurn();
+        assert.equal(cancellationSourceObserved, false);
+        input.write(
+          `${JSON.stringify({
+            jsonrpc: "2.0",
+            method: "notifications/cancelled",
+            params: {
+              requestId: call.id,
+              _meta: {
+                ...SDK_META,
+                "io.modelcontextprotocol/protocolVersion": "2099-01-01",
+              },
+            },
+          })}\n`,
+        );
+        await nextTurn();
+        assert.equal(cancellationSourceObserved, false);
+        for (const extra of [
+          { _meta: { ...SDK_META, unexpectedMetadata: true } },
+          { _meta: SDK_META, unexpectedParameter: true },
+        ]) {
+          input.write(
+            `${JSON.stringify({
+              jsonrpc: "2.0",
+              method: "notifications/cancelled",
+              params: { requestId: call.id, ...extra },
+            })}\n`,
+          );
+          await nextTurn();
+          assert.equal(cancellationSourceObserved, false);
+        }
+        input.write(
+          `${JSON.stringify({
+            jsonrpc: "2.0",
+            method: "notifications/cancelled",
+            params: { requestId: call.id, _meta: SDK_META },
+          })}\n`,
+        );
+        await waitFor("取消通知が実行側へ届かない", cancelled.promise);
+        assert.equal(cancellationSourceObserved, true);
+        input.end();
+        await nextTurn();
+        assert.equal(ended, false);
+        assert.equal(ownerResult, undefined);
+        release.resolve();
+        const end = await running;
+        assert.deepEqual(resultAtClose, recovery);
+        // 応答は不正通知の拒否だけ。従来どおり有効な取消には応答しない。
+        const invalidNotification = {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32600, message: "Invalid Request" },
+        };
+        assert.deepEqual(
+          sink
+            .read()
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line)),
+          [invalidNotification, invalidNotification, invalidNotification],
+        );
+        assert.equal(end.semanticResultObserved, true);
+        assert.equal(end.cleanupConfirmed, false);
+        assert.equal(end.manualRecoveryRequired, true);
+        assert.equal(input.listenerCount("data"), 0);
+      } finally {
+        release.resolve();
+        input.end();
+        await running;
+        input.destroy();
+        sink.stream.destroy();
+      }
+    }
+    assert.equal(calls, 1);
+    assert.deepEqual(ownerResult, recovery);
+  }
+});
+
+/**
  * 解析済み待機要求の総量超過を停止へ接続する。
  * @responsibility SDKの一frame上限だけへ入力制限を縮めない。
  * @trace EST-IT-002
@@ -477,7 +834,7 @@ test("SDK stdioは小frameの待機総量でも128KiBを強制する", async () 
     started = resolve;
   });
   let calls = 0;
-  const running = runMcpStdio(
+  const running = runMcpStdioFixture(
     async (_raw, signal) => {
       calls += 1;
       started();
@@ -708,6 +1065,96 @@ test("HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒�
   );
 });
 
+test("HTTPのSDK Factory生成中に終了するとToolを開始せずServerの回収を待つ", {
+  timeout: 10_000,
+}, async (t) => {
+  const entered = executionGate();
+  const cancelled = executionGate();
+  const finishCreation = executionGate();
+  const closingProduct = executionGate();
+  const finishClose = executionGate();
+  let calls = 0;
+  let closes = 0;
+  const listener = await startMcpHttpFixture(
+    {
+      async createServer(_request, signal) {
+        signal.addEventListener("abort", cancelled.resolve, { once: true });
+        entered.resolve();
+        await finishCreation.promise;
+        const product = new Server(
+          { name: "fixture", version: "1" },
+          { capabilities: { tools: {} } },
+        );
+        product.setRequestHandler("tools/list", () => {
+          calls++;
+          return { tools: [] };
+        });
+        const close = product.close.bind(product);
+        t.mock.method(product, "close", async () => {
+          closes++;
+          closingProduct.resolve();
+          await finishClose.promise;
+          await close();
+        });
+        return product;
+      },
+    },
+    { port: 0, bearerToken: TOKEN },
+  );
+  const connection = new AbortController();
+  const output = fetch(
+    `http://${listener.host}:${listener.port}${listener.endpoint}`,
+    {
+      method: "POST",
+      signal: connection.signal,
+      headers: {
+        authorization: `Bearer ${TOKEN}`,
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        "mcp-protocol-version": "2026-07-28",
+        "mcp-method": "tools/list",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "pending-factory",
+        method: "tools/list",
+        params: { _meta: SDK_META },
+      }),
+    },
+  );
+  const disconnected = assert.rejects(output);
+  try {
+    await Promise.race([
+      entered.promise,
+      output.then(() => assert.fail("factory_not_entered")),
+    ]);
+    let listenerClosed = false;
+    const shutdown = listener.close().then((result) => {
+      listenerClosed = true;
+      return result;
+    });
+    await cancelled.promise;
+    connection.abort();
+    await disconnected;
+    assert.equal(listenerClosed, false);
+    assert.equal(closes, 0);
+    finishCreation.resolve();
+    await closingProduct.promise;
+    assert.equal(listenerClosed, false);
+    assert.equal(calls, 0);
+    finishClose.resolve();
+    await shutdown;
+    assert.equal(closes, 1);
+    assert.equal(calls, 0);
+  } finally {
+    connection.abort();
+    finishCreation.resolve();
+    finishClose.resolve();
+    await listener.close();
+    await disconnected;
+  }
+});
+
 /**
  * 公式SDKへの搬送でTool結果を二重包装せず、既存の入口拒否を保持する。
  * @responsibility SDK標準応答とCRDDの閉じた公開操作・JSON入力境界を実HTTPで照合する。
@@ -778,7 +1225,7 @@ test("SDK HTTPはTool結果と入口拒否を維持する", async (t) => {
   assert.equal(calls, 1);
   for (const [invalidHeaders, status] of [
     [{ accept: "text/event-stream" }, 400],
-    [{ "content-type": "text/plain" }, 400],
+    [{ "content-type": "text/plain" }, 415],
     [{ origin: "https://fixture.invalid" }, 403],
   ] as const) {
     const rejected = await fetch(

@@ -7,19 +7,33 @@
  */
 
 import { readFile } from "node:fs/promises";
-import type { IncomingMessage } from "node:http";
-import type { ServerResponse } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRequire } from "node:module";
+import {
+  decisionRequestSchema,
+  definitionReadFields,
+  definitionWriteFields,
+  executionDecisionTools,
+  executionDefinitionResources,
+  objectiveCancellationSchema,
+  objectiveRequestSchema,
+} from "../service/execution.ts";
+import { RESOURCE_ID } from "../service/identity.ts";
+import { workspaceInputSchema } from "../service/workspace-request.ts";
+import { matchesRequestHost, setResponseHeaders } from "./api-http.ts";
 import {
   aiRequestReadRoutes,
   aiRequestWriteRoutes,
   aiSelectionRoute,
-  executionStateRoute,
+  artifactResources,
   executionActivityRoute,
+  executionStateRoute,
   executionWriteRoutes,
   projectContextRoutes,
+  repositoryFilesRoutes,
   repositoryWriteRoutes,
   topicMeetingResources,
+  workbenchContextPath,
   workspaceResources,
 } from "./api-server.ts";
 import {
@@ -30,17 +44,6 @@ import {
   MCP_WORKSPACE_TOOLS,
 } from "./mcp-server.ts";
 import { objectiveRunTools } from "./mcp-types.ts";
-import { workspaceInputSchema } from "./api-types.ts";
-import {
-  definitionReadFields,
-  definitionWriteFields,
-  executionDefinitionResources,
-  decisionRequestSchema,
-  executionDecisionTools,
-  objectiveRequestSchema,
-  objectiveCancellationSchema,
-} from "../service/execution.ts";
-import { matchesRequestHost, setResponseHeaders } from "./api-http.ts";
 
 const string = { type: "string" } as const;
 const operationForTool = (tool: `crdd.${string}`) => tool.slice("crdd.".length);
@@ -54,6 +57,10 @@ const readResponses = {
   default: {
     description: "現在の対象・認可・入力を確認できない場合は結果を返さない。",
   },
+};
+const headResponses = {
+  ...readResponses,
+  "200": { description: "取得可能。本文なし。" },
 };
 const writeErrors = {
   "400": { description: "入力又は要求の受理条件が不成立。" },
@@ -107,7 +114,7 @@ const repositoryWriteDocumentation = repositoryWriteRoutes.reduce<
           pattern:
             name === "revision"
               ? "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-              : "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              : RESOURCE_ID.source,
         },
       })),
       {
@@ -141,7 +148,7 @@ function aiRequestWriteOperation(route: (typeof aiRequestWriteRoutes)[number]) {
   const start = operation === "start";
   const requestId = {
     type: "string",
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+    pattern: RESOURCE_ID.source,
   };
   const nullableString = { anyOf: [string, { type: "null" }] };
   return {
@@ -253,7 +260,10 @@ for (const { method, path, kind, operation } of topicMeetingResources) {
   recordPaths[pathname][method] = {
     operationId: operationForTool(toolName),
     summary: definition.title,
-    description: definition.description,
+    description:
+      operation === "get"
+        ? `${definition.description} 応答のrepositoryIdは本文の情報源、writableは現在の操作可否の表示用であり、書込み時は再認可する。`
+        : definition.description,
     security: localAccess,
     parameters,
     ...(method === "get"
@@ -360,7 +370,7 @@ const definitionFields = { ...definitionReadFields, ...definitionWriteFields };
 const definitionPaths: Record<string, Record<string, unknown>> = {};
 const definitionId = {
   type: "string",
-  pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  pattern: RESOURCE_ID.source,
 };
 const definitionHash = { type: "string", pattern: "^[a-f0-9]{64}$" };
 for (const [key, route] of Object.entries(executionDefinitionResources)) {
@@ -420,7 +430,15 @@ for (const [key, route] of Object.entries(executionDefinitionResources)) {
         },
       },
     }),
-    responses: read ? readResponses : writeResponses,
+    responses: read
+      ? readResponses
+      : {
+          ...writeResponses,
+          "413": { description: "要求本文が上限を超えた。" },
+          ...(operation === "initialize" && {
+            "201": { ...json, description: "実行定義を作成した。" },
+          }),
+        },
   };
 }
 
@@ -429,8 +447,29 @@ function query(name: string, required = false, schema: object = string) {
   return { name, in: "query", required, schema };
 }
 
+const projectListParameters = [
+  query("repositoryId"),
+  query("q"),
+  query("state", false, {
+    type: "string",
+    enum: ["complete", "partial", "conflicting"],
+  }),
+  query("cursor"),
+  query("limit", false, { type: "integer", minimum: 1, maximum: 50 }),
+];
+const activityParameters = [
+  { name: "repositoryId", in: "path", required: true, schema: string },
+  query("cursor"),
+  query("limit", false, {
+    type: "integer",
+    minimum: 1,
+    maximum: 50,
+    default: 20,
+  }),
+];
+
 // HTTPの通信契約。操作別の業務入力・認可・保存条件は実装Ownerに残す。
-export const openApiDocument = {
+const openApiDocument = {
   openapi: "3.1.1",
   info: {
     title: "CRDD Server HTTP API",
@@ -455,8 +494,27 @@ export const openApiDocument = {
         operationId: operationForTool(MCP_PROJECT_CONTEXT_LIST_TOOL),
         summary: "認可されたProjectの一覧を取得",
         description:
-          "各Projectの repositoryIds は現在読み取れるリポジトリのID。Project Contextの詳細に渡す対象をこの一覧から選ぶ。",
+          "現在許可された情報源のIDと状態を返す。検索・ページ指定があるときは継続位置も返す。Project Contextの本文は詳細リソースで取得する。",
         security: localAccess,
+        parameters: projectListParameters,
+        responses: readResponses,
+      },
+      head: {
+        operationId: "headProjectList",
+        summary: "認可されたProjectの一覧を本文なしで確認",
+        security: localAccess,
+        parameters: projectListParameters,
+        responses: headResponses,
+      },
+    },
+    [projectContextRoutes.project.replace(/:(\w+)/gu, "{$1}")]: {
+      get: {
+        operationId: "get_project",
+        summary: "Projectの認可された情報源を取得",
+        security: localAccess,
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: string },
+        ],
         responses: readResponses,
       },
     },
@@ -474,33 +532,58 @@ export const openApiDocument = {
         responses: readResponses,
       },
     },
-    "/api/workbench/view": {
+    [artifactResources.change.replace(/:(\w+)/gu, "{$1}")]: {
       get: {
-        operationId: "readWorkbenchView",
-        summary: "現在表示可能なWorkbench投影を取得",
-        description:
-          "起動リポジトリの表示を取得する。選択した成果物の対象が一致しない場合は開示しない。",
+        operationId: "get_change_document",
+        summary: "指定リポジトリの変更正本文書を取得",
+        security: localAccess,
+        parameters: ["repositoryId", "changeId"].map((name) => ({
+          name,
+          in: "path",
+          required: true,
+          schema: string,
+        })),
+        responses: readResponses,
+      },
+    },
+    [artifactResources.owner.replace(/:(\w+)/gu, "{$1}")]: {
+      get: {
+        operationId: "get_owner_artifact",
+        summary: "指定リポジトリの公開対象文書を取得",
         security: localAccess,
         parameters: [
-          ...[
-            "route",
-            "id",
-            "repositoryId",
-            "path",
-            "topicCursor",
-            "meetingCursor",
-            "treeDirectory",
-            "treeCursor",
-            "diffPath",
-            "activityCursor",
-          ].map((name) => query(name)),
+          { name: "repositoryId", in: "path", required: true, schema: string },
+          query("path", true),
+        ],
+        responses: readResponses,
+      },
+    },
+    [workbenchContextPath]: {
+      get: {
+        operationId: "readWorkbenchContext",
+        summary: "Workbench共通の起動先またはログイン案内を取得",
+        description: "概要・リポジトリ一覧・文書本文は含まない。",
+        security: localAccess,
+        responses: readResponses,
+      },
+    },
+    "/api/workbench/overview": {
+      get: {
+        operationId: "readWorkbenchOverview",
+        summary: "現在表示可能なWorkbench投影を取得",
+        description: "共通画面または指定リポジトリの概要を取得する。",
+        security: localAccess,
+        parameters: [
+          ...["repositoryId", "topicCursor", "meetingCursor"].map((name) =>
+            query(name),
+          ),
         ],
         responses: {
           ...readResponses,
           "200": {
             ...json,
             description:
-              "画面応答のcontractはcrdd/workbench/view/v1。viewで種別を区別する。mainはprojectData（Project表示データ）とexecutionActivity（実行の進行と履歴）を返す。記録の書込み結果は各操作の応答で返す。",
+              "画面応答のcontractはcrdd/workbench/view/v1。mainはprojectData、accessは接続画面の情報を返す。実行活動・作業ツリーの一覧と差分・各詳細・書込み結果は専用リソースで取得する。",
           },
         },
       },
@@ -615,17 +698,15 @@ export const openApiDocument = {
         operationId: operationForTool(EXECUTION_ACTIVITY_TOOL),
         summary: "対象リポジトリの実行活動を取得",
         security: localAccess,
-        parameters: [
-          { name: "repositoryId", in: "path", required: true, schema: string },
-          query("cursor", false),
-          query("limit", false, {
-            type: "integer",
-            minimum: 1,
-            maximum: 50,
-            default: 20,
-          }),
-        ],
+        parameters: activityParameters,
         responses: writeResponses,
+      },
+      head: {
+        operationId: "headExecutionActivity",
+        summary: "対象リポジトリの実行活動を本文なしで確認",
+        security: localAccess,
+        parameters: activityParameters,
+        responses: { ...writeResponses, "200": headResponses["200"] },
       },
     },
     [executionStateRoute.replace(/:(\w+)/gu, "{$1}")]: {
@@ -642,7 +723,7 @@ export const openApiDocument = {
           query("repositoryRevision", true),
           query("queueId", false, {
             type: "string",
-            pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            pattern: RESOURCE_ID.source,
           }),
         ],
         responses: writeResponses,
@@ -730,6 +811,39 @@ export const openApiDocument = {
       }),
     ),
     ...workspacePaths,
+    [repositoryFilesRoutes.tree.replace(/:(\w+)/gu, "{$1}")]: {
+      parameters: [
+        { name: "repositoryId", in: "path", required: true, schema: string },
+        query("directory"),
+        query("cursor"),
+      ],
+      get: {
+        operationId: "readRepositoryTree",
+        summary: "対象リポジトリの作業ツリーを取得",
+        responses: readResponses,
+      },
+      head: {
+        operationId: "headRepositoryTree",
+        summary: "対象リポジトリの作業ツリーを本文なしで確認",
+        responses: headResponses,
+      },
+    },
+    [repositoryFilesRoutes.diff.replace(/:(\w+)/gu, "{$1}")]: {
+      parameters: [
+        { name: "repositoryId", in: "path", required: true, schema: string },
+        query("path", true),
+      ],
+      get: {
+        operationId: "readRepositoryFileDiff",
+        summary: "対象リポジトリのファイル差分を取得",
+        responses: readResponses,
+      },
+      head: {
+        operationId: "headRepositoryFileDiff",
+        summary: "対象リポジトリのファイル差分を本文なしで確認",
+        responses: headResponses,
+      },
+    },
     ...repositoryWriteDocumentation,
   },
 } as const;

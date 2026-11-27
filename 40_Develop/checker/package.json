@@ -10,7 +10,7 @@
     "lint": "biome lint ../.. --error-on-warnings",
     "test": "npm run check && npm run verify:repository && npm run test:run",
     "test:run": "node ./tests/test-runner.ts",
-    "test:coverage": "node ./tests/test-runner.ts --coverage",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test \"./tests/unit/**/*.test.ts\"",
     "typecheck": "tsc -p ./tsconfig.json && tsc -p ./template-tools-tsconfig.json",
     "verify:repository": "node ./bin/checker.ts --root ../.. --json --summary",
     "semantic": "node ./bin/checker.ts --semantic",

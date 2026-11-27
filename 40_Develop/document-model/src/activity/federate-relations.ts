@@ -77,12 +77,12 @@ export function federateTopicMeetingRelations(
    * @security 非許可集合を探索しない。
    * @concurrency 同じ要求のSnapshotだけを使用する。
    */
-  const relations = (
+  const resolveOwners = (
     kind: ProjectOperationRecordKind,
-    id: string,
+    relations: readonly TopicMeetingRelation[],
   ): readonly TopicMeetingRelation[] =>
     Object.freeze(
-      source.application[kind].relations(id).map((relation) => {
+      relations.map((relation) => {
         const owners = sources.filter((candidate) =>
           candidate.application[kind].hasRelationTarget(
             relation.kind,
@@ -107,14 +107,32 @@ export function federateTopicMeetingRelations(
         });
       }),
     );
+  const getDocumentWithRelations = (
+    kind: ProjectOperationRecordKind,
+    id: string,
+  ) => {
+    const result = source.application[kind].getDocumentWithRelations(id);
+    return result === null
+      ? null
+      : Object.freeze({
+          document: result.document,
+          relations: resolveOwners(kind, result.relations),
+        });
+  };
   return Object.freeze({
     topic: Object.freeze({
       ...source.application.topic,
-      relations: (id: string) => relations("topic", id),
+      relations: (id: string) =>
+        resolveOwners("topic", source.application.topic.relations(id)),
+      getDocumentWithRelations: (id: string) =>
+        getDocumentWithRelations("topic", id),
     }),
     meeting: Object.freeze({
       ...source.application.meeting,
-      relations: (id: string) => relations("meeting", id),
+      relations: (id: string) =>
+        resolveOwners("meeting", source.application.meeting.relations(id)),
+      getDocumentWithRelations: (id: string) =>
+        getDocumentWithRelations("meeting", id),
     }),
   });
 }

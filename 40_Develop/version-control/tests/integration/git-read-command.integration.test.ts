@@ -494,10 +494,28 @@ test("DiscoveryはRoot拒否後に生Pathへfallbackしない", (t) => {
   fs.writeFileSync(path.join(fixture, "outside.txt"), "outside\n");
   const observed = readRepositoryEntries(path.join(fixture, "child"));
   assert.equal(observed.status, "completed");
+  assert.deepEqual(observed.trackedFilePaths, []);
   assert.deepEqual(
     observed.entries.map((entry) => entry.relativePath),
     ["inside.txt"],
   );
+  git(fixture, ["add", "--", "child/inside.txt", "outside.txt"]);
+  fs.writeFileSync(path.join(fixture, "child", "untracked.txt"), "");
+  const withIndex = readRepositoryEntries(path.join(fixture, "child"));
+  assert.equal(withIndex.status, "completed");
+  assert.deepEqual(withIndex.trackedFilePaths, ["inside.txt"]);
+  assert.deepEqual(
+    withIndex.entries.map(({ relativePath }) => relativePath),
+    ["inside.txt", "untracked.txt"],
+  );
+  if (process.platform !== "win32") {
+    const relativePath = "literal\\separator.txt";
+    fs.writeFileSync(path.join(fixture, "child", relativePath), "");
+    git(fixture, ["add", "--", `child/${relativePath}`]);
+    const observed = readRepositoryEntries(path.join(fixture, "child"));
+    assert.equal(observed.status, "completed");
+    assert.deepEqual(observed.trackedFilePaths, ["inside.txt", relativePath]);
+  }
 });
 
 /** 合成Rootを公開取得入口で確認し、試験用の読取り対象を得る。 */

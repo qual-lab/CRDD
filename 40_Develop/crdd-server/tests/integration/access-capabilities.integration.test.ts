@@ -20,22 +20,10 @@
  * @boundary 自己生成Store／Repositoryから既存HTTP Transportまで。公開Launcherの完成ではない。
  */
 import assert from "node:assert/strict";
-import {
-  observeRegistrationDirectory,
-  openHostedExecutionAccess,
-  registerHostedRepository,
-  resolveHostedDevelopmentAccess,
-  resolveHostedRepositories,
-} from "../../src/service/access.ts";
-import {
-  bindGitHost,
-  configuredGitHosts,
-  type GitHostProvider,
-} from "../../src/service/git-host.ts";
-import type { AiRequestSnapshot } from "../../src/service/execution.ts";
-import { createHostedAiSessions } from "../../src/service/execution.ts";
-
-import childProcess, { spawnSync } from "node:child_process";
+import childProcess, {
+  type SpawnSyncReturns,
+  spawnSync,
+} from "node:child_process";
 import crypto, {
   createHash,
   generateKeyPairSync,
@@ -43,33 +31,44 @@ import crypto, {
   sign,
 } from "node:crypto";
 import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
 import {
   createServer,
-  type IncomingMessage,
+  IncomingMessage,
   request as httpRequest,
   Server,
   ServerResponse,
 } from "node:http";
-import { registerHooks } from "node:module";
+import { registerHooks, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
-import * as oidc from "openid-client";
 import test, { type TestContext } from "node:test";
 import {
+  linkAccountFromHost,
   readAccount,
   readCurrentAccess,
   registerRepository,
-  linkAccountFromHost,
   unregisterRepository,
 } from "@qual-lab/crdd-access-management";
-import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
+import { deriveCoordinatorRepositoryBindingId } from "@qual-lab/crdd-coordinator";
+import {
+  createMeetingOperations,
+  createTopicOperations,
+} from "@qual-lab/crdd-document-model";
+import {
+  createQueue,
+  initializeExecutionStore,
+} from "@qual-lab/crdd-execution-model";
+import {
+  getRepository,
+  readRepositorySnapshot,
+} from "@qual-lab/crdd-version-control";
+import * as oidc from "openid-client";
+import { prepareAccessStore } from "../support/access-store.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createRepositoryScope } from "../../src/service/repository-scope.ts";
 import {
   selectionConfig,
   taskExecutionSelections,
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import { persistAcceptancePendingState } from "../../../coordinator/tests/fixtures/decision-state.ts";
 import {
   activityId,
   storeFixtureExecution,
@@ -79,44 +78,56 @@ import {
   prepareWorkspaceSurface,
 } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
-  createMeetingOperations,
-  createTopicOperations,
-} from "@qual-lab/crdd-document-model";
-import {
-  createQueue,
-  initializeExecutionStore,
-} from "@qual-lab/crdd-execution-model";
-import { deriveCoordinatorRepositoryBindingId } from "@qual-lab/crdd-coordinator";
-import { persistAcceptancePendingState } from "../../../coordinator/tests/fixtures/decision-state.ts";
-import {
   initialExecutionInput,
   projectExecutionFixture,
   withCallerPlan,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import {
-  getRepository,
-  readRepositorySnapshot,
-} from "@qual-lab/crdd-version-control";
 import { startCrddServer, startWorkbench } from "../../src/app.ts";
 import {
-  createOAuthMcpResolver,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
-  MCP_CURRENT_ACCESS_TOOL,
-  MCP_ACCESS_MANAGEMENT_READ_TOOLS,
-  EXECUTION_ACTIVITY_TOOL,
-  MCP_PROJECT_CONTEXT_GET_TOOL,
-  MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_WORKSPACE_TOOLS,
-  MCP_TOPIC_MEETING_TOOLS,
-  type McpResponse,
-} from "../../src/transport/mcp-server.ts";
-import { startMcpAuthenticatedStreamableHttp } from "../support/mcp-http-listener.ts";
-import { startManagementHttpFixture } from "../support/management-http.ts";
-import { invokeMcpSource } from "../fixtures/sdk-request.ts";
-import { requestTransport } from "../support/workbench-http.ts";
+  openGitHostLinkedExecutionAccess,
+  registerGitHostLinkedRepository,
+  resolveGitHostLinkedDevelopmentAccess,
+  resolveGitHostLinkedRepositories,
+} from "../../src/service/access.ts";
+import type { AiRequestSnapshot } from "../../src/service/execution.ts";
+import {
+  createGitHostLinkedAiSessions,
+  executionDefinitionResources,
+} from "../../src/service/execution.ts";
+import {
+  bindGitHost,
+  configuredGitHosts,
+  type GitHostProvider,
+  registerGitHostProvider,
+} from "../../src/service/git-host.ts";
+import { createRepositoryScope } from "../../src/service/repository-scope.ts";
 import { workspaceResources } from "../../src/transport/api-server.ts";
 import { mcpScope } from "../../src/transport/mcp-oauth.ts";
-import { executionDefinitionResources } from "../../src/service/execution.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
+import {
+  createMcpServerFactory,
+  EXECUTION_ACTIVITY_TOOL,
+  MCP_ACCESS_MANAGEMENT_READ_TOOLS,
+  MCP_CURRENT_ACCESS_TOOL,
+  MCP_PROJECT_CONTEXT_GET_TOOL,
+  MCP_PROJECT_CONTEXT_LIST_TOOL,
+  MCP_TOPIC_MEETING_TOOLS,
+  MCP_WORKSPACE_TOOLS,
+} from "../../src/transport/mcp-server.ts";
+import type { McpResponse } from "../../src/transport/mcp-types.ts";
+import {
+  invokeMcpSource,
+  isMcpInvalidArguments,
+  mcpToolErrorText,
+} from "../fixtures/sdk-request.ts";
+import { startManagementHttpFixture } from "../support/management-http.ts";
+import {
+  createFixtureOAuthResolver,
+  startMcpAuthenticatedStreamableHttp,
+} from "../support/mcp-http-listener.ts";
+import { observeRegistrationDirectory } from "../support/repository-registration.ts";
+import { startSharedFixture } from "../support/shared-sign-in.ts";
+import { requestTransport } from "../support/workbench-http.ts";
 
 const [fixtureGitHost] = configuredGitHosts([
   {
@@ -208,7 +219,7 @@ test("共有登録と登録済み内容は運用者の許可ルートから出�
     readGitHost: f.hostAccess.readGitHost,
     readHostToken,
   };
-  const allowed = await resolveHostedRepositories(
+  const allowed = await resolveGitHostLinkedRepositories(
     f.root,
     readSession,
     signal,
@@ -219,7 +230,7 @@ test("共有登録と登録済み内容は運用者の許可ルートから出�
     [target.id],
   );
   assert.equal(
-    await resolveHostedRepositories(
+    await resolveGitHostLinkedRepositories(
       f.root,
       { ...readSession, repositoryScope },
       signal,
@@ -227,7 +238,7 @@ test("共有登録と登録済み内容は運用者の許可ルートから出�
     ),
     null,
   );
-  const denied = await registerHostedRepository(
+  const denied = await registerGitHostLinkedRepository(
     f.root,
     principal,
     {
@@ -256,7 +267,7 @@ test("Projectは旧Bearerを拒否し、単体HTTPと共有MCPで対象を限定
   const mcpBase = await openFixtureMcp(hosted);
   const [first, second] = f.targets;
   assert.ok(first && second);
-  const shared = await startWorkbench({
+  const shared = await startSharedFixture({
     workingDirectory: first.target,
     localAccessRoot: f.root,
   });
@@ -277,11 +288,59 @@ test("Projectは旧Bearerを拒否し、単体HTTPと共有MCPで対象を限定
   };
   try {
     assert.equal((await fetch(`${shared.baseUrl}/api/projects`)).status, 401);
+    const projectResource = `/api/projects/${projectId}`;
+    assert.equal(
+      (await fetch(`${shared.baseUrl}${projectResource}`)).status,
+      401,
+    );
+    const callback = await fetch(
+      `${shared.baseUrl}/api/session/login/google/callback`,
+      { method: "HEAD" },
+    );
+    assert.equal(callback.status, 405);
+    assert.equal(callback.headers.get("allow"), "GET");
+    assert.equal(callback.headers.has("set-cookie"), false);
+    const { request } = await import("node:http");
+    const unread = await new Promise<number | undefined>((resolve, reject) => {
+      const url = new URL(
+        `/api/repositories/${first.id}/projects/project.fixture/milestones/milestone-fixture/definition`,
+        shared.baseUrl,
+      );
+      const outgoing = request(
+        url,
+        {
+          method: "POST",
+          headers: {
+            origin: shared.baseUrl,
+            "content-type": "application/json",
+            "content-length": "65536",
+          },
+        },
+        (response) => {
+          response.resume();
+          response.once("end", () => {
+            resolve(response.statusCode);
+            outgoing.destroy();
+          });
+        },
+      );
+      // 本文を一バイトも送らず、認証拒否が本文待ちより先に返ることを確認する。
+      outgoing.once("error", reject);
+      outgoing.setTimeout(3_000, () =>
+        outgoing.destroy(new Error("definition_auth_before_body_timeout")),
+      );
+      outgoing.flushHeaders();
+    });
+    assert.equal(unread, 403);
     const before = fs.readFileSync(f.current);
-    for (const route of ["/api/projects", detailPath(first.id)]) {
+    for (const route of [
+      "/api/projects",
+      projectResource,
+      detailPath(first.id),
+    ]) {
       const response = await fetch(`${shared.baseUrl}${route}`, { headers });
-      assert.equal(response.status, 401);
-      assert.deepEqual(await response.json(), { error: "login_required" });
+      assert.equal(response.status, 403);
+      assert.doesNotMatch(await response.text(), /"projectId"|"repositoryId"/u);
     }
     assert.deepEqual(fs.readFileSync(f.current), before);
     const activityPath = `/api/repositories/${first.id}/activity`;
@@ -353,7 +412,7 @@ test("Projectは旧Bearerを拒否し、単体HTTPと共有MCPで対象を限定
         projectId,
       })
     ).json();
-    assert.equal(missingId.error.code, -32602);
+    assert.ok(isMcpInvalidArguments(missingId, MCP_PROJECT_CONTEXT_GET_TOOL));
     assert.equal(
       (await payload(local.baseUrl, "/api/projects")).projects[0].sourceCount,
       1,
@@ -362,6 +421,10 @@ test("Projectは旧Bearerを拒否し、単体HTTPと共有MCPで対象を限定
       (await payload(local.baseUrl, detailPath(first.id))).sources[0]
         .repositoryId,
       first.id,
+    );
+    assert.deepEqual(
+      await payload(local.baseUrl, projectResource),
+      await payload(local.baseUrl, detailPath(first.id)),
     );
     assert.equal(
       (await fetch(`${local.baseUrl}${detailPath(second.id)}`)).status,
@@ -423,7 +486,7 @@ test("Gitホストでの実行監視は無関係な管理改訂・対象差・�
   let browserSessionCurrent = true;
   let openedMonitors = 0;
   let credentialsRead = 0;
-  const session: Parameters<typeof openHostedExecutionAccess>[1] = {
+  const session: Parameters<typeof openGitHostLinkedExecutionAccess>[1] = {
     principal: {
       kind: "account",
       userId: f.userId,
@@ -458,7 +521,7 @@ test("Gitホストでの実行監視は無関係な管理改訂・対象差・�
     },
   };
   assert.equal(
-    await Reflect.apply(openHostedExecutionAccess, undefined, [
+    await Reflect.apply(openGitHostLinkedExecutionAccess, undefined, [
       f.root,
       session,
       target.id,
@@ -469,7 +532,7 @@ test("Gitホストでの実行監視は無関係な管理改訂・対象差・�
   );
   assert.equal(credentialsRead, 0);
   assert.equal(openedMonitors, 0);
-  const access = await openHostedExecutionAccess(
+  const access = await openGitHostLinkedExecutionAccess(
     f.root,
     session,
     target.id,
@@ -482,7 +545,7 @@ test("Gitホストでの実行監視は無関係な管理改訂・対象差・�
   f.permissions.set(target.id, "read");
   assert.equal(await access.refresh(signal), "revoked");
   assert.equal(
-    await openHostedExecutionAccess(
+    await openGitHostLinkedExecutionAccess(
       f.root,
       session,
       target.id,
@@ -492,7 +555,7 @@ test("Gitホストでの実行監視は無関係な管理改訂・対象差・�
     null,
   );
   assert.equal(openedMonitors, 1);
-  const readable = await openHostedExecutionAccess(
+  const readable = await openGitHostLinkedExecutionAccess(
     f.root,
     session,
     target.id,
@@ -522,7 +585,7 @@ test("Gitホストでの実行監視は無関係な管理改訂・対象差・�
         release = resolve;
       });
       let closed = 0;
-      const broker = createHostedAiSessions(
+      const broker = createGitHostLinkedAiSessions(
         (_repo, _project, _principal, authorize) => ({
           async start(command, runSignal, admit) {
             assert.equal(admit?.(), true);
@@ -684,9 +747,42 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
   const administrator = store.users[0];
   assert.ok(administrator);
   administrator.role = "administrator";
+  const unconfiguredTarget = f.targets[0];
+  const localRegistration = store.registeredRepositories.find(
+    ({ repositoryId }) => repositoryId === unconfiguredTarget?.id,
+  );
+  assert.ok(unconfiguredTarget && localRegistration);
+  // 登録形式は有効だが、このServerでは提供元ホストを有効にしていない。
+  localRegistration.hostedRepository = {
+    ...localRegistration.hostedRepository,
+    host: "unconfigured.example.test",
+  };
   fs.writeFileSync(f.current, JSON.stringify(store));
   const candidate = f.targets[1];
   assert.ok(candidate);
+  for (const args of [
+    ["add", "--", "PROJECT_CONTEXT.md"],
+    [
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=crdd-test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-qm",
+      "fixture",
+    ],
+  ]) {
+    const result: SpawnSyncReturns<string> = spawnSync(
+      "git",
+      ["-C", candidate.target, ...args],
+      {
+        encoding: "utf8",
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+  }
   assert.equal(
     unregisterRepository(
       f.root,
@@ -728,10 +824,12 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
   let alterRemote = false;
   let hostedRepositoryName = "Team/Project";
   let hostReads = 0;
+  let hostRevocations = 0;
+  let mcpIntrospections = 0;
   let afterInstallationRead: (() => void) | undefined;
-  let canReadHosted = true;
-  let canWriteHosted = false;
-  let appCanWriteHosted = false;
+  let canReadGitHostLinked = true;
+  let canWriteGitHostLinked = false;
+  let appCanWriteGitHostLinked = false;
   let hostedResponseStatus: number | undefined;
   const fetch = globalThis.fetch;
   let googleDiscoveries = 0;
@@ -742,6 +840,8 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       const url = new URL(
         typeof input === "string" || input instanceof URL ? input : input.url,
       );
+      if (url.hostname === "127.0.0.1" && url.pathname === "/oauth/introspect")
+        mcpIntrospections++;
       if (
         url.href ===
         "https://accounts.google.com/.well-known/openid-configuration"
@@ -792,6 +892,14 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           expires_in: 3600,
         });
       if (url.origin === "https://api.github.com") {
+        if (url.pathname === "/applications/synthetic-app/token") {
+          assert.equal(init?.method, "DELETE");
+          assert.deepEqual(JSON.parse(String(init?.body)), {
+            access_token: "ghu_fixture",
+          });
+          hostRevocations++;
+          return new Response(null, { status: 204 });
+        }
         if (url.pathname === "/app/installations/24/access_tokens") {
           assert.deepEqual(JSON.parse(String(init?.body)), {
             repository_ids: [92],
@@ -827,9 +935,9 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             return new Response(null, { status: 503 });
           return Response.json({
             permission:
-              hostedResponseStatus === 401 || !canReadHosted
+              hostedResponseStatus === 401 || !canReadGitHostLinked
                 ? "none"
-                : canWriteHosted
+                : canWriteGitHostLinked
                   ? "write"
                   : "read",
             user: { id: 73 },
@@ -851,7 +959,9 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
               {
                 id: 24,
                 account: { login: "Team" },
-                permissions: { contents: appCanWriteHosted ? "write" : "read" },
+                permissions: {
+                  contents: appCanWriteGitHostLinked ? "write" : "read",
+                },
               },
             ],
           });
@@ -864,7 +974,10 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             {
               id: 92,
               full_name: "Team/Project",
-              permissions: { pull: canReadHosted, push: canWriteHosted },
+              permissions: {
+                pull: canReadGitHostLinked,
+                push: canWriteGitHostLinked,
+              },
             },
           ],
         });
@@ -1083,9 +1196,12 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
     );
     const denied = await call(server.baseUrl, f.token);
     assert.equal(denied.status, 401);
-    assert.equal(
-      denied.headers.get("www-authenticate"),
-      `Bearer resource_metadata="${server.baseUrl}/.well-known/oauth-protected-resource/mcp", error="invalid_token"`,
+    const challenge = denied.headers.get("www-authenticate") ?? "";
+    assert.match(challenge, /error="invalid_token"/u);
+    assert.ok(
+      challenge.includes(
+        `resource_metadata="${server.baseUrl}/.well-known/oauth-protected-resource/mcp"`,
+      ),
     );
     assert.equal((await fetch(`${server.baseUrl}/api/session`)).status, 401);
     const web = (route: string, init: RequestInit = {}) =>
@@ -1311,6 +1427,12 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
     assert.deepEqual(await me.json(), {
       username: "招待利用者",
       role: "developer",
+      management: {
+        openSession: false,
+        registerRepository: false,
+        registerRoles: [],
+        unregisterRepository: false,
+      },
     });
     const currentUsers = await web("/api/users", {
       headers: { cookie: adminSession },
@@ -1339,10 +1461,12 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         }),
       });
     const oldHeaders = { authorization: `Bearer ${f.token}` };
-    const oldView = await web("/api/workbench/view", { headers: oldHeaders });
+    const oldView = await web("/api/workbench/overview", {
+      headers: oldHeaders,
+    });
     assert.equal(oldView.status, 403);
     assert.deepEqual(await oldView.json(), { error: "request_rejected" });
-    const publicView = await web("/api/workbench/view");
+    const publicView = await web("/api/workbench/overview");
     assert.equal(publicView.status, 200);
     const { actionToken, authenticated, loginProviders } =
       (await publicView.json()) as {
@@ -1485,18 +1609,96 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         state: "complete",
         sourceCount: 1,
         repositoryIds: [candidate.id],
+        sources: [{ repositoryId: candidate.id, state: "complete" }],
       },
     ]);
+    const scopedList = `/api/projects?repositoryId=${candidate.id}&q=project&limit=1`;
+    assert.equal((await web(scopedList)).status, 401);
+    const scoped = await web(scopedList, { headers: { cookie: adminSession } });
+    assert.equal(scoped.status, 200);
+    const scopedPage = await scoped.json();
+    assert.deepEqual(
+      scopedPage.projects.map(
+        (item: { repositoryIds: readonly string[] }) => item.repositoryIds,
+      ),
+      [[candidate.id]],
+    );
+    assert.equal(scopedPage.cursorInvalid, false);
+    const wrongScope = Buffer.from(
+      JSON.stringify(["project", "", "repository.other", "project.fixture"]),
+      "utf8",
+    ).toString("base64url");
+    const wrongPage = await web(`${scopedList}&cursor=${wrongScope}`, {
+      headers: { cookie: adminSession },
+    });
+    assert.equal(wrongPage.status, 200);
+    assert.deepEqual(await wrongPage.json(), {
+      retainedAsSourceOfTruth: false,
+      projects: [],
+      nextCursor: null,
+      cursorInvalid: true,
+    });
+    const deniedScope = await web(scopedList, {
+      headers: { cookie: invitedCookie },
+    });
+    assert.equal(deniedScope.status, 200);
+    assert.deepEqual((await deniedScope.json()).projects, []);
     const context = await web(detail, { headers: { cookie: adminSession } });
     assert.equal(context.status, 200);
     const project = await context.json();
+    const aggregatePath = "/api/projects/project.fixture";
+    const aggregate = await web(aggregatePath, {
+      headers: { cookie: adminSession },
+    });
+    assert.equal(aggregate.status, 200);
+    assert.deepEqual(await aggregate.json(), project);
+    assert.equal(
+      (await web(aggregatePath, { headers: { cookie: invitedCookie } })).status,
+      404,
+    );
     const activityPath = `/api/repositories/${candidate.id}/activity?limit=1`;
     const httpActivity = await web(activityPath, {
       headers: { cookie: adminSession },
     });
     assert.equal(httpActivity.status, 200);
+    const worktreeTree = `/api/repositories/${candidate.id}/worktree/tree`;
+    const worktreeDiff = `/api/repositories/${candidate.id}/worktree/diff?path=PROJECT_CONTEXT.md`;
+    for (const route of [worktreeTree, worktreeDiff]) {
+      const result = await web(route, { headers: { cookie: adminSession } });
+      assert.equal(result.status, 200);
+      assert.equal((await result.json()).repositoryId, candidate.id);
+      assert.equal((await web(route)).status, 403);
+      assert.equal(
+        (await web(route, { headers: { cookie: invitedCookie } })).status,
+        404,
+      );
+    }
+    for (const route of [
+      scopedList,
+      activityPath,
+      worktreeTree,
+      worktreeDiff,
+    ]) {
+      const head = await web(route, {
+        method: "HEAD",
+        headers: { cookie: adminSession },
+      });
+      assert.equal(head.status, 200, route);
+      assert.match(
+        head.headers.get("content-type") ?? "",
+        /^application\/json/u,
+      );
+      assert.equal(await head.text(), "");
+    }
     const beforeMixedProject = hostReads;
-    for (const route of ["/api/projects", detail, activityPath]) {
+    for (const route of [
+      "/api/projects",
+      aggregatePath,
+      detail,
+      activityPath,
+      worktreeTree,
+      worktreeDiff,
+    ]) {
       assert.equal(
         (await web(route, { headers: { ...oldHeaders, cookie: adminSession } }))
           .status,
@@ -1511,7 +1713,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       init: RequestInit = {},
     ) =>
       web(
-        `/api/workbench/view?route=%2F${id === null ? "" : `&repositoryId=${encodeURIComponent(id)}`}`,
+        `/api/workbench/overview${id === null ? "" : `?repositoryId=${encodeURIComponent(id)}`}`,
         {
           ...init,
           headers: { ...init.headers, cookie },
@@ -1603,6 +1805,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
     await t.test(
       "WorkbenchのGoogle画面は、選択した現在認可の作業領域を投影する",
       async () => {
+        const beforeOverview = hostReads;
         const portfolioView = await workbenchView(null);
         assert.equal(portfolioView.status, 200);
         const portfolio = await portfolioView.json();
@@ -1611,8 +1814,14 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           { id: "google", displayName: "Google" },
         ]);
         assert.equal(Object.hasOwn(portfolio, "credentials"), false);
+        assert.equal(Object.hasOwn(portfolio, "portfolio"), false);
+        assert.equal(hostReads, beforeOverview);
+        const projects = await web("/api/projects?limit=20", {
+          headers: { cookie: adminSession },
+        });
+        assert.equal(projects.status, 200);
         assert.ok(
-          portfolio.portfolio.projects.some(
+          (await projects.json()).projects.some(
             (project: { sources: { repositoryId: string }[] }) =>
               project.sources.some(
                 ({ repositoryId }) => repositoryId === candidate.id,
@@ -1620,12 +1829,66 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           ),
         );
         const initialHostReads = hostReads;
-        const previousUserWrite = canWriteHosted;
-        const previousAppWrite = appCanWriteHosted;
+        const previousUserWrite = canWriteGitHostLinked;
+        const previousAppWrite = appCanWriteGitHostLinked;
+        const captureRaceSetting = "crdd.origin-capture-race-fixture";
+        let changedDuringCapture = false;
         try {
-          canWriteHosted = true;
-          appCanWriteHosted = true;
-          const selected = await workbenchView(candidate.id);
+          canWriteGitHostLinked = true;
+          appCanWriteGitHostLinked = true;
+          const spawn = childProcess.spawnSync;
+          let originReads = 0;
+          let changeDuringCapture = false;
+          const originCounter = t.mock.method(
+            childProcess,
+            "spawnSync",
+            (...args: Parameters<typeof spawn>) => {
+              const command = args[1];
+              if (
+                Array.isArray(command) &&
+                command.includes("--get-all") &&
+                command.includes("remote.origin.url")
+              ) {
+                originReads++;
+                if (changeDuringCapture) {
+                  changeDuringCapture = false;
+                  const read = spawn(...args);
+                  childProcess.execFileSync(
+                    "git",
+                    ["config", "--local", captureRaceSetting, "test"],
+                    { cwd: candidate.target, windowsHide: true },
+                  );
+                  changedDuringCapture = true;
+                  return read;
+                }
+              }
+              return spawn(...args);
+            },
+          );
+          syncBuiltinESMExports();
+          let selected: Response;
+          try {
+            selected = await workbenchView(candidate.id);
+            assert.equal(
+              originReads,
+              2,
+              "通常は受付と公開直前の2回だけ origin を読む",
+            );
+            assert.equal(hostReads - initialHostReads, 2);
+            originReads = 0;
+            changeDuringCapture = true;
+            const captureRace = await workbenchView(candidate.id);
+            assert.equal(changedDuringCapture, true);
+            assert.equal(captureRace.status, 200);
+            assert.equal(
+              originReads,
+              4,
+              "初回の設定が変わったら最適化せず現在の origin を正式に照合する",
+            );
+          } finally {
+            originCounter.mock.restore();
+            syncBuiltinESMExports();
+          }
           assert.equal(selected.status, 200);
           const value = await selected.json();
           assert.equal(value.selectedRepositoryId, candidate.id);
@@ -1634,8 +1897,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           assert.equal(value.recordActionsConfigured, true);
           assert.deepEqual(value.repositoryActions, ["prepare", "unprepare"]);
           assert.equal(value.aiRequest.configured, true);
-          assert.equal(hostReads - initialHostReads, 2);
-          appCanWriteHosted = false;
+          appCanWriteGitHostLinked = false;
           const readOnly = await workbenchView(candidate.id);
           assert.equal(readOnly.status, 200);
           const view = await readOnly.json();
@@ -1643,8 +1905,14 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           assert.equal(view.recordActionsConfigured, false);
           assert.deepEqual(view.repositoryActions, []);
         } finally {
-          canWriteHosted = previousUserWrite;
-          appCanWriteHosted = previousAppWrite;
+          canWriteGitHostLinked = previousUserWrite;
+          appCanWriteGitHostLinked = previousAppWrite;
+          if (changedDuringCapture)
+            childProcess.execFileSync(
+              "git",
+              ["config", "--local", "--unset", captureRaceSetting],
+              { cwd: candidate.target, windowsHide: true },
+            );
         }
         const beforeRefusals = hostReads;
         assert.equal(
@@ -1664,31 +1932,91 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         assert.equal(noLink.status, 200);
         const noLinkView = await noLink.json();
         assert.equal(noLinkView.view, "access");
-        assert.equal(noLinkView.portfolio, null);
+        assert.equal(noLinkView.authenticated, true);
+        assert.equal(Object.hasOwn(noLinkView, "portfolio"), false);
+        const noLinkProjects = await web("/api/projects?limit=20", {
+          headers: { cookie: invitedCookie },
+        });
+        assert.equal(noLinkProjects.status, 200);
+        assert.deepEqual((await noLinkProjects.json()).projects, []);
         assert.equal(hostReads, beforeRefusals);
 
-        const previousRead = canReadHosted;
+        const projectListPath = "/api/projects?limit=20";
+        assert.equal((await web(projectListPath)).status, 401);
+        const stateBytes = fs.readFileSync(f.current);
+        const withoutLink = JSON.parse(
+          stateBytes.toString("utf8"),
+        ) as AccessManagementState;
+        const linked = withoutLink.users.find(
+          ({ userId }) => userId === administrator.userId,
+        );
+        assert.ok(linked?.accountLinks?.length);
+        // 初期管理者の記録を壊さず、現在のCookieに紐付いた旧Bindingだけを失効させる。
+        linked.accountLinks = linked.accountLinks.map((link) => ({
+          ...link,
+          bindingId: randomUUID(),
+        }));
+        fs.writeFileSync(f.current, JSON.stringify(withoutLink));
         try {
-          canReadHosted = false;
+          const unlinked = await web(projectListPath, {
+            headers: { cookie: adminSession },
+          });
+          assert.equal(unlinked.status, 401);
+          assert.deepEqual(await unlinked.json(), { error: "login_required" });
+          assert.equal(hostReads, beforeRefusals);
+        } finally {
+          fs.writeFileSync(f.current, stateBytes);
+        }
+        let revokedDuringHostRead = false;
+        afterInstallationRead = () => {
+          afterInstallationRead = undefined;
+          revokedDuringHostRead = true;
+          fs.writeFileSync(f.current, JSON.stringify(withoutLink));
+        };
+        try {
+          const interrupted = await web(projectListPath, {
+            headers: { cookie: adminSession },
+          });
+          assert.equal(revokedDuringHostRead, true);
+          assert.equal(interrupted.status, 401);
+          assert.deepEqual(await interrupted.json(), {
+            error: "login_required",
+          });
+          assert.equal(hostReads, beforeRefusals + 1);
+        } finally {
+          afterInstallationRead = undefined;
+          fs.writeFileSync(f.current, stateBytes);
+        }
+
+        const previousRead = canReadGitHostLinked;
+        try {
+          canReadGitHostLinked = false;
           const denied = await workbenchView(null);
           assert.equal(denied.status, 200);
           const closed = await denied.json();
           assert.equal(closed.view, "access");
-          assert.equal(closed.portfolio, null);
+          assert.equal(closed.authenticated, true);
+          assert.equal(Object.hasOwn(closed, "portfolio"), false);
+          const deniedProjects = await web("/api/projects?limit=20", {
+            headers: { cookie: adminSession },
+          });
+          assert.equal(deniedProjects.status, 200);
+          assert.deepEqual((await deniedProjects.json()).projects, []);
           assert.equal(
             (await web("/api/session", { headers: { cookie: adminCookie } }))
               .status,
             200,
           );
         } finally {
-          canReadHosted = previousRead;
+          canReadGitHostLinked = previousRead;
         }
         const beforeLocalRefusals = hostReads;
-        const local = f.targets[0];
-        assert.ok(local);
-        const localView = await workbenchView(local.id, invitedCookie);
+        const localView = await workbenchView(
+          unconfiguredTarget.id,
+          invitedCookie,
+        );
         assert.equal(localView.status, 403);
-        const localSelection = `/api/repositories/${local.id}/ai-selection`;
+        const localSelection = `/api/repositories/${unconfiguredTarget.id}/ai-selection`;
         assert.equal(
           (await web(localSelection, { headers: { cookie: invitedCookie } }))
             .status,
@@ -1749,8 +2077,17 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
 
     // 同じディレクトリでも、本文読取り中にローカルの接続先が変われば応答しない。
     const openSync = fs.openSync;
+    const readContextFile = fs.promises.readFile;
     let changedWhileReading = false;
     let contextReads = 0;
+    const contextRead = (file: unknown) => {
+      if (file !== path.join(candidate.target, "PROJECT_CONTEXT.md")) return;
+      contextReads++;
+      if (!changedWhileReading) {
+        changedWhileReading = true;
+        setRemote("https://github.com/team/other.git");
+      }
+    };
     const replaceOrigin = t.mock.method(
       fs,
       "openSync",
@@ -1760,19 +2097,20 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         mode?: Parameters<typeof openSync>[2],
       ) => {
         const fd = openSync(file, flags ?? "r", mode);
-        if (
-          typeof file === "string" &&
-          file === path.join(candidate.target, "PROJECT_CONTEXT.md")
-        ) {
-          contextReads++;
-          if (!changedWhileReading) {
-            changedWhileReading = true;
-            setRemote("https://github.com/team/other.git");
-          }
-        }
+        contextRead(file);
         return fd;
       },
     );
+    const replaceAsyncOrigin = t.mock.method(
+      fs.promises,
+      "readFile",
+      async (...args: Parameters<typeof readContextFile>) => {
+        const contents = await readContextFile(...args);
+        contextRead(args[0]);
+        return contents;
+      },
+    );
+    syncBuiltinESMExports();
     try {
       assert.equal(
         (await web(detail, { headers: { cookie: adminSession } })).status,
@@ -1792,7 +2130,55 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       assert.equal(contextReads, 1);
     } finally {
       replaceOrigin.mock.restore();
+      replaceAsyncOrigin.mock.restore();
+      syncBuiltinESMExports();
       setRemote(correctRemote);
+    }
+
+    let changedUnrelatedSetting = false;
+    const changeUnrelatedSetting = t.mock.method(
+      fs.promises,
+      "readFile",
+      async (...args: Parameters<typeof readContextFile>) => {
+        const contents = await readContextFile(...args);
+        if (
+          !changedUnrelatedSetting &&
+          args[0] === path.join(candidate.target, "PROJECT_CONTEXT.md")
+        ) {
+          changedUnrelatedSetting = true;
+          childProcess.execFileSync(
+            "git",
+            ["config", "--local", "crdd.origin-observation-fixture", "test"],
+            {
+              cwd: candidate.target,
+              windowsHide: true,
+            },
+          );
+        }
+        return contents;
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      const unchangedOrigin = await workbenchView(candidate.id);
+      assert.equal(changedUnrelatedSetting, true);
+      assert.equal(unchangedOrigin.status, 200);
+      assert.equal(
+        (await unchangedOrigin.json()).selectedRepositoryId,
+        candidate.id,
+      );
+    } finally {
+      changeUnrelatedSetting.mock.restore();
+      syncBuiltinESMExports();
+      if (changedUnrelatedSetting)
+        childProcess.execFileSync(
+          "git",
+          ["config", "--local", "--unset", "crdd.origin-observation-fixture"],
+          {
+            cwd: candidate.target,
+            windowsHide: true,
+          },
+        );
     }
 
     const hostedRegistration = stateAfter.registeredRepositories.find(
@@ -1801,7 +2187,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
     assert.ok(hostedRegistration);
     const readFixtureAccess = (): AccessManagementState =>
       JSON.parse(fs.readFileSync(f.current, "utf8"));
-    const removeHostedRegistration = () => {
+    const removeGitHostLinkedRegistration = () => {
       const login = readAccount(f.root, {
         issuer: googleIssuer,
         subject: "google-admin",
@@ -1820,7 +2206,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         candidate.id,
       );
     };
-    const restoreHostedRegistration = () => {
+    const restoreGitHostLinkedRegistration = () => {
       const state = readFixtureAccess();
       assert.equal(
         state.registeredRepositories.some(
@@ -1833,9 +2219,75 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       state.operationId = randomUUID();
       fs.writeFileSync(f.current, JSON.stringify(state));
     };
+    await t.test(
+      "活動APIはReaderの準備中に登録または接続先が変わると読取りを開始しない",
+      async () => {
+        for (const mutation of ["registration", "origin"] as const) {
+          let changed = false;
+          let activityReads = 0;
+          const key = `overview-activity-fixture-${randomUUID()}`;
+          const fixture = `export const queryActivity = globalThis[${JSON.stringify(key)}];`;
+          Reflect.set(globalThis, key, () => {
+            activityReads++;
+            throw new Error("unexpected_activity_reader");
+          });
+          const hook = registerHooks({
+            resolve(specifier, context, next) {
+              if (
+                specifier === "@qual-lab/crdd-coordinator" &&
+                context.parentURL?.endsWith("/src/service/execution.ts")
+              ) {
+                if (!changed) {
+                  if (mutation === "registration")
+                    assert.equal(
+                      removeGitHostLinkedRegistration().status,
+                      "completed",
+                    );
+                  else setRemote("https://github.com/team/overview-other.git");
+                  changed = true;
+                }
+                return {
+                  url: `data:text/javascript,${encodeURIComponent(fixture)}`,
+                  shortCircuit: true,
+                };
+              }
+              return next(specifier, context);
+            },
+          });
+          try {
+            const overview = await workbenchView(candidate.id);
+            assert.equal(overview.status, 200);
+            assert.equal(
+              Object.hasOwn(await overview.json(), "executionActivity"),
+              false,
+            );
+            assert.equal(
+              changed,
+              false,
+              `${mutation}: overview must not open activity`,
+            );
+            const response = await web(
+              `/api/repositories/${candidate.id}/activity`,
+              { headers: { cookie: adminSession } },
+            );
+            assert.equal(changed, true, mutation);
+            assert.equal(response.status, 503, mutation);
+            assert.equal(activityReads, 0, mutation);
+          } finally {
+            hook.deregister();
+            Reflect.deleteProperty(globalThis, key);
+            if (changed) {
+              if (mutation === "registration")
+                restoreGitHostLinkedRegistration();
+              else setRemote(correctRemote);
+            }
+          }
+        }
+      },
+    );
     afterInstallationRead = () => {
       afterInstallationRead = undefined;
-      assert.equal(removeHostedRegistration().status, "completed");
+      assert.equal(removeGitHostLinkedRegistration().status, "completed");
     };
     const beforeInterruptedRead = hostReads;
     assert.equal(
@@ -1843,7 +2295,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       503,
     );
     assert.equal(hostReads - beforeInterruptedRead, 1);
-    restoreHostedRegistration();
+    restoreGitHostLinkedRegistration();
 
     let readsBeforeRevocation = 0;
     const revokeWhileProjectReads = t.mock.method(
@@ -1855,21 +2307,23 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           args[0] === path.join(candidate.target, "PROJECT_CONTEXT.md") &&
           ++readsBeforeRevocation === 1
         )
-          assert.equal(removeHostedRegistration().status, "completed");
+          assert.equal(removeGitHostLinkedRegistration().status, "completed");
         return fd;
       },
     );
     try {
-      const noLongerAllowed = await workbenchView(candidate.id);
-      assert.equal(noLongerAllowed.status, 403);
-      assert.equal(
-        await noLongerAllowed.text(),
-        "local_repository_access_unavailable\n",
+      const noLongerAllowed = await web(
+        `/api/projects?repositoryId=${candidate.id}&limit=20`,
+        { headers: { cookie: adminSession } },
       );
+      assert.equal(noLongerAllowed.status, 503);
+      assert.deepEqual(await noLongerAllowed.json(), {
+        error: "project_context_unavailable",
+      });
       assert.equal(readsBeforeRevocation, 1);
     } finally {
       revokeWhileProjectReads.mock.restore();
-      restoreHostedRegistration();
+      if (readsBeforeRevocation > 0) restoreGitHostLinkedRegistration();
     }
 
     // 非同期のProject本文が開いた後、次のOwner文書バッチへ進む前に登録を解除する。
@@ -1892,7 +2346,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           !revokedAfterAsyncRead
         ) {
           revokedAfterAsyncRead = true;
-          assert.equal(removeHostedRegistration().status, "completed");
+          assert.equal(removeGitHostLinkedRegistration().status, "completed");
         }
         return value;
       },
@@ -1919,8 +2373,115 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       revokeAfterRead.mock.restore();
       observeOwner.mock.restore();
       syncBuiltinESMExports();
-      restoreHostedRegistration();
+      restoreGitHostLinkedRegistration();
     }
+
+    await t.test(
+      "概要はメタデータ待機中の失効後に次の本文を開かない",
+      async () => {
+        const topics = path.join(candidate.target, "22_Topics");
+        const topic = path.join(topics, "TOPIC-000042", "topic.md");
+        fs.mkdirSync(path.dirname(topic), { recursive: true });
+        fs.writeFileSync(topic, topicMarkdown());
+        const ownerFiles = [
+          ownerDocument,
+          path.join(candidate.target, "99_Roadmap", "03_Releases.md"),
+          path.join(candidate.target, "07_Quality", "01_Quality_Center.md"),
+        ];
+        const ownerBaseline = ownerFiles.map((file) =>
+          fs.existsSync(file) ? fs.readFileSync(file) : null,
+        );
+        for (const file of ownerFiles) {
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.writeFileSync(file, "# 合成の成果物\n");
+        }
+        try {
+          for (const stage of ["records", "owner"] as const) {
+            const readDirectory = fs.promises.readdir;
+            const stat = fs.promises.stat;
+            const open = fs.promises.open;
+            let changed = false;
+            let topicReads = 0;
+            let ownerReads = 0;
+            const restore = [
+              t.mock.method(
+                fs.promises,
+                "readdir",
+                async (...args: Parameters<typeof readDirectory>) => {
+                  const listing = await readDirectory(...args);
+                  if (stage === "records" && args[0] === topics && !changed) {
+                    assert.equal(
+                      removeGitHostLinkedRegistration().status,
+                      "completed",
+                    );
+                    changed = true;
+                  }
+                  return listing;
+                },
+              ),
+              t.mock.method(
+                fs.promises,
+                "stat",
+                async (...args: Parameters<typeof stat>) => {
+                  const observed = await stat(...args);
+                  if (
+                    stage === "owner" &&
+                    args[0] === ownerDocument &&
+                    !changed
+                  ) {
+                    setRemote("https://github.com/team/overview-other.git");
+                    changed = true;
+                  }
+                  return observed;
+                },
+              ),
+              t.mock.method(
+                fs.promises,
+                "readFile",
+                (...args: Parameters<typeof readFileAsync>) => {
+                  if (args[0] === topic) topicReads++;
+                  return readFileAsync(...args);
+                },
+              ),
+              t.mock.method(
+                fs.promises,
+                "open",
+                (...args: Parameters<typeof open>) => {
+                  if (ownerFiles.some((file) => args[0] === file)) ownerReads++;
+                  return open(...args);
+                },
+              ),
+            ];
+            syncBuiltinESMExports();
+            try {
+              const denied = await workbenchView(candidate.id);
+              assert.equal(changed, true, stage);
+              assert.equal(denied.status, 403, stage);
+              assert.equal(
+                await denied.text(),
+                "local_repository_access_unavailable\n",
+              );
+              if (stage === "records") assert.equal(topicReads, 0);
+              else assert.equal(ownerReads, 0);
+            } finally {
+              for (const mock of restore) mock.mock.restore();
+              syncBuiltinESMExports();
+              if (changed) {
+                if (stage === "records") restoreGitHostLinkedRegistration();
+                else setRemote(correctRemote);
+              }
+            }
+          }
+        } finally {
+          fs.unlinkSync(topic);
+          ownerFiles.forEach((file, index) => {
+            const previous = ownerBaseline[index];
+            if (previous) fs.writeFileSync(file, previous);
+            else fs.unlinkSync(file);
+          });
+        }
+      },
+    );
 
     const origin = new URL(server.baseUrl);
     const mcpConfig = await oidc.discovery(
@@ -1979,6 +2540,19 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       return access_token;
     };
     const mcpToken = await consentMcp(adminCookie);
+    const beforeMcpAdmission = mcpIntrospections;
+    const currentMcpActor = await call(
+      server.baseUrl,
+      mcpToken,
+      MCP_CURRENT_ACCESS_TOOL,
+      {},
+    );
+    assert.equal(currentMcpActor.status, 200);
+    assert.equal(
+      (await currentMcpActor.json()).result.structuredContent.user.userId,
+      administrator.userId,
+    );
+    assert.equal(mcpIntrospections, beforeMcpAdmission + 1);
     const mcpActivity = await call(
       server.baseUrl,
       mcpToken,
@@ -1994,7 +2568,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       await httpActivity.json(),
       (await mcpActivity.json()).result.structuredContent,
     );
-    // 管理Cookie専用の操作トークンを除き、同じ現在認可の読取り結果を返す。
+    // 管理画面専用の操作情報を除き、同じ現在認可の読取り結果を返す。
     for (const [route, tool] of [
       ["/api/access/me", MCP_CURRENT_ACCESS_TOOL],
       ["/api/users", MCP_ACCESS_MANAGEMENT_READ_TOOLS.listUsers],
@@ -2002,14 +2576,24 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
     ] as const) {
       const http = await web(route, { headers: { cookie: adminSession } });
       assert.equal(http.status, 200, route);
-      const { formToken, ...expected } = await http.json();
+      const { formToken, management, ...expected } = await http.json();
       assert.match(formToken, /^[A-Za-z0-9_-]{43}$/u);
-      if (route === "/api/access/me")
+      if (route === "/api/access/me") {
+        assert.equal(management.openSession, true);
         assert.deepEqual(Object.keys(expected).sort(), [
           "revision",
           "status",
           "user",
         ]);
+      }
+      if (route === "/api/users") {
+        expected.users = expected.users.map(
+          ({ actions, ...user }: { actions?: unknown; userId: string }) => {
+            assert.ok(actions);
+            return user;
+          },
+        );
+      }
       const mcp = await call(server.baseUrl, mcpToken, tool, {});
       assert.equal(mcp.status, 200, tool);
       assert.deepEqual(
@@ -2028,7 +2612,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       const response = await (
         await call(server.baseUrl, mcpToken, tool, {})
       ).json();
-      assert.equal(response.error.code, -32601);
+      assert.equal(response.error.code, -32602);
     }
     assert.deepEqual(fs.readFileSync(f.current), beforeRetiredReads);
     const mcpProjects = async () =>
@@ -2048,9 +2632,11 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         await call(server.baseUrl, mcpToken, MCP_PROJECT_CONTEXT_GET_TOOL, args)
       ).json();
     const beforeInvalidDetail = hostReads;
-    assert.equal(
-      (await mcpDetail({ projectId: "project.fixture" })).error.code,
-      -32602,
+    assert.ok(
+      isMcpInvalidArguments(
+        await mcpDetail({ projectId: "project.fixture" }),
+        MCP_PROJECT_CONTEXT_GET_TOOL,
+      ),
     );
     assert.equal(
       (
@@ -2132,12 +2718,28 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       );
       const detail = await listRecords(resource, `/${id}`);
       assert.equal(detail.status, 200);
-      const record = await detail.json();
+      const { repositoryId, writable, ...record } = await detail.json();
+      assert.equal(repositoryId, candidate.id);
+      assert.equal(writable, false);
       assert.equal(record.relationScope, "repository");
       assert.deepEqual(
         record,
         (await mcpRecord(`get_${kind}`, { id })).result.structuredContent,
       );
+    }
+    {
+      const previousUser = canWriteGitHostLinked;
+      const previousApp = appCanWriteGitHostLinked;
+      try {
+        canWriteGitHostLinked = true;
+        appCanWriteGitHostLinked = true;
+        const writableTopic = await listRecords("topics", "/TOPIC-000042");
+        assert.equal(writableTopic.status, 200);
+        assert.equal((await writableTopic.json()).writable, true);
+      } finally {
+        canWriteGitHostLinked = previousUser;
+        appCanWriteGitHostLinked = previousApp;
+      }
     }
     const local = f.targets[0];
     assert.ok(local);
@@ -2152,11 +2754,10 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       repositoryId: local.id,
       id: "TOPIC-000042",
     });
-    assert.equal(localRead.error.code, -32602);
-    assert.equal(localRead.result, undefined);
+    assert.ok(isMcpInvalidArguments(localRead, "crdd.get_topic"));
     assert.equal(hostReads, beforeLocalRead);
     {
-      let nonHostedReads = 0;
+      let nonGitHostLinkedReads = 0;
       const open = fs.openSync;
       const observe = t.mock.method(
         fs,
@@ -2166,7 +2767,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             args[0] ===
             path.join(local.target, ".crdd/config/repository-manifest.json")
           )
-            nonHostedReads++;
+            nonGitHostLinkedReads++;
           return open(...args);
         },
       );
@@ -2179,9 +2780,9 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         assert.equal(activityWithoutTarget.result.isError, true);
         assert.deepEqual(activityWithoutTarget.result.structuredContent, {
           status: "unavailable",
-          reason: "cros_runtime_activity_unavailable",
+          reason: "execution_activity_unavailable",
         });
-        assert.equal(nonHostedReads, 0);
+        assert.equal(nonGitHostLinkedReads, 0);
       } finally {
         observe.mock.restore();
       }
@@ -2195,7 +2796,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
     assert.ok(accountBinding);
     const outer = new AbortController();
     const sdkTool = new AbortController();
-    const resolveTestOAuthSource = createOAuthMcpResolver(
+    const resolveTestOAuthSource = createFixtureOAuthResolver(
       f.root,
       async () => ({
         status: "completed",
@@ -2234,21 +2835,25 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       (await listRecords("meetings", "?occurredFrom=invalid")).status,
       400,
     );
-    assert.equal(
-      (await mcpRecord("list_meetings", { occurredFrom: "invalid" })).error
-        .code,
-      -32602,
+    assert.ok(
+      isMcpInvalidArguments(
+        await mcpRecord("list_meetings", { occurredFrom: "invalid" }),
+        "crdd.list_meetings",
+      ),
     );
     assert.equal((await listRecords("topics", "/MTG-000042")).status, 400);
-    assert.equal(
-      (await mcpRecord("get_topic", { id: "MTG-000042" })).error.code,
-      -32602,
+    assert.ok(
+      isMcpInvalidArguments(
+        await mcpRecord("get_topic", { id: "MTG-000042" }),
+        "crdd.get_topic",
+      ),
     );
     assert.equal(hostReads, beforeInvalidRecord);
-    assert.equal(
-      (await mcpRecord("create_topic", { markdown: topicMarkdown() })).error
-        .code,
-      -32602,
+    assert.ok(
+      isMcpInvalidArguments(
+        await mcpRecord("create_topic", { markdown: topicMarkdown() }),
+        "crdd.create_topic",
+      ),
     );
     const writeRecord = (
       method: string,
@@ -2274,25 +2879,27 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       (await writeRecord("POST", "topics", { markdown: newTopic })).status,
       404,
     );
-    appCanWriteHosted = true;
+    appCanWriteGitHostLinked = true;
     assert.equal(
       (await writeRecord("POST", "topics", { markdown: newTopic })).status,
       404,
     );
-    canWriteHosted = true;
-    canWriteHosted = false;
+    canWriteGitHostLinked = true;
+    canWriteGitHostLinked = false;
     const beforeReadOnlyWrite = hostReads;
     assert.equal(
       (await writeRecord("POST", "topics", { markdown: newTopic })).status,
       404,
     );
-    assert.equal(
-      (await mcpRecord("create_topic", { markdown: newTopic })).error.code,
-      -32602,
+    assert.ok(
+      isMcpInvalidArguments(
+        await mcpRecord("create_topic", { markdown: newTopic }),
+        "crdd.create_topic",
+      ),
     );
     assert.equal(hostReads - beforeReadOnlyWrite, 4);
     assert.equal(storedTopic.get("TOPIC-000043"), null);
-    canWriteHosted = true;
+    canWriteGitHostLinked = true;
     const beforeWrongOrigin = hostReads;
     assert.equal(
       (
@@ -2447,7 +3054,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         changed === "binding" ? fs.readFileSync(f.current) : null;
       const changeTarget = () => {
         if (changed === "registration")
-          assert.equal(removeHostedRegistration().status, "completed");
+          assert.equal(removeGitHostLinkedRegistration().status, "completed");
         else if (beforeBinding) {
           const state = JSON.parse(
             beforeBinding.toString("utf8"),
@@ -2549,14 +3156,19 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           originalWrite(recordManifest, originalRecordManifest);
         if (beforeBinding) originalWrite(f.current, beforeBinding);
       }
-      if (changed === "registration") restoreHostedRegistration();
+      if (changed === "registration") restoreGitHostLinkedRegistration();
     }
-    canReadHosted = false;
+    canReadGitHostLinked = false;
     assert.deepEqual((await projects()).projects, []);
     assert.deepEqual(await mcpProjects(), []);
     assert.equal((await listRecords("topics")).status, 404);
-    assert.equal((await mcpRecord("list_topics", {})).error.code, -32602);
-    canReadHosted = true;
+    assert.ok(
+      isMcpInvalidArguments(
+        await mcpRecord("list_topics", {}),
+        "crdd.list_topics",
+      ),
+    );
+    canReadGitHostLinked = true;
     fixtureGit(candidate.target, ["symbolic-ref", "HEAD", "refs/heads/main"]);
     fixtureGit(candidate.target, [
       "config",
@@ -2609,18 +3221,18 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           });
         fs.writeFileSync(draft, "合成ステージ入力\n");
         try {
-          canWriteHosted = true;
-          appCanWriteHosted = true;
+          canWriteGitHostLinked = true;
+          appCanWriteGitHostLinked = true;
           assert.equal((await change("POST")).status, 400);
           assert.equal(readIndex(), original);
-          canWriteHosted = false;
+          canWriteGitHostLinked = false;
           assert.equal((await change("POST", adminSession)).status, 400);
           assert.equal(readIndex(), original);
-          canWriteHosted = true;
-          appCanWriteHosted = false;
+          canWriteGitHostLinked = true;
+          appCanWriteGitHostLinked = false;
           assert.equal((await change("POST", adminSession)).status, 400);
           assert.equal(readIndex(), original);
-          appCanWriteHosted = true;
+          appCanWriteGitHostLinked = true;
           assert.equal((await change("POST", adminSession)).status, 200);
           assert.equal(readIndex(), "oauth-stage.txt");
           assert.equal((await change("DELETE", adminSession)).status, 200);
@@ -2730,7 +3342,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         const decisionPath = `/api/repositories/${candidate.id}/projects/${projectId}/milestones/${milestoneId}/decisions`;
         const token = (
           await (
-            await web("/api/workbench/view", {
+            await web("/api/workbench/overview", {
               headers: { cookie: adminSession },
             })
           ).json()
@@ -2863,7 +3475,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           }
         };
         try {
-          canWriteHosted = false;
+          canWriteGitHostLinked = false;
           const state = await browser(queryPath);
           assert.equal(state.status, 200);
           const projected = await state.json();
@@ -2947,8 +3559,8 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             "no_effect",
           );
           assert.deepEqual(readSnapshot(), before);
-          canWriteHosted = true;
-          appCanWriteHosted = false;
+          canWriteGitHostLinked = true;
+          appCanWriteGitHostLinked = false;
           assert.equal(
             (
               await browser(decisionPath, {
@@ -2960,7 +3572,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             403,
           );
           assert.deepEqual(readSnapshot(), before);
-          appCanWriteHosted = true;
+          appCanWriteGitHostLinked = true;
           const expired = await expireAtManifest(false);
           assert.equal(expired.status, 403);
           assert.deepEqual(readSnapshot(), before);
@@ -2997,7 +3609,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           assert.equal(final.decision.status, "applied");
           assert.deepEqual(final.decision, answered.decision);
           assert.deepEqual(readSnapshot(), afterAnswer);
-          canReadHosted = false;
+          canReadGitHostLinked = false;
           assert.equal((await browser(queryPath)).status, 403);
           assert.equal(
             (await tool("crdd.get_execution_state", { ...query, requestId }))
@@ -3005,9 +3617,9 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             "mcp_execution_access_unavailable",
           );
         } finally {
-          canReadHosted = true;
-          canWriteHosted = true;
-          appCanWriteHosted = true;
+          canReadGitHostLinked = true;
+          canWriteGitHostLinked = true;
+          appCanWriteGitHostLinked = true;
           fs.renameSync(
             area,
             path.join(
@@ -3032,7 +3644,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         assert.equal(fs.existsSync(configPath), false);
         const view = async (cookie: string) => {
           const response = await web(
-            `/api/workbench/view?repositoryId=${candidate.id}`,
+            `/api/workbench/overview?repositoryId=${candidate.id}`,
             { headers: { cookie } },
           );
           assert.equal(response.status, 200);
@@ -3062,13 +3674,16 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             }),
           });
         };
-        const previous = [canWriteHosted, appCanWriteHosted] as const;
+        const previous = [
+          canWriteGitHostLinked,
+          appCanWriteGitHostLinked,
+        ] as const;
         try {
           assert.equal((await read(invitedCookie)).status, 403);
           const before = await read(adminCookie);
           assert.equal(before.status, 200);
           assert.equal((await before.json()).status, "missing");
-          canWriteHosted = appCanWriteHosted = true;
+          canWriteGitHostLinked = appCanWriteGitHostLinked = true;
           assert.equal(
             (await view(adminCookie)).aiSelection.selection.status,
             "missing",
@@ -3082,17 +3697,17 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             true,
           );
           assert.equal((await update(adminCookie)).status, 400);
-          appCanWriteHosted = false;
+          appCanWriteGitHostLinked = false;
           assert.equal(
             (await view(adminSession)).aiSelectionManagement.allowed,
             false,
           );
           assert.equal((await update(adminSession)).status, 400);
-          appCanWriteHosted = true;
-          canWriteHosted = false;
+          appCanWriteGitHostLinked = true;
+          canWriteGitHostLinked = false;
           assert.equal((await update(adminSession)).status, 400);
           assert.equal(fs.existsSync(configPath), false);
-          canWriteHosted = true;
+          canWriteGitHostLinked = true;
           const published = await update(adminSession);
           assert.equal(published.status, 200);
           const result = await published.json();
@@ -3315,7 +3930,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
                 new URL(this.req.url ?? "/", server.baseUrl).pathname ===
                   route &&
                 this.req.method === "PUT" &&
-                this.statusCode === 200 &&
+                this.statusCode === 409 &&
                 args[0] !== undefined
               )
                 successfulResponses++;
@@ -3325,7 +3940,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           syncBuiltinESMExports();
           try {
             const control = await update(adminSession);
-            assert.equal(control.status, 200);
+            assert.equal(control.status, 409);
             assert.equal((await control.json()).status, "conflict");
             assert.equal(successfulResponses, 1);
             assert.equal(cutPublications, 0);
@@ -3366,7 +3981,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             syncBuiltinESMExports();
           }
         } finally {
-          [canWriteHosted, appCanWriteHosted] = previous;
+          [canWriteGitHostLinked, appCanWriteGitHostLinked] = previous;
           fs.rmSync(configPath, { force: true });
         }
       },
@@ -3395,12 +4010,114 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         const { projectId, milestoneId, ...body } = objective;
         const token = (
           await (
-            await web("/api/workbench/view", {
+            await web("/api/workbench/overview", {
               headers: { cookie: adminSession },
             })
           ).json()
         ).actionToken;
         assert.match(token, /^[A-Za-z0-9_-]{43}$/u);
+        await runTest.test(
+          "不正計画は権限照会せず、認可を確定できない計画は子を起動しない",
+          async (boundary) => {
+            const previous = [
+              canWriteGitHostLinked,
+              hostedResponseStatus,
+            ] as const;
+            const attach = boundary.mock.method(objectiveRuns, "attach", () => {
+              assert.fail("認可が確定していない実行の起動を登録した");
+            });
+            let childLoads = 0;
+            const hook = registerHooks({
+              resolve(specifier, context, next) {
+                if (
+                  specifier === "./execution-child.ts" &&
+                  context.parentURL?.endsWith("/src/service/execution.ts")
+                )
+                  childLoads++;
+                return next(specifier, context);
+              },
+            });
+            try {
+              const invalidPlan = {
+                ...body.plan,
+                milestoneAcceptanceCriteria: ["外側と一致しない受入条件"],
+              };
+              const beforeInvalid = hostReads;
+              const invalidStart = await web(
+                `/api/repositories/${candidate.id}/projects/${projectId}/milestones/${milestoneId}/runs`,
+                {
+                  method: "POST",
+                  headers: {
+                    cookie: adminSession,
+                    origin: origin.origin,
+                    "content-type": "application/json",
+                    "x-crdd-action-token": token,
+                  },
+                  body: JSON.stringify({ ...body, plan: invalidPlan }),
+                },
+              );
+              assert.equal(invalidStart.status, 400);
+              const invalidResume = await call(
+                server.baseUrl,
+                mcpToken,
+                "crdd.resume_objective",
+                { ...objective, repositoryId: candidate.id, plan: invalidPlan },
+              );
+              assert.ok(
+                isMcpInvalidArguments(
+                  await invalidResume.json(),
+                  "crdd.resume_objective",
+                ),
+              );
+              assert.equal(hostReads, beforeInvalid);
+              for (const status of [undefined, 503]) {
+                canWriteGitHostLinked = status !== undefined;
+                hostedResponseStatus = status;
+                let before = hostReads;
+                const start = await web(
+                  `/api/repositories/${candidate.id}/projects/${projectId}/milestones/${milestoneId}/runs`,
+                  {
+                    method: "POST",
+                    headers: {
+                      cookie: adminSession,
+                      origin: origin.origin,
+                      "content-type": "application/json",
+                      "x-crdd-action-token": token,
+                    },
+                    body: JSON.stringify(body),
+                  },
+                );
+                assert.equal(start.status, 403);
+                assert.ok(hostReads > before);
+                before = hostReads;
+                const resume = await call(
+                  server.baseUrl,
+                  mcpToken,
+                  "crdd.resume_objective",
+                  { ...objective, repositoryId: candidate.id },
+                );
+                assert.equal(resume.status, 200);
+                const reply = await resume.json();
+                assert.equal(reply.result.isError, true);
+                assert.equal(
+                  reply.result.structuredContent.reason,
+                  "mcp_execution_access_unavailable",
+                );
+                assert.equal(
+                  reply.result.structuredContent.effectState,
+                  "no_effect",
+                );
+                assert.ok(hostReads > before);
+              }
+              assert.equal(childLoads, 0);
+              assert.equal(attach.mock.callCount(), 0);
+            } finally {
+              hook.deregister();
+              attach.mock.restore();
+              [canWriteGitHostLinked, hostedResponseStatus] = previous;
+            }
+          },
+        );
         const barrier = () => {
           let resolve: () => void = () => {};
           const promise = new Promise<void>((finish) => {
@@ -3414,7 +4131,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           permission: "write",
           repositoryName: "team/project",
         };
-        const bindingProbe = await openHostedExecutionAccess(
+        const bindingProbe = await openGitHostLinkedExecutionAccess(
           f.root,
           {
             principal: {
@@ -3439,16 +4156,17 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         assert.ok(bindingProbe);
         clientState = "unavailable";
         assert.equal(await bindingProbe.refresh(runTest.signal), "unavailable");
-        assert.equal(removeHostedRegistration().status, "completed");
+        assert.equal(removeGitHostLinkedRegistration().status, "completed");
         try {
           assert.equal(bindingProbe.observe(), "revoked");
         } finally {
-          restoreHostedRegistration();
+          restoreGitHostLinkedRegistration();
           bindingProbe.close?.();
         }
         for (const mode of [
           "host-revoke",
           "am-revoke",
+          "binding-revoke",
           "target-changed",
           "target-renamed",
           "unknown",
@@ -3457,10 +4175,17 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           "mcp-expiry",
           "browser-expiry",
           "mcp-admission-expiry",
+          "http-disconnect-before-task",
+          "http-disconnect-after-task",
           "git-disconnect",
           "mcp-logout",
         ] as const) {
+          const disconnected =
+            mode === "http-disconnect-before-task" ||
+            mode === "http-disconnect-after-task";
+          const browserConnection = new AbortController();
           const startThroughHttp =
+            disconnected ||
             mode === "host-revoke" ||
             mode === "mcp-cancellation" ||
             mode === "browser-expiry" ||
@@ -3494,7 +4219,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
               runMcpToken = await consentMcp(runCookie);
             runToken = (
               await (
-                await web("/api/workbench/view", {
+                await web("/api/workbench/overview", {
                   headers: { cookie: runCookie },
                 })
               ).json()
@@ -3503,7 +4228,10 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           }
           const ordinaryExpiry =
             mode === "mcp-expiry" || mode === "browser-expiry";
-          const continues = ordinaryExpiry || mode === "mcp-logout";
+          const continues =
+            ordinaryExpiry ||
+            mode === "mcp-logout" ||
+            mode === "http-disconnect-after-task";
           let clock: { restore: () => void } | undefined;
           let launchId: string | null = null;
           const attach = objectiveRuns.attach;
@@ -3521,6 +4249,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
               fs.readFileSync(f.current, "utf8"),
             ) as AccessManagementState;
           let unrelatedChanged = false;
+          let restoreBinding: (() => void) | undefined;
           const initialActor = readAccessState().users[0];
           assert.ok(initialActor);
           const changeUnrelated = (username: string) => {
@@ -3537,6 +4266,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
           const entered = barrier();
           const cancelled = barrier();
           const close = barrier();
+          const childFinished = barrier();
           runTest.signal.addEventListener("abort", close.resolve, {
             once: true,
           });
@@ -3607,17 +4337,23 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
                   unrelatedChanged = true;
                 };
               assert.equal(await confirm(), true);
+              if (mode !== "http-disconnect-before-task")
+                assert.equal(await confirm("task"), true);
               if (mode === "host-revoke") assert.equal(unrelatedChanged, true);
               childSignal.addEventListener("abort", () => cancelled.resolve(), {
                 once: true,
               });
               entered.resolve();
               await close.promise;
-              assert.equal(
-                childSignal.aborted,
-                mode !== "unknown" && !continues,
-              );
-              assert.equal(await confirm(), continues);
+              try {
+                assert.equal(
+                  childSignal.aborted,
+                  mode !== "unknown" && !continues,
+                );
+                assert.equal(await confirm(), continues);
+              } finally {
+                childFinished.resolve();
+              }
               return null;
             };
           Reflect.set(globalThis, key, fixture);
@@ -3630,35 +4366,42 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
             },
           });
           let completed = false;
-          const outcome = (async (): Promise<number | undefined> =>
-            startThroughHttp
-              ? (
-                  await web(
-                    `/api/repositories/${candidate.id}/projects/${projectId}/milestones/${milestoneId}/runs`,
-                    {
-                      method: "POST",
-                      headers: {
-                        cookie: runCookie,
-                        origin: origin.origin,
-                        "content-type": "application/json",
-                        "x-crdd-action-token": runToken,
-                      },
-                      body: JSON.stringify(body),
+          const outcome = (async (): Promise<number | string | undefined> => {
+            if (startThroughHttp)
+              return (
+                await web(
+                  `/api/repositories/${candidate.id}/projects/${projectId}/milestones/${milestoneId}/runs`,
+                  {
+                    method: "POST",
+                    signal: browserConnection.signal,
+                    headers: {
+                      cookie: runCookie,
+                      origin: origin.origin,
+                      "content-type": "application/json",
+                      "x-crdd-action-token": runToken,
                     },
-                  )
-                ).status
-              : (
-                  await (
-                    await call(
-                      server.baseUrl,
-                      runMcpToken,
-                      "crdd.resume_objective",
-                      { ...objective, repositoryId: candidate.id },
-                    )
-                  ).json()
-                ).error?.code)().finally(() => {
-            completed = true;
-          });
+                    body: JSON.stringify(body),
+                  },
+                )
+              ).status;
+            const response = await (
+              await call(server.baseUrl, runMcpToken, "crdd.resume_objective", {
+                ...objective,
+                repositoryId: candidate.id,
+              })
+            ).json();
+            return response.result?.structuredContent
+              ? undefined
+              : mcpToolErrorText(response);
+          })()
+            .catch((error: unknown) => {
+              if (disconnected && browserConnection.signal.aborted)
+                return undefined;
+              throw error;
+            })
+            .finally(() => {
+              completed = true;
+            });
           try {
             await Promise.race([
               entered.promise,
@@ -3671,7 +4414,12 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
               continue;
             }
             assert.ok(tick);
-            if (ordinaryExpiry) {
+            if (disconnected) {
+              browserConnection.abort();
+              if (mode === "http-disconnect-before-task")
+                await cancelled.promise;
+              assert.equal(await outcome, undefined);
+            } else if (ordinaryExpiry) {
               const now = Date.now();
               const delta = mode === "mcp-expiry" ? 301_000 : 31 * 60_000;
               clock = runTest.mock.method(Date, "now", () => now + delta).mock;
@@ -3710,7 +4458,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
                 );
               }
               if (mode === "mcp-cancellation") {
-                canWriteHosted = false;
+                canWriteGitHostLinked = false;
                 try {
                   assert.equal(
                     (await invoke(cancellation)).result.structuredContent
@@ -3718,7 +4466,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
                     "mcp_execution_access_unavailable",
                   );
                 } finally {
-                  canWriteHosted = true;
+                  canWriteGitHostLinked = true;
                 }
                 assert.deepEqual(
                   (await invoke(cancellation)).result.structuredContent,
@@ -3745,15 +4493,90 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
               }
             } else if (mode === "mcp-logout") {
               const beforeMonitor = hostReads;
-              assert.equal(
-                (
-                  await web("/api/session", {
-                    method: "DELETE",
-                    headers: { cookie: runCookie, origin: origin.origin },
-                  })
-                ).status,
-                204,
+              const beforeRevocation = hostRevocations;
+              const enteredBody = barrier();
+              const prototype = IncomingMessage.prototype;
+              const iterator = Symbol.asyncIterator;
+              const original = Object.getOwnPropertyDescriptor(
+                prototype,
+                iterator,
               );
+              const iterate = prototype[Symbol.asyncIterator];
+              const requestPacket = packet(MCP_CURRENT_ACCESS_TOOL, {});
+              const body = JSON.stringify(requestPacket);
+              let waiting: ReturnType<typeof httpRequest> | undefined;
+              const reply = new Promise<string>((resolve, reject) => {
+                waiting = httpRequest(
+                  new URL("/mcp", server.baseUrl),
+                  {
+                    method: "POST",
+                    agent: false,
+                    headers: {
+                      authorization: `Bearer ${runMcpToken}`,
+                      accept: "application/json, text/event-stream",
+                      "content-type": "application/json",
+                      "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
+                      "mcp-method": "tools/call",
+                      "mcp-name": MCP_CURRENT_ACCESS_TOOL,
+                    },
+                  },
+                  (response) => {
+                    let text = "";
+                    response.setEncoding("utf8");
+                    response.on("data", (part: string) => {
+                      text += part;
+                    });
+                    response.on("error", reject);
+                    response.on("end", () => resolve(text));
+                  },
+                );
+                waiting.on("error", reject);
+                waiting.write(body.slice(0, 1));
+              });
+              try {
+                Object.defineProperty(prototype, iterator, {
+                  configurable: true,
+                  value(this: IncomingMessage) {
+                    if (
+                      this.url === "/mcp" &&
+                      this.headers["mcp-name"] === MCP_CURRENT_ACCESS_TOOL &&
+                      this.headers.authorization === `Bearer ${runMcpToken}`
+                    )
+                      enteredBody.resolve();
+                    return iterate.call(this);
+                  },
+                });
+                await Promise.race([
+                  enteredBody.promise,
+                  reply.then(() =>
+                    assert.fail("MCP did not wait for the body"),
+                  ),
+                ]);
+                assert.equal(
+                  (
+                    await web("/api/session", {
+                      method: "DELETE",
+                      headers: { cookie: runCookie, origin: origin.origin },
+                    })
+                  ).status,
+                  204,
+                );
+                assert.ok(waiting);
+                waiting.end(body.slice(1));
+                const withheld = JSON.parse(await reply);
+                assert.equal(withheld.id, requestPacket.id);
+                assert.deepEqual(withheld.error, {
+                  code: -32603,
+                  message: "Authentication unavailable",
+                });
+                assert.equal(withheld.result, undefined);
+              } finally {
+                if (original)
+                  Object.defineProperty(prototype, iterator, original);
+                else Reflect.deleteProperty(prototype, iterator);
+                waiting?.destroy();
+              }
+              assert.equal(hostRevocations, beforeRevocation + 1);
               assert.equal(
                 (
                   await call(
@@ -3772,6 +4595,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
                 "利用者資格を監視に使わない",
               );
             } else if (mode === "git-disconnect") {
+              const beforeRevocation = hostRevocations;
               assert.equal(
                 (
                   await web("/api/session/git/github", {
@@ -3781,9 +4605,36 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
                 ).status,
                 204,
               );
+              assert.equal(hostRevocations, beforeRevocation + 1);
             } else if (mode === "am-revoke")
-              assert.equal(removeHostedRegistration().status, "completed");
-            else {
+              assert.equal(
+                removeGitHostLinkedRegistration().status,
+                "completed",
+              );
+            else if (mode === "binding-revoke") {
+              const current = readAccessState();
+              const actor = current.users.find(
+                ({ userId }) => userId === administrator.userId,
+              );
+              assert.ok(actor?.accountLinks?.length);
+              const links = actor.accountLinks;
+              delete actor.accountLinks;
+              current.revision++;
+              current.operationId = randomUUID();
+              fs.writeFileSync(f.current, JSON.stringify(current));
+              restoreBinding = () => {
+                const latest = readAccessState();
+                const restored = latest.users.find(
+                  ({ userId }) => userId === administrator.userId,
+                );
+                assert.ok(restored);
+                restored.accountLinks = links;
+                latest.revision++;
+                latest.operationId = randomUUID();
+                fs.writeFileSync(f.current, JSON.stringify(latest));
+              };
+              tick();
+            } else {
               if (mode === "target-changed")
                 setRemote("https://github.com/team/other.git");
               else if (mode === "target-renamed")
@@ -3791,28 +4642,35 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
               else hostedResponseStatus = mode === "host-revoke" ? 401 : 503;
               tick();
             }
-            if (mode !== "unknown" && !continues)
+            if (!disconnected && mode !== "unknown" && !continues)
               await Promise.race([
                 cancelled.promise,
                 outcome.then(() => assert.fail("取消前に応答した")),
               ]);
-            assert.equal(completed, false);
+            if (!disconnected) assert.equal(completed, false);
             close.resolve();
             assert.equal(
               await outcome,
-              startThroughHttp
-                ? 503
-                : mode === "http-cancellation" || continues
-                  ? undefined
-                  : -32603,
+              disconnected
+                ? undefined
+                : startThroughHttp
+                  ? 503
+                  : mode === "http-cancellation" || continues
+                    ? undefined
+                    : "Tool execution failed",
             );
+            if (disconnected) {
+              await childFinished.promise;
+              await new Promise<void>((resolve) => setTimeout(resolve, 0));
+            }
             assert.equal(cleared, true);
           } finally {
             close.resolve();
             await outcome.catch(() => {});
             clock?.restore();
             runTest.signal.removeEventListener("abort", close.resolve);
-            if (mode === "am-revoke") restoreHostedRegistration();
+            if (mode === "am-revoke") restoreGitHostLinkedRegistration();
+            restoreBinding?.();
             hostedResponseStatus = undefined;
             if (mode === "target-changed") setRemote(correctRemote);
             if (mode === "target-renamed")
@@ -3870,7 +4728,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       cursor: null,
       limit: 20,
     };
-    assert.equal(removeHostedRegistration().status, "completed");
+    assert.equal(removeGitHostLinkedRegistration().status, "completed");
     const beforeWorkspaceRejection = hostReads;
     assert.equal(
       (
@@ -3880,12 +4738,17 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       ).status,
       404,
     );
+    const unavailableWorkspace = await wsCall(
+      "crdd.list_workspaces",
+      listWorkspace,
+    );
     assert.equal(
-      (await wsCall("crdd.list_workspaces", listWorkspace)).error.code,
-      -32603,
+      mcpToolErrorText(unavailableWorkspace),
+      "Tool execution failed",
+      JSON.stringify(unavailableWorkspace.error),
     );
     assert.equal(hostReads, beforeWorkspaceRejection);
-    restoreHostedRegistration();
+    restoreGitHostLinkedRegistration();
     const beforeMixedCredentials = hostReads;
     const mixedCredentials = await web(workspaces + workspaceQueries, {
       headers: { cookie: adminSession, authorization: `Bearer ${f.token}` },
@@ -3895,7 +4758,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       error: "request_rejected",
     });
     assert.equal(hostReads, beforeMixedCredentials);
-    canWriteHosted = false;
+    canWriteGitHostLinked = false;
     const listResponse = await web(workspaces + workspaceQueries, {
       headers: { cookie: adminSession },
     });
@@ -3911,20 +4774,20 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         .status,
       400,
     );
-    assert.equal(
-      (
+    assert.ok(
+      isMcpInvalidArguments(
         await wsCall("crdd.create_workspace", {
           ...createWorkspace,
           operation: "rename",
-        })
-      ).error.code,
-      -32602,
+        }),
+        "crdd.create_workspace",
+      ),
     );
     assert.equal(hostReads, beforeWorkspaceInvalid);
     assert.equal((await wsWrite("POST", "", createWorkspace)).status, 404);
     assert.equal(
-      (await wsCall("crdd.create_workspace", createWorkspace)).error.code,
-      -32603,
+      mcpToolErrorText(await wsCall("crdd.create_workspace", createWorkspace)),
+      "Tool execution failed",
     );
     assert.equal(
       fixtureGit(candidate.target, [
@@ -3934,7 +4797,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       ]).includes(workspaceId),
       false,
     );
-    canWriteHosted = true;
+    canWriteGitHostLinked = true;
     const createdWorkspace = await wsWrite("POST", "", createWorkspace);
     assert.equal(createdWorkspace.status, 201);
     const createdWorkspaceBody = await createdWorkspace.json();
@@ -4021,7 +4884,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       "workspace-fixture-storage",
     );
     fs.renameSync(definitionDirectory, workspaceStorage);
-    canWriteHosted = false;
+    canWriteGitHostLinked = false;
     const planResponse = await readPlan();
     assert.equal(planResponse.status, 200, await planResponse.clone().text());
     const beforePlan = await planResponse.json();
@@ -4032,23 +4895,117 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
     );
     assert.equal((await initializeDefinition()).status, 403);
     assert.equal(
-      (
+      mcpToolErrorText(
         await wsCall("crdd.initialize_execution_definition", {
           ...definitionTarget,
           expectedAbsence: true,
-        })
-      ).error.code,
-      -32603,
+        }),
+      ),
+      "Tool execution failed",
     );
     assert.equal(fs.existsSync(existingDefinitionState), false);
-    canWriteHosted = true;
-    const initialized = await initializeDefinition();
-    assert.equal(initialized.status, 200, await initialized.clone().text());
+    canWriteGitHostLinked = true;
+    const initializeStarted = performance.now();
+    let definitionPublishedAt: number | null = null;
+    let definitionOriginReads = 0;
+    const spawnDuringInitialization = childProcess.spawnSync;
+    const observeInitializationOrigin = t.mock.method(
+      childProcess,
+      "spawnSync",
+      (...args: Parameters<typeof spawnDuringInitialization>) => {
+        const command = args[1];
+        if (
+          Array.isArray(command) &&
+          command.includes("--get-all") &&
+          command.includes("remote.origin.url")
+        )
+          definitionOriginReads++;
+        return spawnDuringInitialization(...args);
+      },
+    );
+    const renameDuringInitialization = fs.renameSync;
+    const observeInitialization = t.mock.method(
+      fs,
+      "renameSync",
+      (...args: Parameters<typeof renameDuringInitialization>) => {
+        renameDuringInitialization(...args);
+        if (args[1] === existingDefinitionState)
+          definitionPublishedAt = Math.round(
+            performance.now() - initializeStarted,
+          );
+      },
+    );
+    syncBuiltinESMExports();
+    const initialized = await initializeDefinition().finally(() => {
+      observeInitialization.mock.restore();
+      observeInitializationOrigin.mock.restore();
+      syncBuiltinESMExports();
+    });
+    const initializeElapsedMs = Math.round(
+      performance.now() - initializeStarted,
+    );
+    if (initialized.status !== 201) {
+      // 試験用領域の名前や保存本文を出さず、初期化のどこまで進んだかを区別する。
+      const files = (() => {
+        try {
+          return fs.readdirSync(definitionDirectory);
+        } catch (error) {
+          return (error as NodeJS.ErrnoException).code === "ENOENT"
+            ? "absent"
+            : "unavailable";
+        }
+      })();
+      const body = await initialized
+        .clone()
+        .json()
+        .catch(() => null);
+      assert.equal(
+        initialized.status,
+        201,
+        JSON.stringify({
+          initializeElapsedMs,
+          definitionPublishedAt,
+          definitionOriginReads,
+          outcome:
+            body?.status === "unknown" &&
+            body.reason === "publication_unconfirmed"
+              ? "publication_unconfirmed"
+              : body?.status === "blocked"
+                ? "blocked"
+                : body === null
+                  ? "body_unavailable"
+                  : "other",
+          publication:
+            body?.publication === "confirmed" ||
+            body?.publication === "unconfirmed" ||
+            body?.publication === "not_published"
+              ? body.publication
+              : "unavailable",
+          recoveryReferenceCount: Array.isArray(body?.recoveryReferences)
+            ? body.recoveryReferences.length
+            : null,
+          directory: Array.isArray(files) ? "present" : files,
+          statePresent: Array.isArray(files)
+            ? files.includes("state.json")
+            : null,
+          entryCount: Array.isArray(files) ? files.length : null,
+        }),
+      );
+    }
+    assert.equal(definitionOriginReads, 1);
     const initialDefinition = await initialized.json();
     assert.equal(
       initialDefinition.status,
       "saved",
       JSON.stringify(initialDefinition),
+    );
+    t.diagnostic(
+      JSON.stringify({
+        operation: "shared-api-definition-initialize",
+        elapsedMs: initializeElapsedMs,
+        savedAtMs: definitionPublishedAt,
+        originReads: definitionOriginReads,
+      }),
     );
     const beforeDefinition = fs.readFileSync(existingDefinitionState);
     assert.equal(
@@ -4217,7 +5174,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         ...definitionTarget,
         ...planPatch,
       });
-      assert.equal(refused.error.code, -32603);
+      assert.equal(mcpToolErrorText(refused), "Tool execution failed");
       assert.equal(definitionAfterPublication, true);
       assert.notDeepEqual(
         fs.readFileSync(existingDefinitionState),
@@ -4232,6 +5189,98 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       (await (await readPlan()).json()).value.definition,
       planPatch.definition,
     );
+    for (const cause of ["origin", "deadline"] as const) {
+      await t.test(
+        `定義保存の境界で ${cause} が変わると非公開`,
+        async (boundary) => {
+          const changeOrigin = cause === "origin";
+          const fresh = await (await readPlan()).json();
+          assert.equal(fresh.status, "available");
+          const patch = {
+            expected: fresh.version,
+            expectedDefinitionHash: fresh.value.definitionHash,
+            definition: {
+              ...definition,
+              milestoneAcceptanceCriteria: [`境界の確認: ${cause}`],
+            },
+          };
+          const previousState = fs.readFileSync(existingDefinitionState);
+          for (const phase of ["before-save", "after-save"] as const) {
+            let faultObserved = false;
+            let elapsed = 0;
+            const now = performance.now.bind(performance);
+            const clock = changeOrigin
+              ? undefined
+              : boundary.mock.method(performance, "now", () => now() + elapsed);
+            const change = () => {
+              if (faultObserved) return;
+              faultObserved = true;
+              if (changeOrigin) setRemote("https://github.com/team/other.git");
+              else elapsed = 10_001;
+            };
+            const open = fs.openSync;
+            const rename = fs.renameSync;
+            const fault =
+              phase === "before-save"
+                ? boundary.mock.method(
+                    fs,
+                    "openSync",
+                    (...args: Parameters<typeof open>) => {
+                      const fd = open(...args);
+                      if (args[0] === existingDefinitionState) change();
+                      return fd;
+                    },
+                  )
+                : boundary.mock.method(
+                    fs,
+                    "renameSync",
+                    (...args: Parameters<typeof rename>) => {
+                      rename(...args);
+                      if (args[1] === existingDefinitionState) change();
+                    },
+                  );
+            syncBuiltinESMExports();
+            try {
+              if (phase === "before-save") {
+                const refused = await writePlan(patch);
+                assert.equal(faultObserved, true);
+                assert.equal(refused.status, 503);
+                assert.deepEqual(await refused.json(), {
+                  error: "execution_definition_unavailable",
+                });
+                assert.deepEqual(
+                  fs.readFileSync(existingDefinitionState),
+                  previousState,
+                );
+              } else {
+                const refused = await wsCall("crdd.save_execution_plan", {
+                  ...definitionTarget,
+                  ...patch,
+                });
+                assert.equal(faultObserved, true);
+                assert.equal(
+                  mcpToolErrorText(refused),
+                  "Tool execution failed",
+                );
+                assert.equal(refused.result.structuredContent, undefined);
+                assert.notDeepEqual(
+                  fs.readFileSync(existingDefinitionState),
+                  previousState,
+                );
+              }
+            } finally {
+              fault.mock.restore();
+              clock?.mock.restore();
+              syncBuiltinESMExports();
+              if (changeOrigin) setRemote(correctRemote);
+            }
+          }
+          const restored = await (await readPlan()).json();
+          assert.equal(restored.status, "available");
+          assert.deepEqual(restored.value.definition, patch.definition);
+        },
+      );
+    }
     fs.renameSync(
       definitionDirectory,
       path.join(candidate.target, ".crdd", "definition-fixture-storage"),
@@ -4289,7 +5338,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
         if (args[1] !== beforeGitState || durableIntentObserved) return;
         if (readInterrupted()?.pending?.kind === "create") {
           durableIntentObserved = true;
-          assert.equal(removeHostedRegistration().status, "completed");
+          assert.equal(removeGitHostLinkedRegistration().status, "completed");
         }
       },
     );
@@ -4319,7 +5368,7 @@ test("共有OAuthの同じListenerで管理者が利用者を招待し、本人�
       revokeAfterIntent.mock.restore();
       syncBuiltinESMExports();
     }
-    restoreHostedRegistration();
+    restoreGitHostLinkedRegistration();
     assert.equal(
       (
         await web("/api/session/git/github", {
@@ -4672,7 +5721,7 @@ test("OAuth MCPは旧公開範囲で内容を許可せず、現在の主体で�
   const token = "s".repeat(43);
   let expiresAt = Date.now() + 30_000;
   const server = await startMcpAuthenticatedStreamableHttp(
-    createOAuthMcpResolver(f.root, async (candidate) => {
+    createFixtureOAuthResolver(f.root, async (candidate) => {
       if (candidate !== token) return { status: "rejected" };
       return {
         status: "completed",
@@ -4703,7 +5752,7 @@ test("OAuth MCPは旧公開範囲で内容を許可せず、現在の主体で�
       "crdd.update_repository_exposure",
     ]) {
       const removed = await (await call(base, token, name, {})).json();
-      assert.equal(removed.error.code, -32601, name);
+      assert.equal(removed.error.code, -32602, name);
     }
     assert.deepEqual(fs.readFileSync(f.current), before);
     assert.equal((await call(base, f.token)).status, 401);
@@ -4728,7 +5777,7 @@ test("OAuth MCPは旧公開範囲で内容を許可せず、現在の主体で�
           "completed",
         );
         assert.equal(
-          await resolveHostedDevelopmentAccess(
+          await resolveGitHostLinkedDevelopmentAccess(
             f.root,
             session,
             retainedRepository.id,
@@ -4769,7 +5818,7 @@ test("OAuth MCPは旧公開範囲で内容を許可せず、現在の主体で�
               objective: "試験用の実行要求",
               acceptanceCriteria: ["確認"],
               allowedPaths: ["PROJECT_CONTEXT.md"],
-              readPaths: ["."],
+              readPaths: ["PROJECT_CONTEXT.md"],
               maximumConcurrency: 1,
               maximumReplans: 0,
               originLane: "interactive",
@@ -4793,7 +5842,7 @@ test("OAuth MCPは旧公開範囲で内容を許可せず、現在の主体で�
                 manualRecoveryRequired: false,
                 effectState: "no_effect",
               },
-              tool,
+              `${tool}: ${JSON.stringify(reply.result.content)}`,
             );
           }
           assert.equal(starts, 0);
@@ -4824,7 +5873,7 @@ test("OAuth MCPは旧公開範囲で内容を許可せず、現在の主体で�
           synthetic.revision++;
           synthetic.operationId = randomUUID();
           fs.writeFileSync(f.current, JSON.stringify(synthetic));
-          const access = await resolveHostedDevelopmentAccess(
+          const access = await resolveGitHostLinkedDevelopmentAccess(
             f.root,
             {
               principal: {
@@ -4870,9 +5919,9 @@ test("OAuth MCPは旧公開範囲で内容を許可せず、現在の主体で�
     const downgraded = await (
       await call(base, token, "crdd.list_access_users", {})
     ).json();
-    assert.deepEqual(downgraded.result.structuredContent, {
-      status: "unavailable",
-      reason: "management_read_rejected",
+    assert.deepEqual(downgraded.error, {
+      code: -32602,
+      message: "Tool unavailable",
     });
     expiresAt = Date.now() - 1;
     assert.equal((await call(base, token)).status, 401);
@@ -5024,7 +6073,7 @@ test("OAuth MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
       await read.json(),
       (await invoke(queryTool, selectedState)).result.structuredContent,
     );
-    assert.equal((await invoke(queryTool, query)).error?.code, -32602);
+    assert.ok(isMcpInvalidArguments(await invoke(queryTool, query), queryTool));
     assert.equal(
       (await invoke(queryTool, { ...query, repositoryId: a.id })).result
         .structuredContent.reason,
@@ -5082,7 +6131,7 @@ test("OAuth MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
       assert.equal(result.reason, "mcp_execution_access_unavailable");
       assert.equal(result.effectState, "no_effect");
     }
-    const view = await fetch(`${base}/api/workbench/view`);
+    const view = await fetch(`${base}/api/workbench/overview`);
     const { actionToken } = await view.json();
     const {
       repositoryId: objectiveRepository,
@@ -5143,16 +6192,16 @@ test("OAuth MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
     );
     assert.equal(
       (await invoke("crdd.run_objective", objective)).error?.code,
-      -32601,
+      -32602,
     );
-    assert.equal(
-      (
+    assert.ok(
+      isMcpInvalidArguments(
         await invoke("crdd.start_objective", {
           ...objective,
           operation: "resume",
-        })
-      ).error?.code,
-      -32602,
+        }),
+        "crdd.start_objective",
+      ),
     );
     for (const [http, tool, input] of [
       [
@@ -5214,16 +6263,16 @@ test("OAuth MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
     );
     assert.equal(
       (await invoke("crdd.submit_decision", decision)).error?.code,
-      -32601,
+      -32602,
     );
-    assert.equal(
-      (
+    assert.ok(
+      isMcpInvalidArguments(
         await invoke("crdd.answer_decision", {
           ...decision,
           operation: "apply",
-        })
-      ).error?.code,
-      -32602,
+        }),
+        "crdd.answer_decision",
+      ),
     );
     hosted.permissions.delete(a.id);
     for (const [name, args] of [
@@ -5369,15 +6418,15 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
         assert.equal(wire.includes(hidden), false);
     }
     const before = fs.readFileSync(f.current);
-    assert.equal(
-      (
+    assert.ok(
+      isMcpInvalidArguments(
         await invokeMcpSource(
           handler,
           packet(MCP_CURRENT_ACCESS_TOOL, { userId: otherId }),
           new AbortController().signal,
-        )
-      ).error?.code,
-      -32602,
+        ),
+        MCP_CURRENT_ACCESS_TOOL,
+      ),
     );
     const cancelled = new AbortController();
     cancelled.abort();
@@ -5415,24 +6464,62 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
   }
 });
 
-/**
- * 非鍵管理十操作を現在Roleから実HTTP保存へ接続する。
- * @responsibility 四読取り・六保存の結果、非開示、次要求の現在性を照合する。
- * @trace RFD-IT-013
- * @trace RFD-IT-021
- * @trace EST-IT-002
- * @trace EST-IT-010
- * @precondition 自己生成の完了AM Storeと登録済みRepositoryを用意する。
- * @stimulus 全ロールで四つの読取りの一覧と旧六書込みの直接呼出しを試す。
- * @observation 実HTTP構造結果、降格後の拒否、変更されない管理ファイル。
- * @oracle 未登録の書込みを実行せず、現在の管理認可でだけ読む。
- * @cleanup Server終了待ち後、fixtureが所有Rootの不存在を確認する。
- * @boundary AM保存Owner→MCP→実HTTP。公開Launcher成立ではない。
- */
-test("MCP管理は現在権限の読取りだけを公開し旧六書込みは全ロールで拒否する", async (t) => {
+/** 公開名の期待値。実行監督なしの構成ではObjective取消を公開しない。 @trace RFD-IT-013 */
+const expectedRepositoryAndAccountTools = [
+  "crdd.adopt_workspace",
+  "crdd.answer_decision",
+  "crdd.apply_decision",
+  "crdd.close_decision",
+  "crdd.close_workspace_candidate",
+  "crdd.create_meeting",
+  "crdd.create_objective",
+  "crdd.create_task",
+  "crdd.create_topic",
+  "crdd.create_workspace",
+  "crdd.delete_meeting",
+  "crdd.delete_objective",
+  "crdd.delete_task",
+  "crdd.delete_topic",
+  "crdd.discard_workspace",
+  "crdd.freeze_workspace",
+  "crdd.get_current_access",
+  "crdd.get_execution_activity",
+  "crdd.get_execution_plan",
+  "crdd.get_execution_state",
+  "crdd.get_meeting",
+  "crdd.get_project_context",
+  "crdd.get_topic",
+  "crdd.get_workspace_candidate_diff",
+  "crdd.get_workspace",
+  "crdd.hold_workspace",
+  "crdd.initialize_execution_definition",
+  "crdd.inspect_workspace",
+  "crdd.list_meetings",
+  "crdd.list_objectives",
+  "crdd.list_projects",
+  "crdd.list_tasks",
+  "crdd.list_topics",
+  "crdd.list_workspaces",
+  "crdd.promote_topic",
+  "crdd.rename_workspace",
+  "crdd.request_decision",
+  "crdd.resume_objective",
+  "crdd.save_execution_plan",
+  "crdd.select_workspace",
+  "crdd.start_objective",
+  "crdd.treat_meeting_outcome",
+  "crdd.update_meeting",
+  "crdd.update_objective",
+  "crdd.update_task",
+  "crdd.update_topic",
+] as const;
+const expectedManagementReadTools = [
+  "crdd.list_access_users",
+  "crdd.list_registered_repositories",
+] as const;
+
+test("MCPのTool一覧は現行の公開契約と一致し、管理読取りは現在ロールに従う", async (t) => {
   const f = fixture(t);
-  const [firstTarget, secondTarget] = f.targets;
-  assert.ok(firstTarget && secondTarget);
   const resolver = fixtureOAuthResolver(f);
   const server = await startMcpAuthenticatedStreamableHttp(resolver, {
     port: 0,
@@ -5451,14 +6538,19 @@ test("MCP管理は現在権限の読取りだけを公開し旧六書込みは�
       listRequest,
       new AbortController().signal,
     );
-    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 46);
+    assert.deepEqual(
+      (deniedList.result as { tools: { name: string }[] }).tools
+        .map(({ name }) => name)
+        .sort(),
+      [...expectedRepositoryAndAccountTools].sort(),
+    );
     const before = fs.readFileSync(f.current);
     const deniedRead = await (
       await call(base, f.mcpToken, "crdd.list_access_users", {})
     ).json();
-    assert.deepEqual(deniedRead.result.structuredContent, {
-      status: "unavailable",
-      reason: "management_read_rejected",
+    assert.deepEqual(deniedRead.error, {
+      code: -32602,
+      message: "Tool unavailable",
     });
     assert.deepEqual(fs.readFileSync(f.current), before);
 
@@ -5480,24 +6572,15 @@ test("MCP管理は現在権限の読取りだけを公開し旧六書込みは�
         }[];
       }
     ).tools;
-    assert.equal(tools.length, 48);
-    assert.equal(new Set(tools.map((tool) => tool.name)).size, tools.length);
-    assert.equal(
-      tools.some((tool) => tool.name === "crdd.update_user_role"),
-      false,
+    assert.deepEqual(
+      tools.map(({ name }) => name).sort(),
+      [
+        ...expectedRepositoryAndAccountTools,
+        ...expectedManagementReadTools,
+      ].sort(),
     );
-    assert.equal(
-      tools.some((tool) => tool.name === "crdd.change_user_role"),
-      false,
-    );
-    assert.equal(
-      tools.some((tool) => tool.name === "crdd.register_repository"),
-      false,
-    );
-    for (const tool of tools.filter((tool) =>
-      /access_users|role_content_access|registered_repositories|repository_exposure|register_user|update_user_name|update_user_role|unregister_repository/.test(
-        tool.name,
-      ),
+    for (const tool of tools.filter(({ name }) =>
+      expectedManagementReadTools.some((expected) => expected === name),
     )) {
       const serialized = JSON.stringify(tool.inputSchema);
       for (const field of [
@@ -5533,24 +6616,7 @@ test("MCP管理は現在権限の読取りだけを公開し旧六書込みは�
         token: f.mcpToken,
       })
     ).json();
-    assert.equal(invalid.error.code, -32602);
-    const retiredWrites = [
-      ["crdd.register_user", { username: "登録", plannedRole: "developer" }],
-      ["crdd.update_user_name", { userId: actor.userId, username: "変更" }],
-      [
-        "crdd.update_user_role",
-        { userId: actor.userId, currentRole: "manager", nextRole: "developer" },
-      ],
-      [
-        "crdd.update_role_content_access",
-        { targetRole: "developer", workspaceIds: [] },
-      ],
-      [
-        "crdd.update_repository_exposure",
-        { repositoryId: firstTarget.id, workspaceIds: [] },
-      ],
-      ["crdd.unregister_repository", { repositoryId: secondTarget.id }],
-    ] as const;
+    assert.ok(isMcpInvalidArguments(invalid, "crdd.list_access_users"));
     for (const role of ["administrator", "manager", "developer"] as const) {
       actor.role = role;
       fs.writeFileSync(f.current, JSON.stringify(state));
@@ -5563,34 +6629,38 @@ test("MCP管理は現在権限の読取りだけを公開し旧六書込みは�
       const names: string[] = (
         refreshed.result as { tools: { name: string }[] }
       ).tools.map(({ name }) => name);
-      assert.ok(names.includes("crdd.get_current_access"));
-      for (const name of Object.values(MCP_ACCESS_MANAGEMENT_READ_TOOLS))
-        assert.equal(names.includes(name), role !== "developer");
-      for (const name of [
-        "crdd.list_role_content_access",
-        "crdd.list_repository_exposure",
-      ])
-        assert.ok(!names.includes(name), name);
-      for (const [name, input] of retiredWrites) {
-        assert.ok(!names.includes(name), name);
-        const response = await (
-          await call(base, f.mcpToken, name, {
-            ...input,
-            expectedRevision: state.revision,
-            operationId: randomUUID(),
-          })
-        ).json();
-        assert.equal(response.error.code, -32601, name);
+      assert.deepEqual(
+        names.sort(),
+        [
+          ...expectedRepositoryAndAccountTools,
+          ...(role === "developer" ? [] : expectedManagementReadTools),
+        ].sort(),
+      );
+      const unknown = await (
+        await call(base, f.mcpToken, "crdd.unknown_test_tool", {})
+      ).json();
+      assert.equal(unknown.error.code, -32602);
+      for (const name of expectedManagementReadTools) {
+        const response = await (await call(base, f.mcpToken, name, {})).json();
+        if (names.includes(name)) {
+          assert.equal(response.error, undefined, `${role}: ${name}`);
+          assert.equal(response.result.structuredContent.status, "completed");
+        } else {
+          assert.equal(response.result, undefined, `${role}: ${name}`);
+          assert.deepEqual(response.error, {
+            code: -32602,
+            message: "Tool unavailable",
+          });
+        }
       }
       assert.deepEqual(fs.readFileSync(f.current), snapshot);
     }
-    assert.ok(fs.existsSync(secondTarget.body));
     const downgraded = await (
       await call(base, f.mcpToken, "crdd.list_access_users", {})
     ).json();
-    assert.deepEqual(downgraded.result.structuredContent, {
-      status: "unavailable",
-      reason: "management_read_rejected",
+    assert.deepEqual(downgraded.error, {
+      code: -32602,
+      message: "Tool unavailable",
     });
     const cancelled = new AbortController();
     cancelled.abort();
@@ -6014,18 +7084,18 @@ test("Workbench HTTPは管理保存直後の切断でも保存済み結果を失
 });
 
 /**
- * 全ロールで旧AI設定管理の公開を撤去する。
- * @responsibility Role管理とRepository内容認可を維持したまま旧四操作を非公開にする。
+ * 全ロールで現行の本人照会と未登録操作の扱いを確認する。
+ * @responsibility MCPの一覧と呼出しで、登録された操作と未登録操作を区別する。
  * @trace RFD-IT-013
  * @trace RCM-IT-010
  * @precondition 自己生成AM領域と既存HTTP Transportを使う。
- * @stimulus developer／manager／administratorで一覧と旧四操作を要求する。
+ * @stimulus developer／manager／administratorで一覧と未登録の操作を要求する。
  * @observation 公開一覧、未知Tool拒否、管理状態改訂。
- * @oracle 全ロールで四操作不在、call拒否、操作後のAM改訂不変。
+ * @oracle 現行の本人照会は一覧に含まれ、未登録の操作は一覧にもなく、呼出しは保存なしで拒否する。
  * @cleanup Server closeと所有fixtureの清掃・不存在を確認する。
  * @boundary 現在AM認証→実HTTP→SDKの固定登録。
  */
-test("全ロールで旧Profile四操作は一覧に存在せず呼出しを拒否する", async (t) => {
+test("全ロールで現行の本人照会を公開し未登録の操作は状態変更なしで拒否する", async (t) => {
   const f = fixture(t);
   const resolver = fixtureOAuthResolver(f);
   const server = await startMcpAuthenticatedStreamableHttp(resolver, {
@@ -6037,12 +7107,7 @@ test("全ロールで旧Profile四操作は一覧に存在せず呼出しを拒�
   ) as AccessManagementState;
   const user = state.users[0];
   assert.ok(user);
-  const retired = [
-    "crdd.list_ai_profiles",
-    "crdd.create_ai_profile",
-    "crdd.update_ai_profile",
-    "crdd.delete_ai_profile",
-  ];
+  const unknown = "crdd.unregistered_operation_fixture";
   try {
     for (const role of ["developer", "manager", "administrator"] as const) {
       user.role = role;
@@ -6060,23 +7125,14 @@ test("全ロールで旧Profile四操作は一覧に存在せず呼出しを拒�
         new AbortController().signal,
       );
       assert.ok("result" in list);
-      for (const name of retired) {
-        assert.equal(JSON.stringify(list).includes(name), false);
-        const response = await call(
-          base,
-          f.mcpToken,
-          name,
-          name.endsWith("list_ai_profiles")
-            ? {}
-            : {
-                expectedRevision: 1,
-                profileId: "PROFILE-900042",
-                profile: { profileId: "PROFILE-900042" },
-                confirmed: true,
-              },
-        );
-        assert.equal((await response.json()).error.code, -32601);
-      }
+      const names = (list.result as { tools: { name: string }[] }).tools.map(
+        ({ name }) => name,
+      );
+      assert.ok(names.includes("crdd.get_current_access"));
+      assert.equal(names.includes(unknown), false);
+      const response = await call(base, f.mcpToken, unknown, {});
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).error.code, -32602);
       assert.deepEqual(fs.readFileSync(f.current), before);
     }
   } finally {
@@ -6314,7 +7370,9 @@ test("共有MCPの実行活動は明示Repositoryと現在のGitホスト権限�
       ({ repositoryId }) => repositoryId === a.id,
     );
     assert.ok(registration);
-    delete registration.hostedRepository;
+    state.registeredRepositories = state.registeredRepositories.filter(
+      (entry) => entry !== registration,
+    );
     state.revision++;
     state.operationId = randomUUID();
     const snapshotFile = path.join(
@@ -6354,8 +7412,8 @@ test("共有MCPの実行活動は明示Repositoryと現在のGitホスト権限�
     }
     assert.ok(revokedDuringObservation);
     const withheld = JSON.parse(withheldText);
-    assert.equal(withheld.error?.code, -32603);
-    assert.equal(withheld.result, undefined);
+    assert.equal(mcpToolErrorText(withheld), "Tool execution failed");
+    assert.equal(withheld.result.structuredContent, undefined);
     for (const nonPublic of [
       a.id,
       b.id,
@@ -6401,20 +7459,81 @@ test("共有MCPの実行活動は明示Repositoryと現在のGitホスト権限�
   }
 });
 
-/**
- * 自己生成の管理Storeと二Repositoryを準備する。
- * @responsibility 実Hostや秘密値を使わず現在認証・登録・公開の前提を構成する。
- * @trace RFD-IT-021
- * @trace EST-IT-010
- * @trace RFD-IT-013
- * @trace RFD-IT-019
- * @precondition Repository-localの試験Rootだけに書き込む。
- * @stimulus 初回公開保存APIと登録／Exposure APIを使用し、完了状態は試験fixtureで準備する。
- * @observation 保存状態・Git初期化・各公開管理結果。
- * @oracle 実配送成立は主張せず、二つの認可対象を同じProjectへ用意する。
- * @cleanup 呼出側のListener終了後に所有Directoryだけを削除し不存在を確認する。
- * @boundary 自己生成Filesystem、Git、AM公開保存入口。
- */
+/** Workspaceの公開入力を公式SDKで拒否し、対象の認可・操作を開始しない。 @trace EST-IT-002 */
+test("Workspace Toolは不正なID・世代・Gitオブジェクトを対象解決前に拒否する", async () => {
+  let resolutions = 0;
+  let toolStarts = 0;
+  const factory = createMcpServerFactory({
+    workspace: () => {
+      resolutions++;
+      return null;
+    },
+  });
+  const observedFactory: typeof factory = {
+    ...factory,
+    createServer: (request, signal, observe, authorization) =>
+      factory.createServer(
+        request,
+        signal,
+        (effect, sdkSignal) => {
+          toolStarts++;
+          observe?.(effect, sdkSignal);
+        },
+        authorization,
+      ),
+  };
+  const target = {
+    repositoryId: "repository.a",
+    projectId: "project.a",
+    queueId: "queue.a",
+    workspaceId: "00000000-0000-4000-8000-000000000001",
+  };
+  const invoke = (name: string, fields: Record<string, unknown>) =>
+    invokeMcpSource(
+      observedFactory,
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion":
+              MCP_COORDINATOR_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+          name,
+          arguments: { ...target, ...fields },
+        },
+      },
+      new AbortController().signal,
+    );
+  for (const [name, fields] of [
+    [MCP_WORKSPACE_TOOLS.get, { projectId: "invalid/project" }],
+    [MCP_WORKSPACE_TOOLS.get, { workspaceId: "invalid-id" }],
+    [MCP_WORKSPACE_TOOLS.rename, { expectedGeneration: 2 ** 53, name: null }],
+    [
+      MCP_WORKSPACE_TOOLS.create,
+      {
+        baseBranch: "main",
+        baseCommit: "refs/heads/main",
+        expectedGeneration: 0,
+        name: null,
+      },
+    ],
+    [
+      MCP_WORKSPACE_TOOLS["close-candidate"],
+      { expectedGeneration: 1, expectedCommit: null, disposition: "unknown" },
+    ],
+  ] as const) {
+    assert.ok(isMcpInvalidArguments(await invoke(name, fields), name));
+  }
+  assert.equal(toolStarts, 0);
+  assert.equal(resolutions, 0);
+  await invoke(MCP_WORKSPACE_TOOLS.get, {});
+  assert.equal(toolStarts, 1);
+  assert.equal(resolutions, 1);
+});
+
 /**
  * 両公開入口を同じ実Git／Writer／現在認可へ接続する。
  * @responsibility Transportの違いで業務処理と認可を複製しないことを反証する。
@@ -6578,20 +7697,27 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
       assert.deepEqual(await b.json(), a.result.structuredContent);
     }
     hosted.permissions.delete(target.id);
-    assert.ok(
-      (
+    assert.equal(
+      mcpToolErrorText(
         await sendMcp({
           operation: "list",
           projectId: "project.fixture",
           cursor: null,
           limit: 20,
-        })
-      ).error,
+        }),
+      ),
+      "Tool execution failed",
     );
     hosted.permissions.set(target.id, "write");
     assert.ok(
-      (await sendMcp({ ...common, operation: "get", ownerRoot: target.target }))
-        .error,
+      isMcpInvalidArguments(
+        await sendMcp({
+          ...common,
+          operation: "get",
+          ownerRoot: target.target,
+        }),
+        "crdd.get_workspace",
+      ),
     );
     assert.equal(
       (
@@ -6670,7 +7796,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
         operation: "inspect",
         path: "source.txt",
       });
-      assert.ok(deniedSecret.error);
+      assert.equal(mcpToolErrorText(deniedSecret), "Tool execution failed");
       assert.equal(JSON.stringify(deniedSecret).includes(content), false);
       const deniedWb = await sendWb({
         ...common,
@@ -6717,7 +7843,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
         operation,
         path: "secret.txt",
       });
-      assert.ok(denied.error);
+      assert.equal(mcpToolErrorText(denied), "Tool execution failed");
       assert.equal(JSON.stringify(denied).includes(namedSecret), false);
       const deniedWb = await sendWb({
         ...common,
@@ -6922,15 +8048,16 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
     hostedState.revision++;
     hostedState.operationId = randomUUID();
     fs.writeFileSync(hosted.current, JSON.stringify(hostedState));
-    assert.ok(
+    assert.equal(
       (
-        await sendMcp({
-          operation: "list",
+        await call(mcpBase, hosted.mcpToken, MCP_WORKSPACE_TOOLS.list, {
+          repositoryId: target.id,
           projectId: "project.fixture",
           cursor: null,
           limit: 20,
         })
-      ).error,
+      ).status,
+      401,
     );
   } finally {
     await closeWorkbench();
@@ -6985,13 +8112,10 @@ function fixture(
     fs.rmSync(directory, { recursive: true });
     assert.equal(fs.existsSync(directory), false);
   });
-  const store = path.join(directory, "store");
-  fs.mkdirSync(store);
-  const root = createFilesystemStoreRoot(store);
-  assert.ok(root);
+  const { root, directory: store } = prepareAccessStore(directory);
   const attempt = randomUUID();
   const userId = randomUUID();
-  const { token, ...legacyKey } = createRetiredCredentialFixture();
+  const token = "synthetic-invalid-bearer";
   const bindingId = randomUUID();
   const current = path.join(store, "access-management.json");
   const initial: AccessManagementState = {
@@ -7019,21 +8143,7 @@ function fixture(
   };
   fs.writeFileSync(
     current,
-    JSON.stringify(
-      completed
-        ? initial
-        : {
-            ...initial,
-            schemaRevision: 3,
-            credentials: [{ ...legacyKey, userId }],
-            unresolvedKeyExchanges: [],
-            initialization: {
-              stage: "credential_stored",
-              attemptId: attempt,
-              userId,
-            },
-          },
-    ),
+    JSON.stringify(completed ? initial : { ...initial, schemaRevision: 3 }),
   );
   const targets =
     sharedTargets ??
@@ -7121,14 +8231,7 @@ function fixture(
     const actor = ready.users[0];
     assert.ok(actor);
     actor.role = "developer";
-    // この基底fixtureは連携なしの拒否にも使う。連携済みケースは別途参照を付ける。
-    ready.registeredRepositories = ready.registeredRepositories.map(
-      ({ repositoryId, repositoryRoot, bindingId }) => ({
-        repositoryId,
-        repositoryRoot,
-        bindingId,
-      }),
-    );
+    // 登録は常にホストと結合する。本人の連携有無はResolverの設定で区別する。
     fs.writeFileSync(current, JSON.stringify(ready));
   }
   return {
@@ -7184,13 +8287,13 @@ function hostedFixture(
     permissions.set(id, "write");
   }
   fs.writeFileSync(input.current, JSON.stringify(state));
-  const provider: GitHostProvider = {
+  const provider: GitHostProvider<null> = {
     kind: "fixture",
     displayName: "Fixture",
     acceptsHost: (value) => value === host,
-    readEnvironment: () => ({}),
+    parseConfiguration: () => null,
     bind: () => ({
-      connect: () => {
+      createLinkFlow: () => {
         throw new Error("fixture_not_interactive");
       },
       readRepositoryName: (remote) => new URL(remote).pathname.slice(1, -4),
@@ -7209,37 +8312,41 @@ function hostedFixture(
       },
     }),
   };
-  const bound = bindGitHost({
-    provider,
-    configuration: { host, provider: provider.kind, providerData: {} },
-  });
-  const hostAccess: NonNullable<Parameters<typeof createOAuthMcpResolver>[2]> =
-    {
-      hasCurrentToken: (token) => token === input.mcpToken,
-      readGitHost: (hostname) => (hostname === host ? bound : undefined),
-      repositoryScope: input.repositoryScope,
-      readGrantHostReference: (token, _subject, hostname) =>
-        token === input.mcpToken && hostname === host
-          ? "fixture-reference"
-          : null,
-      read: (hostname, reference, binding) =>
-        hostname === host &&
-        reference === "fixture-reference" &&
-        binding.userId === input.userId &&
-        binding.bindingId === input.bindingId
-          ? hostToken
-          : null,
-    };
+  const [configured] = configuredGitHosts(
+    [{ host, provider: provider.kind, providerData: {} }],
+    undefined,
+    new Map([[provider.kind, registerGitHostProvider(provider)]]),
+  );
+  assert.ok(configured);
+  const bound = bindGitHost(configured);
+  const hostAccess: NonNullable<
+    Parameters<typeof createFixtureOAuthResolver>[2]
+  > = {
+    hasCurrentToken: (token) => token === input.mcpToken,
+    readGitHost: (hostname) => (hostname === host ? bound : undefined),
+    repositoryScope: input.repositoryScope,
+    readGrantHostReference: (token, _subject, hostname) =>
+      token === input.mcpToken && hostname === host
+        ? "fixture-reference"
+        : null,
+    read: (hostname, reference, binding) =>
+      hostname === host &&
+      reference === "fixture-reference" &&
+      binding.userId === input.userId &&
+      binding.bindingId === input.bindingId
+        ? hostToken
+        : null,
+  };
   return { ...input, permissions, hostAccess };
 }
 
 /** 合成の照会結果だけを返す。認証経路は現行のMCP OAuthを通す。 */
 function fixtureOAuthResolver(
   input: ReturnType<typeof fixture> & {
-    hostAccess?: Parameters<typeof createOAuthMcpResolver>[2];
+    hostAccess?: Parameters<typeof createFixtureOAuthResolver>[2];
   },
 ) {
-  const resolver = createOAuthMcpResolver(
+  const resolver = createFixtureOAuthResolver(
     input.root,
     async (candidate) =>
       candidate === input.mcpToken
@@ -7406,7 +8513,7 @@ test("Topic・Meetingは旧Bearerを拒否し、単体HTTPと共有MCPで対象�
   const mcpBase = await openFixtureMcp(hosted);
   const [a, b] = f.targets;
   assert.ok(a && b);
-  const shared = await startWorkbench({
+  const shared = await startSharedFixture({
     workingDirectory: a.target,
     localAccessRoot: f.root,
   });
@@ -7438,12 +8545,12 @@ test("Topic・Meetingは旧Bearerを拒否し、単体HTTPと共有MCPで対象�
   ] as const) {
     assert.equal(
       (await fetch(`${shared.baseUrl}${resource}`, { headers: auth })).status,
-      401,
+      403,
     );
     assert.equal(
       (await write(shared.baseUrl, resource, "POST", { markdown }, auth))
         .status,
-      401,
+      403,
     );
   }
   assert.deepEqual(fs.readFileSync(f.current), before);
@@ -7473,7 +8580,10 @@ test("Topic・Meetingは旧Bearerを拒否し、単体HTTPと共有MCPで対象�
     ...hostedDetail
   } = detail.result.structuredContent;
   assert.equal(relationScope, "repository");
-  const { relations, ...httpDetail } = await viewed.json();
+  const { relations, repositoryId, writable, ...httpDetail } =
+    await viewed.json();
+  assert.equal(repositoryId, a.id);
+  assert.equal(writable, true);
   assert.deepEqual(httpDetail, hostedDetail);
   assert.deepEqual(relations, [
     { id: "MTG-000042", kind: "meeting", state: "not_found" },
@@ -7548,7 +8658,7 @@ test("Topic・Meetingは旧Bearerを拒否し、単体HTTPと共有MCPで対象�
   assert.equal(forbidden.status, 404);
   assert.equal((await fetch(`${primary.baseUrl}${record}`)).status, 404);
   const localTopics = `/api/repositories/${b.id}/topics`;
-  const localViewUrl = `${local.baseUrl}/api/workbench/view`;
+  const localViewUrl = `${local.baseUrl}/api/workbench/overview`;
   const beforeFirstLocalWrite = await fetch(localViewUrl);
   assert.equal(beforeFirstLocalWrite.status, 200);
   assert.equal(
@@ -7579,7 +8689,7 @@ test("Topic・Meetingは旧Bearerを拒否し、単体HTTPと共有MCPで対象�
   assert.equal(localView.topicPage.records[0]?.topicId, "TOPIC-000042");
 
   const legacyView = await fetch(
-    `${shared.baseUrl}/api/workbench/view?repositoryId=${a.id}`,
+    `${shared.baseUrl}/api/workbench/overview?repositoryId=${a.id}`,
     { headers: auth },
   );
   assert.equal(legacyView.status, 403);
@@ -7590,7 +8700,7 @@ test("Topic・Meetingは旧Bearerを拒否し、単体HTTPと共有MCPで対象�
   const edit = { expectedRevision: 2, markdown: meetingMarkdown(3) };
   assert.equal(
     (await write(shared.baseUrl, meeting, "PATCH", edit, auth)).status,
-    401,
+    403,
   );
   const hostedRoot = hosted.targets.find(({ id }) => id === a.id)?.target;
   assert.ok(hostedRoot);
@@ -7606,7 +8716,7 @@ test("Topic・Meetingは旧Bearerを拒否し、単体HTTPと共有MCPで対象�
       id: "MTG-000042",
     })
   ).json();
-  assert.equal(rejected.error.code, -32602);
+  assert.ok(isMcpInvalidArguments(rejected, "crdd.get_meeting"));
   assert.deepEqual(stored.getDocument("MTG-000042"), recordBefore);
   assert.deepEqual(hostedMeeting.getDocument("MTG-000042"), hostedBefore);
 });
@@ -7804,14 +8914,14 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
  * @responsibility 認証と取消の負境界を直接確認する。
  * @trace RFD-IT-013
  * @trace EST-IT-014
- * @precondition 未完了と完了の自己生成Store。
- * @stimulus 各資格でResolverを呼び、完了Handlerへ取消済みSignalを渡す。
+ * @precondition 保存スキーマが不適合な保存先と、現行形式の保存先を用意する。
+ * @stimulus 合成トークンを各保存先で解決し、現行形式側の受付へ取消済みSignalを渡す。
  * @observation null、固定取消結果、target open数。
- * @oracle 未完了Handler0、取消要求のRepository／本文観測0。
+ * @oracle 不適合な保存状態では受付を返さず、取消済み要求ではリポジトリと本文を観測しない。
  * @cleanup fs hookを復元しFixtureの所有Rootを回収する。
  * @boundary 通常認証→要求Handler→同期読取り直前。
  */
-test("未完了資格はHandlerなし、開始前取消は対象読取りなし", async (t) => {
+test("不適合な保存状態では受付なし、開始前取消では対象読取りなし", async (t) => {
   const initial = fixture(t, false),
     f = fixture(t);
   const open = fs.openSync;
@@ -7919,10 +9029,9 @@ test("AM内容MCPは現在認可とforeign Projectと集合欠測で停止する
         repositoryId: mode === "unknown" ? "repository.unknown" : a.id,
         markdown: topicMarkdown(),
       });
-      assert.deepEqual((await denied.json()).error, {
-        code: -32602,
-        message: "Invalid params",
-      });
+      assert.ok(
+        isMcpInvalidArguments(await denied.json(), "crdd.create_topic"),
+      );
       if (mode !== "unknown") assert.equal(targetReads, 0);
     }
     fs.writeFileSync(f.current, original);
@@ -7967,10 +9076,10 @@ test("AM内容MCPは現在認可とforeign Projectと集合欠測で停止する
         ...args,
         repositoryId: a.id,
       });
-      assert.deepEqual((await result.json()).error, {
-        code: -32603,
-        message: "Internal error",
-      });
+      assert.equal(
+        mcpToolErrorText(await result.json()),
+        "Tool execution failed",
+      );
       assert.equal(topic.getDocument("TOPIC-000042")?.markdown, topicBefore);
       assert.equal(meeting.getDocument("MTG-000042")?.markdown, meetingBefore);
       assert.equal(topic.get("TOPIC-000043"), null);
@@ -8016,10 +9125,10 @@ test("AM内容MCPは現在認可とforeign Projectと集合欠測で停止する
         "crdd.get_topic",
         topicRequest,
       );
-      assert.deepEqual((await missing.json()).error, {
-        code: -32603,
-        message: "Internal error",
-      });
+      assert.equal(
+        mcpToolErrorText(await missing.json()),
+        "Tool execution failed",
+      );
     } finally {
       fs.renameSync(heldManifest, manifest);
     }
@@ -8143,8 +9252,7 @@ test("AM内容MCPの入力拒否と開始前取消は再認可前で閉じる", 
         packet(tool, { repositoryId: a.id, extra: true }),
         new AbortController().signal,
       );
-      assert.ok("error" in rejected);
-      assert.equal(rejected.error.code, -32602);
+      assert.ok(isMcpInvalidArguments(rejected, tool));
     }
     const abort = new AbortController();
     abort.abort();
@@ -8282,11 +9390,10 @@ test("実HTTPは文書未確認・競合を部分表示し実体不明を全体�
     try {
       reads = 0;
       const changed = await list();
-      assert.deepEqual(await changed.json(), {
-        jsonrpc: "2.0",
-        id: 1,
-        error: { code: -32603, message: "Project Context unavailable" },
-      });
+      assert.equal(
+        mcpToolErrorText(await changed.json()),
+        "Tool execution failed",
+      );
       assert.equal(currentChanged, true);
       assert.equal(reads, 2);
     } finally {
@@ -8348,10 +9455,10 @@ test("実HTTPは文書未確認・競合を部分表示し実体不明を全体�
       reads = 0;
       const blocked = await list();
       assert.equal(blocked.status, 200);
-      assert.deepEqual((await blocked.json()).error, {
-        code: -32603,
-        message: "Project Context unavailable",
-      });
+      assert.equal(
+        mcpToolErrorText(await blocked.json()),
+        "Tool execution failed",
+      );
       assert.equal(reads, 0);
     } finally {
       fs.renameSync(heldGit, git);
@@ -8370,11 +9477,10 @@ test("実HTTPは文書未確認・競合を部分表示し実体不明を全体�
     try {
       reads = 0;
       const blocked = await list();
-      assert.deepEqual(await blocked.json(), {
-        jsonrpc: "2.0",
-        id: 1,
-        error: { code: -32603, message: "Project Context unavailable" },
-      });
+      assert.equal(
+        mcpToolErrorText(await blocked.json()),
+        "Tool execution failed",
+      );
       assert.equal(reads, 0);
     } finally {
       fs.renameSync(heldManifest, manifest);
@@ -8437,12 +9543,7 @@ test("同期読取り開始後の取消はclose後に固定拒否し後続を読
       packet(MCP_PROJECT_CONTEXT_LIST_TOOL),
       controller.signal,
     );
-    assert.deepEqual(result, {
-      jsonrpc: "2.0",
-      id: 1,
-      error: { code: -32800, message: "Request cancelled" },
-    });
-    assert.equal(Object.hasOwn(result, "result"), false);
+    assert.equal(mcpToolErrorText(result), "Request cancelled");
     assert.deepEqual(reads, [1, 0]);
     assert.equal(closed, 1);
     assert.equal(openDescriptors.size, 0);
@@ -8453,18 +9554,128 @@ test("同期読取り開始後の取消はclose後に固定拒否し後続を読
 });
 
 /**
- * Header認証後の本文待機中に現在許可を変更する。
- * @responsibility Header時の本人確認を後続内容Authorityへ固定しない。
+ * ヘッダー受付後の同意失効を現在のMCP受付へ反映する。
+ * @responsibility ヘッダーが通っても、本文受信後の本人／管理読取りに同意が必要なことを確認する。
  * @trace RFD-IT-013
  * @trace RFD-IT-019
  * @trace EST-IT-002
- * @precondition 二Repositoryと実HTTP Server。
- * @stimulus Header認証完了後にGitホストの許可または本人紐付けを取り消し、本文を完結する。
- * @observation 空Portfolio／固定エラー、本文open数、Server回収。
- * @oracle 進行中の要求は両方とも内容を返さず、紐付け失効後の新規要求は認証から拒否する。
- * @cleanup fs hook復元、要求終了とServer close後にFixtureを回収する。
- * @boundary 実stream本文待機→fresh AM認可→MCP結果。
+ * @stimulus 正常な本文を入場後に完結し、同意の現行／失効を比較する。
+ * @observation 実HTTPの一覧・本人・管理Toolの結果。
+ * @oracle 現行の同意だけが構造化結果を返す。失効では非開示の固定エラーを返す。
+ * @boundary 合成の同意状態と本番SDK／AM読取りの接続。
  */
+test("共有MCPは受付後に失効した同意で本人・管理情報を返さない", {
+  timeout: 15000,
+}, async (t) => {
+  const f = hostedFixture(t);
+  const state = JSON.parse(
+    fs.readFileSync(f.current, "utf8"),
+  ) as AccessManagementState;
+  const actor = state.users.find(({ userId }) => userId === f.userId);
+  assert.ok(actor);
+  actor.role = "administrator";
+  fs.writeFileSync(f.current, JSON.stringify(state));
+  let current = true;
+  const resolve = fixtureOAuthResolver({
+    ...f,
+    hostAccess: { ...f.hostAccess, hasCurrentToken: () => current },
+  });
+  let admitted: (() => void) | undefined;
+  const server = await startMcpAuthenticatedStreamableHttp(
+    async (token) => {
+      const source = await resolve(token);
+      if (source) admitted?.();
+      return source;
+    },
+    { port: 0 },
+  );
+  t.after(() => server.close());
+  const url = `http://${server.host}:${server.port}/mcp`;
+  for (const name of [
+    null,
+    MCP_CURRENT_ACCESS_TOOL,
+    "crdd.list_access_users",
+  ] as const) {
+    for (const revoked of [false, true]) {
+      current = true;
+      const headerReady = new Promise<void>((ready) => {
+        admitted = ready;
+      });
+      const call = packet(name ?? MCP_CURRENT_ACCESS_TOOL, {});
+      const payload =
+        name === null
+          ? {
+              ...call,
+              method: "tools/list",
+              params: { _meta: call.params._meta },
+            }
+          : call;
+      const body = JSON.stringify(payload);
+      let request: ReturnType<typeof httpRequest> | undefined;
+      const response = new Promise<string>((done, fail) => {
+        request = httpRequest(
+          url,
+          {
+            method: "POST",
+            agent: false,
+            headers: {
+              authorization: `Bearer ${f.mcpToken}`,
+              accept: "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
+              "mcp-method": name === null ? "tools/list" : "tools/call",
+              ...(name === null ? {} : { "mcp-name": name }),
+            },
+          },
+          (incoming) => {
+            let text = "";
+            incoming.setEncoding("utf8");
+            incoming.on("data", (chunk: string) => {
+              text += chunk;
+            });
+            incoming.on("error", fail);
+            incoming.on("end", () => done(text));
+          },
+        );
+        request.on("error", fail);
+        request.write(body.slice(0, 1));
+      });
+      try {
+        await Promise.race([
+          headerReady,
+          response.then(() => assert.fail("body ended before admission")),
+        ]);
+        current = !revoked;
+        assert.ok(request);
+        request.end(body.slice(1));
+        const result = JSON.parse(await response);
+        if (revoked) {
+          assert.equal(result.error?.code, -32603);
+          assert.equal(result.result, undefined);
+        } else {
+          assert.equal(result.error, undefined, name ?? "tools/list");
+          if (name === null) {
+            assert.ok(Array.isArray(result.result?.tools));
+            assert.ok(
+              result.result.tools.some(
+                (tool: { name: string }) =>
+                  tool.name === "crdd.list_access_users",
+              ),
+            );
+          } else {
+            assert.notEqual(result.result?.isError, true);
+            assert.equal(result.result?.structuredContent?.status, "completed");
+          }
+        }
+      } finally {
+        admitted = undefined;
+        request?.destroy();
+      }
+    }
+  }
+});
+
+/** 本文待機中の実効権限・紐付け変更を内容操作に反映する。 @trace RFD-IT-019 */
 test("本文待機中のGitホスト権限喪失と紐付け失効は内容Callへ反映", {
   timeout: 15000,
 }, async (t) => {
@@ -8553,15 +9764,12 @@ test("本文待機中のGitホスト権限喪失と紐付け失効は内容Call�
       finish();
       const result = JSON.parse(await response);
       if (tool === "crdd.create_topic")
-        assert.deepEqual(result.error, {
-          code: change === "unknown" ? -32603 : -32602,
-          message: change === "unknown" ? "Internal error" : "Invalid params",
-        });
+        assert.equal(
+          mcpToolErrorText(result),
+          change === "unknown" ? "Tool execution failed" : "Invalid arguments",
+        );
       else if (change === "unknown")
-        assert.deepEqual(result.error, {
-          code: -32603,
-          message: "Project Context unavailable",
-        });
+        assert.equal(mcpToolErrorText(result), "Tool execution failed");
       else assert.deepEqual(result.result.structuredContent.projects, []);
       assert.equal(reads, 0);
       if (change === "revoked")

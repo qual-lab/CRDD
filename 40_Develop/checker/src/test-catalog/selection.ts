@@ -3,10 +3,11 @@
  * @responsibility 台帳モデルを入力として保守的な変更影響と明示条件を評価し、試験を起動しない。
  * @trace ARCH-000003
  */
-import type {
-  TestCatalog,
-  TestCatalogEntry,
-  TestLevel,
+import {
+  testCatalogPath,
+  type TestCatalog,
+  type TestCatalogEntry,
+  type TestLevel,
 } from "@qual-lab/crdd-document-model";
 
 /**
@@ -90,31 +91,29 @@ export function inspectResourceIntensiveTestAuthority(
  * @security N/A: ownerForPathはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: ownerForPathは共有非同期状態を持たない同期処理である。
  */
-function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
-  if (changedPath.startsWith("40_Develop/access-management/"))
-    return "access-management";
-  if (changedPath.startsWith("40_Develop/ai-adapter/")) return "ai-adapter";
-  if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
-  if (changedPath.startsWith("40_Develop/docker-isolation/"))
-    return "docker-isolation";
-  if (changedPath.startsWith("40_Develop/checker/")) return "checker";
-  if (changedPath.startsWith("40_Develop/visual-preview/"))
-    return "visual-preview";
-  if (changedPath.startsWith("40_Develop/document-model/"))
-    return "document-model";
-  if (changedPath.startsWith("40_Develop/execution-model/"))
-    return "execution-model";
-  if (changedPath.startsWith("40_Develop/configuration-model/"))
-    return "configuration-model";
-  if (changedPath.startsWith("40_Develop/execution-intelligence/"))
-    return "execution-intelligence";
-  if (changedPath.startsWith("40_Develop/executor/")) return "executor";
-  if (changedPath.startsWith("40_Develop/lock/")) return "lock";
-  if (changedPath.startsWith("40_Develop/crdd-server/")) return "crdd-server";
-  if (changedPath.startsWith("40_Develop/version-control/"))
-    return "version-control";
-  if (changedPath.startsWith("40_Develop/workbench-ui/")) return "workbench-ui";
-  return null;
+function ownerForPath(
+  catalog: TestCatalog,
+  changedPath: string,
+): string | null {
+  let match: TestCatalog["owners"][number] | undefined;
+  for (const owner of catalog.owners)
+    if (
+      (changedPath === owner.root ||
+        changedPath.startsWith(`${owner.root}/`)) &&
+      (match === undefined || owner.root.length > match.root.length)
+    )
+      match = owner;
+  return match?.id ?? null;
+}
+
+function documentationOwners(catalog: TestCatalog): Set<string> {
+  return new Set(
+    catalog.tests
+      .filter((entry) =>
+        entry.semanticTags.includes("documentation_validation"),
+      )
+      .map((entry) => entry.owner),
+  );
 }
 
 /**
@@ -153,12 +152,13 @@ function isDocumentationPath(changedPath: string): boolean {
  * @security N/A: isSharedRuntimePathはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: isSharedRuntimePathは共有非同期状態を持たない同期処理である。
  */
-function isSharedRuntimePath(changedPath: string): boolean {
+function isSharedRuntimePath(
+  catalog: TestCatalog,
+  changedPath: string,
+): boolean {
   return (
-    changedPath === "07_Quality/Registry/test-catalog.json" ||
-    changedPath === "biome.json" ||
-    changedPath === ".node-version" ||
-    changedPath === ".nvmrc"
+    changedPath === testCatalogPath ||
+    catalog.sharedRuntimePaths.includes(changedPath)
   );
 }
 
@@ -220,8 +220,13 @@ export function selectRegressionStaticOwners(
   selectedEntries: readonly TestCatalogEntry[],
 ): readonly TestCatalogEntry["owner"][] {
   const owners = new Set(selectedEntries.map((entry) => entry.owner));
+  const docOwners = documentationOwners(catalog);
   for (const rawPath of changedPaths) {
     const changedPath = rawPath.replaceAll("\\", "/").replace(/^\.\//u, "");
+    if (isSharedRuntimePath(catalog, changedPath)) {
+      for (const owner of catalog.owners) owners.add(owner.id);
+      continue;
+    }
     const direct = catalog.tests.find(
       (entry) => entry.path.toLowerCase() === changedPath.toLowerCase(),
     );
@@ -229,19 +234,15 @@ export function selectRegressionStaticOwners(
       owners.add(direct.owner);
       continue;
     }
-    if (isDocumentationPath(changedPath)) {
-      owners.add("checker");
+    if (isDocumentationPath(changedPath) && docOwners.size > 0) {
+      for (const owner of docOwners) owners.add(owner);
       continue;
     }
-    if (
-      isSharedRuntimePath(changedPath) ||
-      ownerForPath(changedPath) === null
-    ) {
+    const owner = ownerForPath(catalog, changedPath);
+    if (owner === null) {
       for (const entry of catalog.tests) owners.add(entry.owner);
       continue;
     }
-    const owner = ownerForPath(changedPath);
-    if (owner === null) continue;
     owners.add(owner);
     for (const binding of applicableConsumerBindings(
       catalog,
@@ -284,8 +285,13 @@ export function selectRegressionTests(
   if (changedPaths.length === 0) return [];
   const selected = new Map<string, TestCatalogEntry>();
 
+  const docOwners = documentationOwners(catalog);
   for (const rawPath of changedPaths) {
     const changedPath = rawPath.replaceAll("\\", "/").replace(/^\.\//u, "");
+    if (isSharedRuntimePath(catalog, changedPath)) {
+      for (const entry of eligibleEntries) selected.set(entry.path, entry);
+      continue;
+    }
     const direct = eligibleEntries.find(
       (entry) => entry.path.toLowerCase() === changedPath.toLowerCase(),
     );
@@ -293,16 +299,12 @@ export function selectRegressionTests(
       selected.set(direct.path, direct);
       continue;
     }
-    if (isSharedRuntimePath(changedPath)) {
-      for (const entry of eligibleEntries) selected.set(entry.path, entry);
-      continue;
-    }
-    if (isDocumentationPath(changedPath)) {
+    if (isDocumentationPath(changedPath) && docOwners.size > 0) {
       for (const entry of eligibleEntries)
-        if (entry.owner === "checker") selected.set(entry.path, entry);
+        if (docOwners.has(entry.owner)) selected.set(entry.path, entry);
       continue;
     }
-    const owner = ownerForPath(changedPath);
+    const owner = ownerForPath(catalog, changedPath);
     if (owner === null) {
       for (const entry of eligibleEntries) selected.set(entry.path, entry);
       continue;

@@ -121,6 +121,17 @@ test("AI設定保存結果は送信内容へ相関し競合・不明を維持す
     snapshot: { config, identity: "a".repeat(64) },
   };
   assert.equal(inspectWorkbenchSelectionResult(config, result).status, "saved");
+  assert.throws(() => inspectWorkbenchSelectionResult(config, result, 409));
+  const conflict = {
+    status: "conflict",
+    reason: "ai_selection_identity_conflict",
+    snapshot: null,
+  };
+  assert.equal(
+    inspectWorkbenchSelectionResult(config, conflict, 409).status,
+    "conflict",
+  );
+  assert.throws(() => inspectWorkbenchSelectionResult(config, conflict, 200));
   assert.throws(() =>
     inspectWorkbenchSelectionResult(config, { ...result, reason: "unknown" }),
   );

@@ -33,21 +33,17 @@ import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
-import { build } from "vite";
-import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
-import { linkAccountFromHost } from "../../../access-management/src/user/account-link.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
-import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   closeOwnedBrowserProcessTree,
   observeLocalListener,
 } from "@qual-lab/crdd-visual-preview";
+import { build } from "vite";
+import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 // Serverの読取りを同一プロセスで観測する明示システム試験だけの接続。
 import { startWorkbench } from "../../../crdd-server/src/app.ts";
+import { prepareSharedAccessBrowserFixture } from "../../../crdd-server/tests/support/shared-access-browser.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -62,6 +58,29 @@ const browserGitRepositories = {
   next: { id: 92, full_name: "browser-fixture/next" },
   latest: { id: 93, full_name: "browser-fixture/latest" },
 } as const;
+
+/** 共有Serverの起動要件を満たす試験専用のOAuth設定。 */
+function createBrowserOAuthFixture() {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  return {
+    clients: [
+      {
+        id: "browser-test-mcp-client",
+        redirects: ["http://127.0.0.1:18443/callback"],
+      },
+    ],
+    verifier: {
+      id: "crdd-mcp-verifier",
+      secret: "synthetic-test-only-verifier-secret-32-bytes",
+    },
+    cookieKeys: ["synthetic-test-only-cookie-key-32-bytes"],
+    jwks: {
+      keys: [
+        { ...privateKey.export({ format: "jwk" }), alg: "RS256", use: "sig" },
+      ],
+    },
+  };
+}
 
 /** 外部応答だけを合成し、本人確認・連携・Cookie発行はWorkbenchの実入口を使う。 */
 async function prepareBrowserLogin(t: test.TestContext, gitHost = false) {
@@ -128,6 +147,19 @@ async function prepareBrowserLogin(t: test.TestContext, gitHost = false) {
         });
       }
       if (gitHost && url.origin === "https://api.github.com") {
+        if (
+          url.pathname === "/applications/synthetic-browser-git/token" &&
+          init?.method === "DELETE"
+        ) {
+          assert.equal(
+            new Headers(init.headers).get("authorization"),
+            `Basic ${Buffer.from("synthetic-browser-git:synthetic-browser-git-secret").toString("base64")}`,
+          );
+          assert.deepEqual(JSON.parse(String(init.body)), {
+            access_token: browserGitHubToken,
+          });
+          return new Response(null, { status: 204 });
+        }
         assert.equal(
           new Headers(init?.headers).get("authorization"),
           `Bearer ${browserGitHubToken}`,
@@ -249,7 +281,7 @@ test("Workbenchは活動再取得で消えた実行を別Graphへ自動切替し
     )
     .find(existsSync);
   assert.ok(executable, "activity_browser_chrome_unavailable");
-  const testRoot = await prepareCredentialBrowserTestRoot(repositoryRoot);
+  const testRoot = await prepareSharedAccessBrowserTestRoot(repositoryRoot);
   const directory = await mkdtemp(path.join(testRoot, "activity-browser-"));
   const page = path.join(directory, "index.html");
   const profile = path.join(directory, "profile");
@@ -371,7 +403,9 @@ test("Workbenchは活動再取得で消えた実行を別Graphへ自動切替し
  * @oracle 入力Rootの外へfallbackせず既存共有領域を削除しない。
  * @cleanup mode別自己生成Directoryは親Caseが回収し共有tests Rootは保持する。
  */
-async function prepareCredentialBrowserTestRoot(root: string): Promise<string> {
+async function prepareSharedAccessBrowserTestRoot(
+  root: string,
+): Promise<string> {
   const testRoot = path.join(root, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   return testRoot;
@@ -400,7 +434,7 @@ async function readBrowserEndpoint(profile: string, child: ChildProcess) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null)
-      throw new Error("credential_browser_exited");
+      throw new Error("shared_access_browser_exited");
     try {
       const [portText, browserPath] = (
         await readFile(path.join(profile, "DevToolsActivePort"), "utf8")
@@ -419,7 +453,7 @@ async function readBrowserEndpoint(profile: string, child: ChildProcess) {
     }
     await delay(100);
   }
-  throw new Error("credential_browser_start_timeout");
+  throw new Error("shared_access_browser_start_timeout");
 }
 
 /**
@@ -458,7 +492,7 @@ async function requestBrowser(
     let expectedViewportId = 0;
     const timer = setTimeout(
       () => {
-        failure = new Error("credential_browser_protocol_timeout");
+        failure = new Error("shared_access_browser_protocol_timeout");
         socket.close();
       },
       method === "Runtime.evaluate" && evaluation === "composite"
@@ -490,7 +524,7 @@ async function requestBrowser(
         if (viewport !== undefined && !settled) {
           if (reply.id !== expectedViewportId) return;
           if (reply.error || reply.result?.exceptionDetails) {
-            failure = new Error("credential_browser_viewport_unavailable");
+            failure = new Error("shared_access_browser_viewport_unavailable");
             socket.close();
             return;
           }
@@ -542,7 +576,7 @@ async function requestBrowser(
               typeof outcome !== "object" ||
               Array.isArray(outcome)
             )
-              throw new Error("credential_browser_viewport_result_invalid");
+              throw new Error("shared_access_browser_viewport_result_invalid");
             outcome = {
               ...outcome,
               keyboardNext: reply.result?.result?.value === true,
@@ -572,21 +606,21 @@ async function requestBrowser(
           failure = new Error(
             diagnostic.includes("Execution context was destroyed") ||
               diagnostic.includes("Cannot find context")
-              ? "credential_browser_context_replaced"
+              ? "shared_access_browser_context_replaced"
               : evaluationStep === undefined
-                ? "credential_browser_evaluation_failed"
-                : `credential_browser_evaluation_failed_${evaluationStep}${category}`,
+                ? "shared_access_browser_evaluation_failed"
+                : `shared_access_browser_evaluation_failed_${evaluationStep}${category}`,
           );
         } else
           outcome =
             method === "Runtime.evaluate" ? reply.result?.result?.value : true;
       } catch {
-        failure = new Error("credential_browser_protocol_invalid");
+        failure = new Error("shared_access_browser_protocol_invalid");
       }
       socket.close();
     });
     socket.addEventListener("error", () => {
-      failure ??= new Error("credential_browser_protocol_failed");
+      failure ??= new Error("shared_access_browser_protocol_failed");
       socket.close();
     });
     socket.addEventListener(
@@ -596,7 +630,7 @@ async function requestBrowser(
         if (failure) reject(failure);
         else if (settled || (method === "Browser.close" && sent))
           resolve(outcome ?? true);
-        else reject(new Error("credential_browser_response_missing"));
+        else reject(new Error("shared_access_browser_response_missing"));
       },
       { once: true },
     );
@@ -665,8 +699,8 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
           assert.equal(
             error.message,
             step === undefined
-              ? "credential_browser_evaluation_failed"
-              : `credential_browser_evaluation_failed_${step}`,
+              ? "shared_access_browser_evaluation_failed"
+              : `shared_access_browser_evaluation_failed_${step}`,
           );
           assert.equal(error.cause, undefined);
           assert.equal(
@@ -707,7 +741,7 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
           assert.ok(error instanceof Error);
           assert.equal(
             error.message,
-            `credential_browser_evaluation_failed_document_ready${className.startsWith("fixture-") ? "" : `_${className}`}`,
+            `shared_access_browser_evaluation_failed_document_ready${className.startsWith("fixture-") ? "" : `_${className}`}`,
           );
           assert.equal(String(error).includes("fixture-secret"), false);
           assert.equal(error.cause, undefined);
@@ -736,7 +770,7 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
         "single",
         "document_ready",
       ),
-      { message: "credential_browser_context_replaced" },
+      { message: "shared_access_browser_context_replaced" },
     );
     reply = { id: 1, result: { result: { value: true } } };
     assert.equal(
@@ -811,13 +845,13 @@ async function reloadBrowserDocument(
     } catch (error) {
       if (
         !(error instanceof Error) ||
-        error.message !== "credential_browser_context_replaced"
+        error.message !== "shared_access_browser_context_replaced"
       )
         throw error;
     }
     await delay(100);
   }
-  throw new Error("credential_browser_reload_ready_unconfirmed");
+  throw new Error("shared_access_browser_reload_ready_unconfirmed");
 }
 
 /** 意味操作は再送せず、読み取りだけを新Documentで再評価する。 */
@@ -835,7 +869,7 @@ async function waitForBrowserCondition(pageUrl: string, expression: string) {
     } catch (error) {
       if (
         !(error instanceof Error) ||
-        error.message !== "credential_browser_context_replaced"
+        error.message !== "shared_access_browser_context_replaced"
       )
         throw error;
     }
@@ -1001,7 +1035,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
   // 既存全体263秒＋追加Git単独49秒を包含する親試験だけの上限。個別待機は不変更。
   timeout: 420_000,
 }, async (t) => {
-  const testRoot = await prepareCredentialBrowserTestRoot(repositoryRoot);
+  const testRoot = await prepareSharedAccessBrowserTestRoot(repositoryRoot);
   await t.test("欠測親から固定試験Rootを独立準備する", async () => {
     const fresh = await mkdtemp(
       path.join(testRoot, "workbench-browser-bootstrap-"),
@@ -1010,7 +1044,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
       await assert.rejects(lstat(path.join(fresh, ".crdd")), {
         code: "ENOENT",
       });
-      const prepared = await prepareCredentialBrowserTestRoot(fresh);
+      const prepared = await prepareSharedAccessBrowserTestRoot(fresh);
       assert.equal(prepared, path.join(fresh, ".crdd", "tests"));
       assert.equal((await lstat(prepared)).isDirectory(), true);
     } finally {
@@ -1028,7 +1062,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
       path.join(value, "Google", "Chrome", "Application", "chrome.exe"),
     )
     .find((value) => existsSync(value));
-  assert.ok(executable, "credential_browser_chrome_unavailable");
+  assert.ok(executable, "shared_access_browser_chrome_unavailable");
   const modes = [
     "shared-session",
     "shared-management",
@@ -1041,52 +1075,26 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
   ] as const;
   const requestedCase = process.env.CRDD_WORKBENCH_BROWSER_CASE;
   if (requestedCase && !modes.some((mode) => mode === requestedCase))
-    throw new Error("credential_browser_case_invalid");
+    throw new Error("shared_access_browser_case_invalid");
   for (const mode of modes.filter(
     (mode) => !requestedCase || mode === requestedCase,
   ))
     await t.test(mode, async (context) => {
       const directory = await mkdtemp(
-        path.join(testRoot, "workbench-credential-browser-"),
+        path.join(testRoot, "workbench-shared-access-browser-"),
       );
       const profile = path.join(directory, "chrome");
       const access = path.join(directory, "access");
       await mkdir(profile);
       await mkdir(access);
-      const material = createRetiredCredentialFixture();
-      const adminId = "00000000-0000-4000-8000-000000000003";
-      const developerId = "00000000-0000-4000-8000-000000000004";
-      const state: AccessManagementState = {
-        contract: "crdd-access-management/state",
-        schemaRevision: 4,
-        revision: 2,
-        operationId: "00000000-0000-4000-8000-000000000001",
-        users: [
-          { userId: adminId, username: "管理者", role: "administrator" },
-          { userId: developerId, username: "開発者", role: "developer" },
-        ],
-        registeredRepositories: [],
-        initialization: {
-          stage: "completed",
-          attemptId: "00000000-0000-4000-8000-000000000002",
-          initialUserId: adminId,
-          connection: "account_confirmed",
-        },
-      };
-      const current = path.join(access, "access-management.json");
-      if (
-        mode === "ai-selection-manager" ||
-        mode === "ai-selection-developer"
-      ) {
-        const actor = state.users.find((user) => user.userId === adminId);
-        assert.ok(actor);
-        actor.role = mode === "ai-selection-manager" ? "manager" : "developer";
-        state.users.push({
-          userId: "00000000-0000-4000-8000-000000000005",
-          username: "別管理者",
-          role: "administrator",
-        });
-      }
+      const accessFixture = prepareSharedAccessBrowserFixture(
+        access,
+        mode === "ai-selection-manager"
+          ? "manager"
+          : mode === "ai-selection-developer"
+            ? "developer"
+            : "administrator",
+      );
       const usesGitHost =
         mode === "shared-session" ||
         mode === "shared-navigation" ||
@@ -1264,19 +1272,12 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               );
             }
           }
-          if (mode === "shared-session") continue;
-          state.registeredRepositories.push({
-            repositoryId: id,
-            repositoryRoot: target,
-            bindingId: deriveRepositoryBindingId(id, target),
-            ...(usesGitHost && {
-              hostedRepository: {
-                provider: "github",
-                host: "github.com",
-                repositoryId: String(hostedFixture.id),
-                providerData: { installationId: "24" },
-              },
-            }),
+          if (mode === "shared-session" || !usesGitHost) continue;
+          accessFixture.addRepository(id, target, {
+            provider: "github",
+            host: "github.com",
+            repositoryId: String(hostedFixture.id),
+            providerData: { installationId: "24" },
           });
         }
       }
@@ -1295,51 +1296,39 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             "git_fixture_remote_prepared",
           );
       }
-      await writeFile(current, JSON.stringify(state));
-      const root = createFilesystemStoreRoot(access);
-      assert.ok(root);
       const browserLogin =
         usesGitHost || mode === "shared-management"
           ? await prepareBrowserLogin(context, usesGitHost)
           : null;
-      if (browserLogin)
-        assert.equal(
-          linkAccountFromHost(
-            root,
-            adminId,
-            { issuer: googleIssuer, subject: browserLoginSubject },
-            state.revision,
-          ).status,
-          "completed",
-        );
-      const handle = await startWorkbench({
-        workingDirectory:
-          mode === "git-operations"
-            ? path.join(directory, "next")
-            : repositoryRoot,
-        ...(browserLogin
-          ? {
-              localAccessRoot: root,
+      const accessBaseline = browserLogin
+        ? null
+        : await accessFixture.initialize().then(accessFixture.baseline);
+      const workingDirectory =
+        mode === "git-operations"
+          ? path.join(directory, "next")
+          : repositoryRoot;
+      const handle = browserLogin
+        ? await accessFixture.start(
+            {
+              workingDirectory,
               port: browserLogin.port,
               loginProviders: browserLogin.loginProviders,
-              ...(usesGitHost
-                ? {
-                    sharedRepositoryRoots: [directory],
-                    gitHosts: [
-                      {
-                        provider: "github",
-                        host: "github.com",
-                        providerData: {
-                          clientId: "synthetic-browser-git",
-                          clientSecret: "synthetic-browser-git-secret",
-                        },
-                      },
-                    ],
-                  }
-                : {}),
-            }
-          : {}),
-      });
+              sharedRepositoryRoots: [directory],
+              gitHosts: [
+                {
+                  provider: "github",
+                  host: "github.com",
+                  providerData: {
+                    clientId: "synthetic-browser-git",
+                    clientSecret: "synthetic-browser-git-secret",
+                  },
+                },
+              ],
+              mcpOAuth: createBrowserOAuthFixture(),
+            },
+            { issuer: googleIssuer, subject: browserLoginSubject },
+          )
+        : await startWorkbench({ workingDirectory });
       let endpoint: Awaited<ReturnType<typeof readBrowserEndpoint>> | null =
         null;
       const child = spawn(
@@ -1379,7 +1368,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         try {
           cleanup = await closeOwnedBrowserProcessTree(child, async () => {
             if (!endpoint)
-              throw new Error("credential_browser_endpoint_unavailable");
+              throw new Error("shared_access_browser_endpoint_unavailable");
             await requestBrowser(
               `ws://127.0.0.1:${endpoint.port}${endpoint.browserPath}`,
               "Browser.close",
@@ -1451,19 +1440,38 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         pageUrl = target?.webSocketDebuggerUrl ?? null;
         if (!pageUrl) await delay(100);
       }
-      assert.ok(pageUrl, "credential_browser_page_unavailable");
+      assert.ok(pageUrl, "shared_access_browser_page_unavailable");
       let browserSession: string | null = null;
       if (browserLogin) {
         await waitForBrowserCondition(
           pageUrl,
           `Boolean(document.querySelector('form[action="/api/session/login/google"]'))&&!document.querySelector('form[action="/api/access/connection"]')`,
         );
+        if (mode === "shared-session") {
+          const response = await fetch(
+            new URL("/api/workbench/context", handle.baseUrl),
+          );
+          assert.equal(response.status, 200);
+          const { login } = await response.json();
+          assert.deepEqual(login.loginProviders, [
+            { id: "google", displayName: "Google" },
+          ]);
+          const hasLogin = (id: string, name: string) =>
+            `document.querySelector(${JSON.stringify(`form[action="/api/session/login/${id}"] button`)})?.textContent.trim() === ${JSON.stringify(`${name}でログイン`)}`;
+          await waitForBrowserCondition(
+            pageUrl,
+            hasLogin(
+              login.loginProviders[0].id,
+              login.loginProviders[0].displayName,
+            ),
+          );
+        }
         const cookie = await browserLogin.createSession(handle.baseUrl);
         if (usesGitHost)
           await browserLogin.connectGitHost(handle.baseUrl, cookie);
         if (mode === "shared-session") {
           const view = await fetch(
-            new URL("/api/workbench/view", handle.baseUrl),
+            new URL("/api/workbench/overview", handle.baseUrl),
             {
               headers: { cookie },
             },
@@ -1474,7 +1482,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           assert.equal(portfolio, null, "登録前にリポジトリ内容を返さない");
           const selected = await fetch(
             new URL(
-              "/api/workbench/view?repositoryId=repository.next",
+              "/api/workbench/overview?repositoryId=repository.next",
               handle.baseUrl,
             ),
             { headers: { cookie } },
@@ -1496,15 +1504,30 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           pageUrl,
           'section[aria-label="ログインと利用者招待"] button',
         );
+        if (mode === "shared-session") {
+          const response = await fetch(
+            new URL("/api/session/git", handle.baseUrl),
+            { headers: { cookie } },
+          );
+          assert.equal(response.status, 200);
+          const { hosts } = await response.json();
+          assert.equal(hosts.length, 1);
+          const [{ displayName, connected }] = hosts;
+          assert.equal(connected, true);
+          await waitForBrowserCondition(
+            pageUrl,
+            `[...document.querySelectorAll('section[aria-label="Gitホスト連携"] button')].some(button=>button.textContent.trim()===${JSON.stringify(`このセッションの${displayName}連携を解除`)})`,
+          );
+        }
         browserSession = cookie;
       }
       if (mode === "shared-session" || mode === "shared-management") {
         assert.ok(browserSession);
-        const legacy = await fetch(`${handle.baseUrl}/api/projects`, {
-          headers: { authorization: `Bearer ${material.token}` },
+        const rejected = await fetch(`${handle.baseUrl}/api/projects`, {
+          headers: { authorization: "Bearer synthetic-invalid-bearer" },
         });
-        assert.equal(legacy.status, 403);
-        assert.deepEqual(await legacy.json(), { error: "request_rejected" });
+        assert.equal(rejected.status, 403);
+        assert.deepEqual(await rejected.json(), { error: "request_rejected" });
         if (mode === "shared-session") {
           const target = path.join(directory, "next");
           const openManagement = `[...document.querySelectorAll('button')].find(b=>b.textContent==='管理セッションを開始')`;
@@ -1524,30 +1547,18 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             returnByValue: true,
           });
           await waitForBrowserCondition(pageUrl, `Boolean(${unregister})`);
-          const readState = async () =>
-            JSON.parse(
-              await readFile(current, "utf8"),
-            ) as AccessManagementState;
-          const registered = await readState();
-          assert.deepEqual(
-            registered.registeredRepositories.map(
-              ({ repositoryId, hostedRepository }) => ({
-                repositoryId,
-                hostedRepository,
-              }),
-            ),
-            [
-              {
-                repositoryId: "repository.next",
-                hostedRepository: {
-                  provider: "github",
-                  host: "github.com",
-                  repositoryId: "92",
-                  providerData: { installationId: "24" },
-                },
+          const registered = await accessFixture.registrations();
+          assert.deepEqual(registered.repositories, [
+            {
+              repositoryId: "repository.next",
+              hostedRepository: {
+                provider: "github",
+                host: "github.com",
+                repositoryId: "92",
+                providerData: { installationId: "24" },
               },
-            ],
-          );
+            },
+          ]);
           const git = (...args: string[]) => {
             const result = spawnSync("git", args, {
               cwd: target,
@@ -1598,12 +1609,12 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             pageUrl,
             `!${unregister} && document.querySelector('#access-management [role=status]')?.textContent.includes('変更を保存しました')`,
           );
-          const removed = await readState();
+          const removed = await accessFixture.registrations();
           assert.equal(removed.revision, registered.revision + 1);
-          assert.deepEqual(removed.registeredRepositories, []);
+          assert.deepEqual(removed.repositories, []);
           const afterRemoval = await fetch(
             new URL(
-              "/api/workbench/view?repositoryId=repository.next",
+              "/api/workbench/overview?repositoryId=repository.next",
               handle.baseUrl,
             ),
             { headers: { cookie: browserSession } },
@@ -1691,10 +1702,8 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             storageEmpty: true,
             retiredControlsAbsent: true,
           });
-          const saved = JSON.parse(
-            await readFile(current, "utf8"),
-          ) as AccessManagementState;
-          const invited = saved.users.filter(
+          const saved = await accessFixture.users();
+          const invited = saved.filter(
             (user) => user.userId === management.userId,
           );
           assert.equal(invited.length, 1);
@@ -1718,7 +1727,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         } catch (error) {
           if (
             !(error instanceof Error) ||
-            error.message !== "credential_browser_context_replaced"
+            error.message !== "shared_access_browser_context_replaced"
           )
             throw error;
         }
@@ -1755,9 +1764,15 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           "Runtime.evaluate",
           {
             expression: `(async()=>{
-            const originalFetch=window.fetch;let posts=0,noCredential=true,stage='ready';
+            const originalFetch=window.fetch;let posts=0,noCredential=true,stage='ready',diffReads=0,overviewFileQueries=0;
             const isGitWrite=${identifyGitWrite};
-            window.fetch=(input,options)=>{if(isGitWrite(input,options)){posts++;noCredential=noCredential&&options?.credentials==='omit'&&!new Headers(options?.headers).has('authorization');}return originalFetch(input,options);};
+            window.fetch=(input,options)=>{
+              const url=new URL(String(input),location.href);
+              if(url.pathname==='/api/repositories/repository.next/worktree/diff'&&url.searchParams.get('path')==='work.txt')diffReads++;
+              if(url.pathname==='/api/workbench/overview'&&['diffPath','treeDirectory','treeCursor'].some(name=>url.searchParams.has(name)))overviewFileQueries++;
+              if(isGitWrite(input,options)){posts++;noCredential=noCredential&&options?.credentials==='omit'&&!new Headers(options?.headers).has('authorization');}
+              return originalFetch(input,options);
+            };
             /**
              * Git操作の描画と結果確定を期限内で待つ。
              * @responsibility Git操作の描画と結果確定を期限内で待つ。
@@ -1797,6 +1812,12 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             const settled=(reason)=>document.querySelector('.repository-operation-surface .operation-result')?.innerText.includes(reason)&&!document.querySelector('.repository-operation-surface fieldset')?.disabled;
             try{
               await wait(()=>!!form('prepare')&&!document.querySelector('#connection form'));
+              stage='file-diff';
+              const fileLink=()=>[...document.querySelectorAll('#repository .repository-tree a')].find(link=>link.querySelector('code')?.textContent==='work.txt');
+              await wait(()=>!!fileLink());
+              fileLink().click();
+              await wait(()=>[...document.querySelectorAll('#repository .repository-diff pre')].some(patch=>patch.textContent.includes('+working-next')));
+              const dedicatedDiff=diffReads===1&&overviewFileQueries===0&&new URL(location.href).searchParams.get('diffPath')==='work.txt';
               stage='stage';let operation=form('prepare');operation.requestSubmit();operation.requestSubmit();await wait(()=>settled('prepare_completed'));
               const singleStage=posts===1&&!!form('unprepare');
               stage='unstage';form('unprepare').requestSubmit();await wait(()=>settled('unprepare_completed')&&!!form('prepare'));
@@ -1805,7 +1826,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               const publication=form('publish_revision'), revision=publication.querySelector('[name=revisionIdentity]').value;
               const beforeConfirmation=posts;publication.requestSubmit();await new Promise(resolve=>setTimeout(resolve,100));const confirmationRequired=posts===beforeConfirmation;
               stage='push';publication.querySelector('[name=humanConfirmed]').checked=true;publication.requestSubmit();publication.requestSubmit();await wait(()=>settled('publication_confirmed'));
-              return{singleStage,confirmationRequired,posts,noCredential,revision,selected:document.querySelector('[data-repository-id]')?.dataset.repositoryId,storageEmpty:localStorage.length===0&&sessionStorage.length===0};
+              return{dedicatedDiff,singleStage,confirmationRequired,posts,noCredential,revision,selected:document.querySelector('[data-repository-id]')?.dataset.repositoryId,storageEmpty:localStorage.length===0&&sessionStorage.length===0};
             }catch(error){return{failedStage:stage,posts,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
@@ -1826,6 +1847,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         });
         assert.equal(remoteHead.status, 0);
         assert.deepEqual(normal, {
+          dedicatedDiff: true,
           singleStage: true,
           confirmationRequired: true,
           posts: 5,
@@ -1959,15 +1981,12 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         );
         const changePreview = await fetch(
           new URL(
-            "/api/workbench/view?route=%2Fchange&id=CHG-000901",
+            "/api/repositories/repository.next/changes/CHG-000901",
             handle.baseUrl,
           ),
         );
         assert.equal(changePreview.status, 200);
-        assert.equal(
-          (await changePreview.json()).artifact?.identity,
-          "CHG-000901",
-        );
+        assert.equal((await changePreview.json()).identity, "CHG-000901");
         const faults = await requestBrowser(
           pageUrl,
           "Runtime.evaluate",
@@ -1975,7 +1994,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             expression: `(async()=>{
             const originalFetch=window.fetch;let posts=0,failRead=false,corrupt=false,hold=false,release=null,signal=null,stage='saved-read-failure',detailStatus=null;
             const isGitWrite=${identifyGitWrite};
-            window.fetch=async(input,options)=>{const url=new URL(String(input),location.href);const write=isGitWrite(input,options);if(url.pathname==='/api/workbench/view'&&failRead)throw new Error('fixture_read_failure');if(write)posts++;const response=await originalFetch(input,options);if(url.searchParams.get('id')==='CHG-000901')detailStatus=response.status;if(write&&corrupt){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(write&&hold){signal=options.signal;return new Promise(resolve=>{release=()=>resolve(response);});}return response;};
+            window.fetch=async(input,options)=>{const url=new URL(String(input),location.href);const write=isGitWrite(input,options);if(url.pathname==='/api/workbench/overview'&&failRead)throw new Error('fixture_read_failure');if(write)posts++;const response=await originalFetch(input,options);if(url.pathname.endsWith('/changes/CHG-000901'))detailStatus=response.status;if(write&&corrupt){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(write&&hold){signal=options.signal;return new Promise(resolve=>{release=()=>resolve(response);});}return response;};
             /**
              * Git応答故障後の拒否・不明表示を待つ。
              * @responsibility Git応答故障後の拒否・不明表示を待つ。
@@ -2034,7 +2053,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               const blockedSeparate=posts===3&&document.querySelector('.repository-operation-surface .operation-result')?.innerText.includes('revision_creation_rejected');
               stage='blocked-retry';failRead=false;document.querySelector('.repository-operation-surface button').click();await wait(()=>!!form('prepare'));const blockedRetryNoPost=posts===3;
               stage='pending';hold=true;form('prepare').requestSubmit();await wait(()=>typeof release==='function');
-              stage='switch';const link=document.createElement('a');link.href='/change?id=CHG-000901';document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();await wait(()=>location.pathname==='/change'&&document.querySelector('#artifact-detail .canonical-markdown')?.textContent.includes('単体の試験用成果物'));
+              stage='switch';const link=document.createElement('a');link.href='/change?id=CHG-000901&repositoryId=repository.next';document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();await wait(()=>location.pathname==='/change'&&document.querySelector('#artifact-detail .canonical-markdown')?.textContent.includes('単体の試験用成果物'));
               const aborted=signal?.aborted===true;release();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
               const lateRejected=posts===4&&detailStatus===200&&!document.querySelector('.repository-operation-surface .operation-result')&&location.pathname==='/change'&&document.querySelector('#artifact-detail .canonical-markdown')?.textContent.includes('単体の試験用成果物');
               return{knownSaved,retryNoPost,unknownNotUnsaved,unknownRetryNoPost,blockedSeparate,blockedRetryNoPost,aborted,lateRejected,posts};
@@ -2073,16 +2092,17 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           }).stdout.trim(),
           otherHead,
         );
-        assert.deepEqual(JSON.parse(await readFile(current, "utf8")), state);
+        assert.ok(accessBaseline);
+        assert.deepEqual(await accessFixture.baseline(), accessBaseline);
         return;
       }
       if (mode === "artifact-navigation") {
         assert.ok(browserSession);
-        const beforeNavigation = await readFile(current);
+        const beforeNavigation = await accessFixture.baseline();
         const observed = await requestBrowser(pageUrl, "Runtime.evaluate", {
           expression: `(async()=>{
             const originalFetch=window.fetch;let authenticated=0,reads=0,stage='select';
-            window.fetch=async(input,options)=>{const response=await originalFetch(input,options);if(new URL(String(input),location.href).pathname==='/api/workbench/view'){reads++;if(response.ok&&options.credentials==='same-origin'&&!new Headers(options.headers).has('authorization'))authenticated++;}return response;};
+            window.fetch=async(input,options)=>{const response=await originalFetch(input,options);const route=new URL(String(input),location.href).pathname;if(route==='/api/workbench/overview'||route.includes('/changes/')||route.endsWith('/artifacts')){reads++;if(response.ok&&options.credentials==='same-origin'&&!new Headers(options.headers).has('authorization'))authenticated++;}return response;};
             /**
              * 成果物の対象切替後の本文描画を待つ。
              * @responsibility 成果物の対象切替後の本文描画を待つ。
@@ -2161,14 +2181,14 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             const originalFetch=window.fetch;let release=null,signal=null,corrupt=false,selectionNull=false,standaloneMismatch=false,lastModel=null,stage='pending';
             window.fetch=async(input,options)=>{
               const url=new URL(String(input),location.href);
-              if(standaloneMismatch&&url.pathname==='/api/workbench/view'&&url.searchParams.get('route')==='/change'&&!url.searchParams.has('repositoryId'))return new Response(JSON.stringify(lastModel),{headers:{'content-type':'application/json'}});
+              if(standaloneMismatch&&url.pathname==='/api/workbench/context')return new Response(JSON.stringify(lastModel),{headers:{'content-type':'application/json'}});
               const response=await originalFetch(input,options);
-              if(url.pathname==='/api/workbench/view'&&url.searchParams.get('route')==='/change'&&url.searchParams.get('repositoryId')==='repository.next'){
+              if(url.pathname==='/api/repositories/repository.next/changes/CHG-000401'){
                 const model=await response.json();
                 lastModel=structuredClone(model);
-                if(selectionNull){model.selectedRepositoryId=null;return new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}});}
-                if(corrupt){model.repositoryId='repository.latest';model.selectedRepositoryId='repository.latest';return new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}});}
-                signal=options.signal;model.artifact.markdown='遅延旧本文';return new Promise(resolve=>{release=()=>resolve(new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}}));});
+                if(selectionNull){model.scope='single';return new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}});}
+                if(corrupt){model.repositoryId='repository.latest';return new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}});}
+                signal=options.signal;model.markdown='遅延旧本文';return new Promise(resolve=>{release=()=>resolve(new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}}));});
               }return response;
             };
             /**
@@ -2243,7 +2263,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           } catch (error) {
             if (
               !(error instanceof Error) ||
-              error.message !== "credential_browser_context_replaced"
+              error.message !== "shared_access_browser_context_replaced"
             )
               throw error;
           }
@@ -2253,16 +2273,13 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           bodyAbsent: true,
           storageEmpty: true,
         });
-        assert.deepEqual(await readFile(current), beforeNavigation);
+        assert.deepEqual(await accessFixture.baseline(), beforeNavigation);
         return;
       }
       if (mode === "content-operations") {
         assert.ok(browserSession);
         assert.ok(browserLogin);
-        const contentBaseline = await readFile(current);
-        const contentState = JSON.parse(
-          contentBaseline.toString("utf8"),
-        ) as AccessManagementState;
+        const contentBaseline = await accessFixture.baseline();
         const targetContext = path.join(
           directory,
           "next",
@@ -2278,6 +2295,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         const manifestBefore = await readFile(targetManifest);
         const contextBefore = await readFile(targetContext);
         const originalOpen = fs.openSync;
+        const originalRead = fs.promises.readFile;
         let deniedReads = 0;
         const deniedObservation = context.mock.method(
           fs,
@@ -2287,17 +2305,26 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             return originalOpen(...args);
           },
         );
+        const asyncObservation = context.mock.method(
+          fs.promises,
+          "readFile",
+          (...args: Parameters<typeof fs.promises.readFile>) => {
+            if (String(args[0]) === targetContext) deniedReads++;
+            return originalRead(...args);
+          },
+        );
         syncBuiltinESMExports();
         try {
           const probe = fs.openSync(targetContext, "r");
           fs.closeSync(probe);
+          await readFile(targetContext);
           assert.equal(
             deniedReads,
-            1,
+            2,
             "denied_reader_observer_positive_control",
           );
-          const beforeTimeOnly = await readFile(current);
-          const contentRequest = `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next');return{status:reply.status,model:await reply.json()};})()`;
+          const beforeTimeOnly = await accessFixture.baseline();
+          const contentRequest = `(async()=>{const reply=await fetch('/api/workbench/overview?repositoryId=repository.next');return{status:reply.status,model:await reply.json()};})()`;
           deniedReads = 0;
           const initialContent = await requestBrowser(
             pageUrl,
@@ -2332,15 +2359,11 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               "same_browser_content_request_after_time_only_change",
             );
             assert.equal(deniedReads, initialReads);
-            assert.deepEqual(await readFile(current), beforeTimeOnly);
+            assert.deepEqual(await accessFixture.baseline(), beforeTimeOnly);
           } finally {
             clock.mock.restore();
           }
-          const developerState = structuredClone(contentState);
-          const developer = developerState.users[0];
-          assert.ok(developer?.accountLinks);
-          developer.role = "developer";
-          await writeFile(current, JSON.stringify(developerState));
+          await accessFixture.setObservation(contentBaseline, "developer");
           const developerView = (await requestBrowser(
             pageUrl,
             "Runtime.evaluate",
@@ -2365,10 +2388,6 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             "git-host-unavailable",
             "root-unavailable",
           ] as const) {
-            const rejectedState = structuredClone(contentState);
-            const actor = rejectedState.users[0];
-            assert.ok(actor?.accountLinks);
-            if (scenario === "account-unlinked") delete actor.accountLinks;
             browserLogin.setGitRead(
               scenario === "git-read-removed"
                 ? "denied"
@@ -2378,11 +2397,14 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             );
             if (scenario === "root-unavailable")
               await writeFile(targetManifest, "synthetic-invalid-manifest");
-            await writeFile(current, JSON.stringify(rejectedState));
-            const beforeRequest = await readFile(current);
+            await accessFixture.setObservation(
+              contentBaseline,
+              scenario === "account-unlinked" ? "unlinked" : "unchanged",
+            );
+            const beforeRequest = await accessFixture.baseline();
             deniedReads = 0;
             const rejected = await requestBrowser(pageUrl, "Runtime.evaluate", {
-              expression: `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next');return{status:reply.status,closedBody:await reply.text()==='local_repository_access_unavailable'+String.fromCharCode(10)};})()`,
+              expression: `(async()=>{const reply=await fetch('/api/workbench/overview?repositoryId=repository.next');return{status:reply.status,closedBody:await reply.text()==='local_repository_access_unavailable'+String.fromCharCode(10)};})()`,
               awaitPromise: true,
               returnByValue: true,
             });
@@ -2392,7 +2414,11 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               scenario,
             );
             assert.equal(deniedReads, 0, scenario);
-            assert.deepEqual(await readFile(current), beforeRequest, scenario);
+            assert.deepEqual(
+              await accessFixture.baseline(),
+              beforeRequest,
+              scenario,
+            );
             assert.deepEqual(
               await readFile(targetContext),
               contextBefore,
@@ -2403,8 +2429,9 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         } finally {
           browserLogin.setGitRead("allowed");
           deniedObservation.mock.restore();
+          asyncObservation.mock.restore();
           syncBuiltinESMExports();
-          await writeFile(current, contentBaseline);
+          await accessFixture.setObservation(contentBaseline, "unchanged");
           await writeFile(targetManifest, manifestBefore);
         }
         const promotionMarkdown =
@@ -2429,14 +2456,22 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           {
             expression: `(async()=>{
             const originalFetch=window.fetch;
-            let posts=0, reads=0, failRead=false, corruptResponse=false, lastBody=null, stage='connect';
+            let posts=0, reads=0, portfolioReads=0, failRead=false, corruptResponse=false, lastBody=null, stage='connect', createSurface=null, lastPostStatus=null, lastOverviewStatus=null;
+            let releasePortfolio;
+            const portfolioGate=new Promise(resolve=>{releasePortfolio=resolve;});
             window.fetch=async(input, options)=>{
               const url=new URL(String(input),location.href);
-              if(url.pathname==='/api/workbench/view') reads++;
-              if(url.pathname==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
+              if(url.pathname==='/api/projects' && url.searchParams.get('repositoryId')==='repository.next') {
+                portfolioReads++;
+                if(portfolioReads===2) await portfolioGate;
+              }
+              if(url.pathname==='/api/workbench/overview') reads++;
+              if(url.pathname==='/api/workbench/overview' && failRead) throw new Error('fixture_read_failure');
               const isRecordWrite=/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(url.pathname) && ['POST','PATCH','DELETE','PUT'].includes(options?.method);
               if(isRecordWrite) { posts++; lastBody=String(options.body); }
               const response=await originalFetch(input, options);
+              if(isRecordWrite) lastPostStatus=response.status;
+              if(url.pathname==='/api/workbench/overview') lastOverviewStatus=response.status;
               if(isRecordWrite && corruptResponse) { await response.arrayBuffer(); return new Response('{',{headers:{'content-type':'application/json'}}); }
               return response;
             };
@@ -2501,9 +2536,15 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
              */
             const markdown=(id,title,revision)=>'# '+title+'\\n\\n成果物種別: Topic\\nTopic ID: \\x60'+id+'\\x60\\nProject ID: \\x60project.fixture\\x60\\n状態: \\x60open\\x60\\n改訂: \\x60'+revision+'\\x60\\n維持責任者: \\x60試験担当\\x60\\n\\n## 1. 現在の論点\\n\\n### 結論\\n\\n自己生成試験。\\n';
             try {
-              stage='select'; click('/?repositoryId=repository.next'); await wait(()=>!!createForm() && !createForm().closest('fieldset').disabled);
+              const portfolioShown=()=>document.querySelector('#portfolio a[href="/project?id=project.fixture"]')!==null;
+              stage='select'; click('/?repositoryId=repository.next'); await wait(()=>!!createForm() && !createForm().closest('fieldset').disabled && portfolioReads===1 && portfolioShown());
               const form=createForm(); form.closest('details').open=true; form.querySelector('textarea').value=markdown('TOPIC-000101','初期',1);
+              createSurface=form.closest('.record-operation-surface');
               stage='create'; form.requestSubmit(); form.requestSubmit(); await wait(saved);
+              stage='portfolio-refresh'; await wait(()=>portfolioReads===2);
+              const previousPortfolioHidden=!portfolioShown();
+              releasePortfolio(); await wait(portfolioShown);
+              const portfolioRefreshed=previousPortfolioHidden && portfolioReads===2;
               const singleCreate=posts===1, selectedAfterCreate=location.search.includes('repository.next');
               stage='detail'; click('/topic?repositoryId=repository.next&id=TOPIC-000101'); await wait(()=>!!document.querySelector('#topic-detail'));
               const update=document.querySelector('form:has([name=operation][value=update])'); update.closest('details').open=true;
@@ -2520,8 +2561,8 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               stage='delete-back';history.back();await wait(()=>reads===afterDeleteReads+1 && !!document.querySelector('#topics') && !document.querySelector('#topics .operation-result')?.innerText.includes('record_deleted'));
               stage='delete-forward';history.forward();await wait(()=>location.hash==='#topics' && !!document.querySelector('#topics'));
               const deleteHistoryConsistent=reads===afterDeleteReads+1 && !document.querySelector('#topics .operation-result')?.innerText.includes('record_deleted');
-              return {singleCreate,selectedAfterCreate,detailUpdated,confirmationRequired,deletedToSameRepository,singleDeleteRead,deleteHistoryConsistent,posts};
-            } catch {return {failedStage:stage,posts};} finally {window.fetch=originalFetch;}
+              return {singleCreate,selectedAfterCreate,portfolioRefreshed,detailUpdated,confirmationRequired,deletedToSameRepository,singleDeleteRead,deleteHistoryConsistent,posts};
+            } catch {const notice=document.querySelector('.record-operation-surface [role=status]');return {failedStage:stage,posts,portfolioReads,lastPostStatus,lastOverviewStatus,sameSurface:document.querySelector('.record-operation-surface')===createSurface,notice:notice?.innerText?.includes('未確認')?'unconfirmed':notice?.innerText?.includes('保存')?'saved':notice?'other':'absent'};} finally {releasePortfolio();window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
             returnByValue: true,
@@ -2530,6 +2571,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           "composite",
         );
         assert.deepEqual(observed, {
+          portfolioRefreshed: true,
           singleCreate: true,
           selectedAfterCreate: true,
           detailUpdated: true,
@@ -2547,7 +2589,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             const originalFetch=window.fetch;let posts=0,failRead=false,corruptResponse=false,lastBody=null,stage='read-failure';
             window.fetch=async(input,options)=>{
               const route=new URL(String(input),location.href).pathname;
-              if(route==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
+              if(route==='/api/workbench/overview' && failRead) throw new Error('fixture_read_failure');
               const isRecordWrite=/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(route) && ['POST','PATCH','DELETE','PUT'].includes(options?.method);
               if(isRecordWrite){posts++;lastBody=String(options.body);}
               const response=await originalFetch(input,options);
@@ -2627,7 +2669,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           {
             expression: `(async()=>{
             const originalFetch=window.fetch; let posts=0, lastBody=null, stage='promotion-create', lastReadStatus=null;
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(route)&&['POST','PATCH','DELETE','PUT'].includes(options?.method)){posts++;lastBody=JSON.parse(options.body);}const response=await originalFetch(input,options);if(route==='/api/workbench/view')lastReadStatus=response.status;return response;};
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(route)&&['POST','PATCH','DELETE','PUT'].includes(options?.method)){posts++;lastBody=JSON.parse(options.body);}const response=await originalFetch(input,options);if(route==='/api/workbench/overview')lastReadStatus=response.status;return response;};
             /**
              * Topic昇格とMeeting処置の表示を待つ。
              * @responsibility Topic昇格とMeeting処置の表示を待つ。
@@ -2728,10 +2770,10 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           "Runtime.evaluate",
           {
             expression: `(async()=>{
-            const originalFetch=window.fetch; let posts=0, failRead=false, holdPost=false, releaseLate=null, lateSignal=null, stage='detail-select';
+            const originalFetch=window.fetch; let posts=0, failedReads=0, failRead=false, holdPost=false, releaseLate=null, lateSignal=null, stage='detail-select';
             window.fetch=async(input,options)=>{
               const route=new URL(String(input),location.href).pathname;
-              if(route==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
+              if(route==='/api/repositories/repository.next/topics/TOPIC-000103' && (options?.method??'GET')==='GET' && failRead){failedReads++;throw new Error('fixture_read_failure');}
               const isRecordWrite=/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(route) && ['POST','PATCH','DELETE','PUT'].includes(options?.method);
               if(isRecordWrite) posts++;
               const response=await originalFetch(input,options);
@@ -2793,8 +2835,8 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               stage='target-switch';click('/?repositoryId=repository.latest');await wait(()=>document.querySelector('[data-repository-id]')?.dataset.repositoryId==='repository.latest');
               const aborted=lateSignal?.aborted===true, beforeRelease=posts;releaseLate();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
               const lateNotAdopted=posts===beforeRelease && new URL(location.href).searchParams.get('repositoryId')==='repository.latest' && !document.querySelector('.record-operation-surface .operation-result') && !document.body.innerText.includes('遅延受信');
-              return {detailHidden,detailFreshSame,blockedSeparated,blockedNoResend,aborted,lateNotAdopted,posts};
-            }catch(error){return {failedStage:stage,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other',posts};}finally{if(releaseLate)releaseLate();window.fetch=originalFetch;}
+              return {detailHidden,detailFreshSame,blockedSeparated,blockedNoResend,aborted,lateNotAdopted,posts,failedReads};
+            }catch(error){return {failedStage:stage,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other',posts,failedReads};}finally{if(releaseLate)releaseLate();window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
             returnByValue: true,
@@ -2814,6 +2856,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           aborted: true,
           lateNotAdopted: true,
           posts: 3,
+          failedReads: 2,
         });
         assert.equal(
           existsSync(
@@ -2839,7 +2882,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           ),
           false,
         );
-        assert.deepEqual(await readFile(current), contentBaseline);
+        assert.deepEqual(await accessFixture.baseline(), contentBaseline);
         return;
       }
       if (
@@ -2847,7 +2890,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
         mode === "ai-selection-developer"
       ) {
         assert.ok(browserSession);
-        const accessBeforeSelection = await readFile(current);
+        const accessBeforeSelection = await accessFixture.baseline();
         const observed = await requestBrowser(
           pageUrl,
           "Runtime.evaluate",
@@ -2862,7 +2905,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
                 if(method==='PUT')posts++;
                 noAuthorization=noAuthorization&&!new Headers(options?.headers).has('authorization');
               }
-              if(route==='/api/workbench/view'&&failView)throw Error('fixture_read_unavailable');
+              if(route==='/api/workbench/overview'&&failView)throw Error('fixture_read_unavailable');
               const reply=await original(input,options);
               if(selection&&method==='PUT'&&corrupt){await reply.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
               if(selection&&method==='GET'&&held===true){heldSignal=options.signal;return new Promise(resolve=>{held=()=>resolve(reply);});}
@@ -3072,12 +3115,12 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             });
           }
         }
-        assert.deepEqual(await readFile(current), accessBeforeSelection);
+        assert.deepEqual(await accessFixture.baseline(), accessBeforeSelection);
         return;
       }
       if (mode === "shared-navigation") {
         assert.ok(browserSession);
-        const beforeNavigation = await readFile(current);
+        const beforeNavigation = await accessFixture.baseline();
         const unavailablePath = path.join(
           directory,
           "unavailable",
@@ -3121,6 +3164,62 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           await writeFile(nextPath, nextBody);
         }
         await reloadBrowserDocument(pageUrl, "#projects");
+        const listBoundary = await requestBrowser(pageUrl, "Runtime.evaluate", {
+          expression: `(async()=>{
+            const original=window.fetch;let reads=0,releaseDisconnect,disconnected=false,reject=false,stage='ready';
+            const panel=()=>document.querySelector('#projects');
+            const wait=async(check)=>{const end=Date.now()+15000;while(Date.now()<end){if(check())return;await new Promise(r=>setTimeout(r,40));}throw Error('project_list_boundary_unconfirmed');};
+            await wait(()=>panel()?.querySelector('a'));
+            window.fetch=async(input,options)=>{
+              const url=new URL(String(input),location.href);
+              if(url.pathname==='/api/projects'&&url.searchParams.get('limit')==='20'){
+                reads++;
+                if(reject)return new Response(null,{status:401});
+                if(reads===1)return new Response(null,{status:503});
+                if(disconnected)return Response.json({retainedAsSourceOfTruth:false,projects:[],nextCursor:null,cursorInvalid:false});
+              }
+              if(url.pathname.startsWith('/api/session/git/')&&options?.method==='DELETE'){
+                await new Promise(resolve=>{releaseDisconnect=resolve;});
+                disconnected=true;
+                return new Response(null,{status:204});
+              }
+              return original(input,options);
+            };
+            try{
+              stage='server-error';
+              const link=document.createElement('a');link.href='/?repositoryId=#projects';document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();
+              await wait(()=>panel()?.innerText.includes('現在の内容を確認できません。'));
+              const failedWithoutOldLinks=!panel().querySelector('a')&&!panel().innerText.includes('許可されたRepositoryはありません');
+              stage='retry';
+              [...panel().querySelectorAll('button')].find(button=>button.textContent==='再取得').click();
+              await wait(()=>panel()?.querySelector('a'));
+              const disconnectButton=()=>[...document.querySelectorAll('[aria-label="Gitホスト連携"] button')].find(button=>button.textContent.includes('連携を解除'));
+              stage='disconnect';
+              await wait(()=>!!disconnectButton());
+              disconnectButton().click();
+              await wait(()=>typeof releaseDisconnect==='function'&&!panel());
+              const hiddenDuringDisconnect=reads===2;
+              releaseDisconnect();
+              await wait(()=>panel()?.innerText.includes('現在許可されたRepositoryはありません。'));
+              const emptyAfterDisconnect=!panel().querySelector('a');
+              stage='relogin';
+              reject=true;
+              const reenter=document.createElement('a');reenter.href='/?repositoryId=&documentQuery=fixture-reentry#projects';document.querySelector('[data-workbench-react-root]').append(reenter);reenter.click();reenter.remove();
+              await wait(()=>!panel()&&[...document.querySelectorAll('[aria-label="ログインと利用者招待"] button')].some(button=>button.textContent.includes('でログイン')));
+              return {failedWithoutOldLinks,hiddenDuringDisconnect,emptyAfterDisconnect,rejectedShowsLogin:true,reads};
+            }catch{return {failedStage:stage,reads};}finally{releaseDisconnect?.();window.fetch=original;}
+          })()`,
+          awaitPromise: true,
+          returnByValue: true,
+        });
+        assert.deepEqual(listBoundary, {
+          failedWithoutOldLinks: true,
+          hiddenDuringDisconnect: true,
+          emptyAfterDisconnect: true,
+          rejectedShowsLogin: true,
+          reads: 4,
+        });
+        await reloadBrowserDocument(pageUrl, "#projects");
         const observed = await requestBrowser(
           pageUrl,
           "Runtime.evaluate",
@@ -3138,7 +3237,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
               window.fetch=async(input,options)=>{
                 const path=new URL(String(input),location.href);
                 if(path.pathname==='/api/access/connection')legacyPosts++;
-                if(path.pathname==='/api/workbench/view'){
+                if(path.pathname==='/api/workbench/overview'){
                   reads++;
                   if(path.searchParams.has('pagehideDelay')){pendingSignal=options.signal;return new Promise(resolve=>{release=resolve;});}
                   if(options.credentials==='same-origin'&&!new Headers(options.headers).has('authorization'))sessionReads++;
@@ -3173,7 +3272,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
                 history.back();await wait(()=>selected()==='repository.unavailable');
                 stage='hide';
                 const restoredUrl=location.href;
-                const stale=await (await original('/api/workbench/view?repositoryId=repository.latest',{credentials:'same-origin'})).json();
+                const stale=await (await original('/api/workbench/overview?repositoryId=repository.latest',{credentials:'same-origin'})).json();
                 click('/?repositoryId=repository.latest&pagehideDelay=true');await wait(()=>typeof release==='function');
                 window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));
                 const closed=root.childElementCount===0;
@@ -3207,7 +3306,7 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
           legacyPosts: 0,
           storageEmpty: true,
         });
-        assert.deepEqual(await readFile(current), beforeNavigation);
+        assert.deepEqual(await accessFixture.baseline(), beforeNavigation);
         return;
       }
     });

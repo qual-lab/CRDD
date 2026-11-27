@@ -172,7 +172,7 @@ export function createResourceOperationFixture() {
       unresolvedRecoveries: [],
       workspaces: [],
     };
-  const bytes = Buffer.from(JSON.stringify(snapshot) + "\n");
+  const bytes = Buffer.from(`${JSON.stringify(snapshot)}\n`);
   const operation = snapshot.operations.find(
     (item) => item.kind === "docker_task",
   );

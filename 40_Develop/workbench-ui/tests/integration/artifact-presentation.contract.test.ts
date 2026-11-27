@@ -10,7 +10,36 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateViewResponse } from "../../src/api/response.ts";
+import {
+  validateArtifactResource,
+  validateViewResponse,
+} from "../../src/api/response.ts";
+
+/** 純粋な成果物応答から表示と戻り先を構成し、出所や種類の差では描画しない。 @trace EST-IT-002 */
+test("成果物のREST応答は選択対象と一致した場合だけ画面モデルになる", () => {
+  const resource = {
+    repositoryId: "repo.a",
+    scope: "shared",
+    kind: "change",
+    identity: "CHG-000301",
+    markdown: "# 原文",
+  };
+  const read = (value: unknown) =>
+    validateArtifactResource(value, "repo.a", "change", "CHG-000301");
+  assert.equal(read(resource).selectedRepositoryId, "repo.a");
+  assert.equal(
+    read({ ...resource, scope: "single" }).selectedRepositoryId,
+    null,
+  );
+  for (const mismatch of [
+    { repositoryId: "repo.b" },
+    { kind: "owner" },
+    { identity: "CHG-000302" },
+    { scope: "unknown" },
+    { contract: "crdd/workbench/view/v1" },
+  ])
+    assert.throws(() => read({ ...resource, ...mismatch }));
+});
 
 /**
  * 同じRepositoryの原文だけを閉Modelへ受理する。

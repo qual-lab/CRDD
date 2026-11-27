@@ -1,16 +1,22 @@
 /**
- * Topicの書込み受付と、Topic／Meetingの関連文書を扱う操作の構成を担当する。
- * @responsibility 認可済み集合を既存の関連評価に渡し、Topicの書込みだけをここで配送する。
+ * Topic／Meetingの記録操作と、関連文書を扱う操作の構成を担当する。
+ * @responsibility 認可済み集合を既存の関連評価に渡し、種別ごとの書込みをDocument Modelへ配送する。
  * @trace ARCH-000006
  * @trace ARCH-000012
- * @boundary 各通信の受付とDocument ModelのTopic操作。
+ * @boundary 各通信の受付とDocument ModelのTopic／Meeting操作。
  */
 import type {
+  MeetingOutcomeCommandResult,
+  ProjectOperationRecord,
   ProjectOperationRecordKind,
+  RepositoryProjectContext,
   TopicMeetingDocument,
   TopicMeetingListQuery,
+  TopicMeetingListReadResult,
   TopicMeetingPage,
   TopicMeetingRelation,
+  TopicMeetingWriteResult,
+  TopicPromotionCommandResult,
 } from "@qual-lab/crdd-document-model";
 
 import type {
@@ -27,13 +33,15 @@ import {
   parseMeetingMarkdown,
   parseTopicMarkdown,
   readTopicMeetingList,
+  readRepositoryProjectContext,
   type TopicMeetingAccess,
 } from "@qual-lab/crdd-document-model";
 import {
-  resolveHostedRepositories,
-  type HostedAccessSession,
+  observeAuthorizedManifest,
+  resolveGitHostLinkedRepositories,
+  type GitHostLinkedAccessSession,
+  type GitHostLinkedRepositoryAccess,
 } from "./access.ts";
-import { executeMeetingAction } from "./meeting.ts";
 
 function directoryIdentity(root: string) {
   const stat = statSync(root, { bigint: true });
@@ -44,30 +52,25 @@ function directoryIdentity(root: string) {
 
 type RecordReadAccess = Readonly<{
   access: TopicMeetingAccess;
+  repositoryId: string;
+  writable: boolean;
   verify?: () => void;
   repositoryOnly?: true;
 }>;
 
-type HostedRecordAccess = Exclude<
-  Awaited<ReturnType<typeof resolveHostedRepositories>>,
-  "local" | null
->;
-
-function verifyHostedRecordAccess(
-  hosted: HostedRecordAccess,
+function verifyGitHostLinkedRecordAccess(
+  hosted: GitHostLinkedRepositoryAccess,
   selected: AuthorizedRepository,
 ) {
-  const current = readRepositoryManifest(selected.root);
-  if (
-    current.status !== "ready" ||
-    JSON.stringify(current.manifest) !== JSON.stringify(selected.manifest)
-  )
+  if (observeAuthorizedManifest(selected) !== "current")
     throw new Error("topic_meeting_access_unavailable");
   hosted.assertCurrent([selected]);
 }
 
 type RecordWriteResult =
-  | ReturnType<typeof executeRecordWrite>
+  | TopicMeetingWriteResult
+  | TopicPromotionCommandResult
+  | MeetingOutcomeCommandResult
   | {
       status: "unavailable";
       reason: "record_publication_unconfirmed";
@@ -75,11 +78,36 @@ type RecordWriteResult =
     }
   | null;
 
+/** 通信から使う、対象決定済みの記録操作。 @trace ARCH-000012 */
+export interface RecordOperations {
+  write(action: RecordAction): Promise<RecordWriteResult>;
+  list(
+    input: Parameters<typeof readTopicMeetingList>[0],
+  ): Promise<TopicMeetingListReadResult>;
+  get(
+    kind: ProjectOperationRecordKind,
+    id: string,
+    includeAccess?: boolean,
+  ): Promise<RecordReadResult | null>;
+}
+
+interface RecordReadResult {
+  readonly status: "completed" | "not_found";
+  readonly record: ProjectOperationRecord | null;
+  readonly markdown: string | null;
+  readonly relations: readonly TopicMeetingRelation[];
+  readonly repositoryId?: string;
+  readonly writable?: boolean;
+  readonly relationScope?: "repository";
+}
+
 function createRecordOperations(
   signal: AbortSignal,
-  prepare: () => RecordReadAccess | null | Promise<RecordReadAccess | null>,
-  write: (action: RecordAction) => Promise<RecordWriteResult>,
-) {
+  prepare: (
+    detail: boolean,
+  ) => RecordReadAccess | null | Promise<RecordReadAccess | null>,
+  write: RecordOperations["write"],
+): RecordOperations {
   return {
     write,
     async list(input: Parameters<typeof readTopicMeetingList>[0]) {
@@ -88,7 +116,7 @@ function createRecordOperations(
         input,
         {
           resolve: async () => {
-            const chosen = await prepare();
+            const chosen = await prepare(false);
             verify = chosen?.verify;
             return chosen?.access ?? null;
           },
@@ -98,15 +126,24 @@ function createRecordOperations(
       if (result.status === "complete") verify?.();
       return result;
     },
-    async get(kind: ProjectOperationRecordKind, id: string) {
-      const chosen = await prepare();
+    async get(
+      kind: ProjectOperationRecordKind,
+      id: string,
+      includeAccess = false,
+    ) {
+      const chosen = await prepare(includeAccess);
       if (!chosen || signal.aborted) return null;
-      const document = chosen.access[kind].getDocument(id);
+      const observed = chosen.access[kind].getDocumentWithRelations(id);
+      const document = observed?.document;
       const result = {
         status: document ? ("completed" as const) : ("not_found" as const),
         record: document?.record ?? null,
         markdown: document?.markdown ?? null,
-        relations: document ? chosen.access[kind].relations(id) : [],
+        relations: observed?.relations ?? [],
+        ...(includeAccess && {
+          repositoryId: chosen.repositoryId,
+          writable: chosen.writable,
+        }),
         ...(chosen.repositoryOnly
           ? { relationScope: "repository" as const }
           : {}),
@@ -122,10 +159,40 @@ export function createLocalRecords(
   root: string,
   repositoryId: string | undefined,
   signal: AbortSignal,
-) {
-  const resolve = () => {
+  localContext?: Pick<
+    RepositoryProjectContext,
+    "projectId" | "repositoryId" | "repositoryRole"
+  >,
+): RecordOperations {
+  const resolve = (readOnlyFallback = false) => {
     if (signal.aborted) return null;
     const manifest = readRepositoryManifest(root);
+    if (
+      manifest.status === "missing" &&
+      readOnlyFallback &&
+      localContext &&
+      repositoryId === localContext.repositoryId
+    ) {
+      const identity = directoryIdentity(root);
+      const observed = readRepositoryProjectContext(root, localContext);
+      if (observed.status !== "completed") return null;
+      return {
+        projectId: localContext.projectId,
+        repositoryId: localContext.repositoryId,
+        writable: false,
+        verify() {
+          const current = readRepositoryProjectContext(root, localContext);
+          if (
+            signal.aborted ||
+            current.status !== "completed" ||
+            current.revision !== observed.revision ||
+            readRepositoryManifest(root).status !== "missing" ||
+            directoryIdentity(root) !== identity
+          )
+            throw new Error("topic_meeting_access_unavailable");
+        },
+      };
+    }
     if (
       manifest.status !== "ready" ||
       (repositoryId !== undefined &&
@@ -143,12 +210,17 @@ export function createLocalRecords(
       )
         throw new Error("topic_meeting_access_unavailable");
     };
-    return { projectId: manifest.manifest.projectId, verify };
+    return {
+      projectId: manifest.manifest.projectId,
+      repositoryId: manifest.manifest.repositoryId,
+      writable: true,
+      verify,
+    };
   };
   return createRecordOperations(
     signal,
-    () => {
-      const selected = resolve();
+    (detail) => {
+      const selected = resolve(detail);
       return (
         selected && {
           access: {
@@ -156,6 +228,8 @@ export function createLocalRecords(
             meeting: createMeetingOperations(root, selected.projectId),
           },
           verify: selected.verify,
+          repositoryId: selected.repositoryId,
+          writable: selected.writable,
         }
       );
     },
@@ -169,14 +243,14 @@ export function createLocalRecords(
 }
 
 /** 指定した共有Repositoryの記録操作を、読み書き別の認可に結び付ける。 */
-export function createHostedRecords(
+export function createGitHostLinkedRecords(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   repositoryId: string,
   signal: AbortSignal,
-) {
+): RecordOperations {
   const prepare = async () => {
-    const hosted = await resolveHostedRepositories(
+    const hosted = await resolveGitHostLinkedRepositories(
       root,
       session,
       signal,
@@ -195,18 +269,26 @@ export function createHostedRecords(
     return access
       ? {
           access,
+          repositoryId,
+          writable: hosted.canWrite(repositoryId),
           repositoryOnly: true as const,
-          verify: () => verifyHostedRecordAccess(hosted, selected),
+          verify: () => verifyGitHostLinkedRecordAccess(hosted, selected),
         }
       : null;
   };
   return createRecordOperations(signal, prepare, (action) =>
-    executeHostedRecordWrite(root, session, repositoryId, signal, action),
+    executeGitHostLinkedRecordWrite(
+      root,
+      session,
+      repositoryId,
+      signal,
+      action,
+    ),
   );
 }
 
 /** TopicとMeetingが共用する種別確定済みの書込み入力。 @trace ARCH-000006 */
-export type RecordWriteCommand =
+type RecordWriteCommand =
   | Readonly<{
       operation: "create";
       input: Parameters<TopicMeetingAccess["topic"]["create"]>[0];
@@ -238,7 +320,10 @@ export type RecordWriteCommand =
  * @concurrency AMを再取得せず同じ短命集合を使う。
  */
 export function resolveTopicMeetingAccess(
-  repositories: readonly AuthorizedRepository[],
+  repositories: readonly Pick<
+    AuthorizedRepository,
+    "repositoryId" | "manifest" | "root"
+  >[],
   repositoryId: string,
   signal: AbortSignal,
   unavailableReason:
@@ -459,14 +544,14 @@ export function executeRecordWrite(
 }
 
 /** 外部照会はLock外。Lock内で行うのはローカルの現在確認だけ。 */
-async function executeHostedRecordWrite(
+async function executeGitHostLinkedRecordWrite(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   repositoryId: string,
   signal: AbortSignal,
   action: RecordAction,
 ) {
-  const hosted = await resolveHostedRepositories(
+  const hosted = await resolveGitHostLinkedRepositories(
     root,
     session,
     signal,
@@ -476,7 +561,7 @@ async function executeHostedRecordWrite(
   if (signal.aborted) return null;
   const selected = hosted?.repositories[0];
   if (!hosted || !selected) return null;
-  const verify = () => verifyHostedRecordAccess(hosted, selected);
+  const verify = () => verifyGitHostLinkedRecordAccess(hosted, selected);
   hosted.assertDirectory(selected);
   return writeVerifiedRecord(
     selected.root,
@@ -520,15 +605,15 @@ async function writeVerifiedRecord(
 }
 
 /** 作成・更新・削除・昇格を既存のTopic操作で行う。 @trace ARCH-000006 */
-export function executeTopicAction(
+function executeTopicAction(
   topic: TopicMeetingAccess["topic"],
   command: RecordWriteCommand,
 ): ReturnType<TopicMeetingAccess["topic"]["create"]>;
-export function executeTopicAction(
+function executeTopicAction(
   topic: TopicMeetingAccess["topic"],
   command: TopicPromotionAction,
 ): ReturnType<TopicMeetingAccess["topic"]["promoteTopic"]>;
-export function executeTopicAction(
+function executeTopicAction(
   topic: TopicMeetingAccess["topic"],
   command: RecordWriteCommand | TopicPromotionAction,
 ) {
@@ -543,6 +628,31 @@ export function executeTopicAction(
       return topic.promoteTopic(command.input);
   }
 }
+/** 作成・更新・削除・成果処置を既存のMeeting操作で行う。 @trace ARCH-000006 */
+function executeMeetingAction(
+  meeting: TopicMeetingAccess["meeting"],
+  command: RecordWriteCommand,
+): ReturnType<TopicMeetingAccess["meeting"]["create"]>;
+function executeMeetingAction(
+  meeting: TopicMeetingAccess["meeting"],
+  command: MeetingTreatment,
+): ReturnType<TopicMeetingAccess["meeting"]["treatMeetingOutcome"]>;
+function executeMeetingAction(
+  meeting: TopicMeetingAccess["meeting"],
+  command: RecordWriteCommand | MeetingTreatment,
+) {
+  switch (command.operation) {
+    case "create":
+      return meeting.create(command.input);
+    case "update":
+      return meeting.update(command.input);
+    case "delete":
+      return meeting.delete(command.input);
+    case "treat-outcome":
+      return meeting.treatMeetingOutcome(command.input);
+  }
+}
+
 /**
  * Topic／Meeting本文とRelationを表示へ渡す同期Reader契約。
  * @responsibility 認可済みDomain操作の読取り形だけを共有する。
@@ -554,14 +664,10 @@ export function executeTopicAction(
  * @compatibility 現行Domain結果のみ。旧MCP搬送を含めない。
  */
 export type RecordDocumentReader = Readonly<{
-  getDocument(
+  getDocumentWithRelations(
     kind: ProjectOperationRecordKind,
     id: string,
-  ): TopicMeetingDocument | null;
-  relations(
-    kind: ProjectOperationRecordKind,
-    id: string,
-  ): readonly TopicMeetingRelation[];
+  ): Pick<RecordDocumentView, "document" | "relations"> | null;
 }>;
 
 /**
@@ -592,14 +698,14 @@ export function createRecordDocumentViews(
   ] as const) {
     for (const record of page.records) {
       const id = "topicId" in record ? record.topicId : record.meetingId;
-      const document = reader.getDocument(kind, id);
-      if (document === null) continue;
+      const observed = reader.getDocumentWithRelations(kind, id);
+      if (observed === null) continue;
       values.push(
         Object.freeze({
           kind,
           id,
-          document,
-          relations: Object.freeze([...reader.relations(kind, id)]),
+          document: observed.document,
+          relations: Object.freeze([...observed.relations]),
         }),
       );
     }
@@ -609,7 +715,7 @@ export function createRecordDocumentViews(
 
 /**
  * Topic／Meetingの表示検索を同じ固定入力へ変換する。
- * @responsibility 単体とCROSで検索・並び順・ページ条件の意味を揃える。
+ * @responsibility 単体と共有で検索・並び順・ページ条件の意味を揃える。
  * @trace ARCH-000006
  * @trace ARCH-000012
  * @input URL検索値と対象Record種別。
@@ -683,8 +789,8 @@ export function readRecordPages(
     query: meetingQuery,
   });
   const reader: RecordDocumentReader = {
-    getDocument: (kind, id) => access[kind].getDocument(id),
-    relations: (kind, id) => access[kind].relations(id),
+    getDocumentWithRelations: (kind, id) =>
+      access[kind].getDocumentWithRelations(id),
   };
   return { topicQuery, meetingQuery, topicPage, meetingPage, reader };
 }
@@ -712,43 +818,18 @@ export type RecordDocumentView = Readonly<{
   relations: readonly TopicMeetingRelation[];
 }>;
 /**
- * 観測済みの記録と操作可否から詳細表示を構築する。
- * @responsibility 単体と共有で結果形状を統一する。
- * @trace ARCH-000012
- * @boundary 記録の取得、対象認可、操作可否の判定は呼出し側に残す。
- */
-export function createRecordDetailResponse(
-  actionToken: string,
-  repositoryId: string | null,
-  operationRepositoryId: string,
-  recordActionsConfigured: boolean,
-  record: RecordDocumentView,
-): RecordDetailResponse {
-  return {
-    contract: "crdd/workbench/view/v1",
-    view: "record-detail",
-    actionToken,
-    repositoryId,
-    operationRepositoryId,
-    recordActionsConfigured,
-    record,
-  };
-}
-
-/**
  * Topic／MeetingのCanonical本文と許可済み処置を表示するRead Model。
  * @responsibility Record Detailと明示POSTに必要な用途限定値を運ぶ。
  * @trace ARCH-000012
- * @shape contract、view、actionToken、repositoryIdおよびrecordで構成する。
+ * @shape contract、view、repositoryIdおよびrecordで構成する。
  * @invariant viewはrecord-detailである。
  * @boundary Project Operation RecordとRecord Detail ScreenのJSON境界。
- * @security actionTokenは同一Originの明示POST検証だけに使用する。
+ * @security 操作可否は表示用であり、書込み時に改めて認可する。
  * @compatibility contract `crdd/workbench/view/v1`のrecord-detail variantである。
  */
 export type RecordDetailResponse = Readonly<{
   contract: "crdd/workbench/view/v1";
   view: "record-detail";
-  actionToken: string;
   repositoryId: string | null;
   operationRepositoryId: string;
   record: RecordDocumentView;

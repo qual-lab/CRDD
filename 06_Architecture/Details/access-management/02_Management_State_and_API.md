@@ -84,7 +84,7 @@ Workbench通常管理の結果投影は、AMの`authorization/management.ts（�
 
 `readHostInitializationState`は同じ`access-management.state.lock`下で、現在状態と未確定材料を観測する。`fresh`はAMの三入力の確認済み不存在だけで、旧入力の不存在やHost初期化許可を意味しない。現行形式の完了状態は`existing`、破損・旧形式・孤立材料・読取り／清掃／Lock終了不明は`unknown`とする。旧初回処理の途中段階を投影・再開しない。型と投影は`initialization/state.ts`、通常保存の未確定材料の確定・清掃は`storage/store.ts`が所有する。
 
-Host compositionは後続の実装で既存OS管理state Rootを準備・再検証し、旧`credential-registry/`と`credential-access-recovery/`の確認済み不存在を別に照合する。無関係なCROS所有物を未初期化判定へ混ぜない。旧Writer停止・旧入力清掃はフロントAIの切替／移行契約で確認し、旧Writerが稼働し得る未確認状態では初期化へ進まない。最新Sourceへ旧形式Parser、旧Writer用共通Lock、共有Process Registryや自動移行を追加しない。Root準備・旧入力観測・TTY提示・Host本番入口は本Readerの成立範囲ではない。
+現行の初回設定はOS管理の保存先を準備し、保存ロック内で現在状態と未確定材料がないことを確認する。書込み直前に準備した保存先と同じ実体であることを再確認し、差し替えや観測不能なら保存しない。旧方式固有の保存先は探索せず、自動移行や削除も行わない。
 
 初回確認の論理Owner・完全限定Protocol・exact Bindingは§2.5、v2目標形状はSchema切替案へ具体化した。保存・読戻し・短命pending／材料とLock終了の実装・実境界は残る。現在の`authenticateNormalConnection`はcompletedを必要とするため初回へ流用しない。`authenticateCredential`の途中本人照合だけでも通常Authorityを与えない。Host明示交換後は新提示資格へ確認対象を結び直し、旧初資格・元発行の既知事実を新交換成功で上書きしない。v2目標形状は具体化済み、完全Parser・実状態移行・本番保存はOPEN。別Receipt・Session・Store・Lockは追加しない。どの必要条件も未確認・失敗・観測不能ならcompleted表示と通常Authorityは0。
 
@@ -118,7 +118,7 @@ AMは検証済みの発行者・主体を保存し、提供元の本人確認は
 
 ### 2.2 初回状態の純粋判定 — 2026-10-11
 
-`evaluateHostInitializationState`をPackage Rootから局所公開する候補を実装した。これは§2.1の物理read・初期化操作ではなく、保存Ownerが取得した観測分類と明示開始のBooleanから四状態と次の処置を返す純粋計算である。`canStart`は形式上の条件成立で、Host信頼、Root・排他、相関保存、UUID・鍵EffectのAuthorityではない。現在のSourceはこれらの実処置へ接続していない。
+旧方式の履歴として、`evaluateHostInitializationState`をパッケージの公開入口に置く候補を実装した。現行方式ではこの純粋判定を撤去した。これは§2.1の物理read・初期化操作ではなく、保存Ownerが取得した観測分類と明示開始のBooleanから四状態と次の処置を返す純粋計算である。`canStart`は形式上の条件成立で、Host信頼、Root・排他、相関保存、UUID・鍵EffectのAuthorityではない。この候補の判定だけでは実処置に接続しなかった。
 
 | 管理観測 | 進行試行の観測 | 判定と次の処置 |
 |---|---|---|
@@ -229,6 +229,8 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 
 `readManagementState`は要求された管理対象の種類を判別し、その種類に必要な現在参照許可だけを評価する。共通の全内部Snapshotや、全ユーザー一覧を全操作へ添付しない。
 
+管理画面向けの `readManagementUsersForDisplay` は、同じ保存改訂で利用者の参照許可を確認し、各対象者に対する表示名変更・ロール変更候補・招待再発行の可否を一覧に添える。招待再発行は外部IDが未紐付けの場合に限る。画面の操作表示は認可の代わりではなく、書込み時には現在の状態で同じ規則を適用する。`readManagementState` の通常応答には画面用の操作候補を加えない。
+
 | 管理対象 | 成功投影の内容 | 除外する情報 |
 |---|---|---|
 | ユーザー | 許可された対象の`userId`／`username`／`role` | Credential情報、非許可対象の存在・件数 |
@@ -248,13 +250,13 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 
 ### 3.3 内容要求の実Repository解決 — 2026-10-12
 
-共有の内容操作は、現在の本人と登録済みのGitホスト対象を確認する。Serverが本人の実効権限を照会し、AMの `resolveHostedAccessDirectories` は許可された登録のパスだけを現在の管理状態と照合する。Gitの接続先を確認するのはServerであり、AMはGit履歴や技術資格を扱わない。旧鍵と旧のロール別内容範囲・公開範囲による読取り入口は提供しない。
+共有の内容操作は、現在の本人と登録済みのGitホスト対象を確認する。Serverが本人の実効権限を照会し、AMの `resolveGitHostLinkedAccessDirectories` は許可された登録のパスだけを現在の管理状態と照合する。Gitの接続先を確認するのはServerであり、AMはGit履歴や技術資格を扱わない。旧鍵と旧のロール別内容範囲・公開範囲による読取り入口は提供しない。
 
 ### 3.4 同じ要求の許可Repository集合
 
-`resolveHostedAccessCollection` は、外部照会済みの対象と現在登録のリポジトリID・Binding・Gitホスト側の識別子を照合する。同じ管理ロックの中で本人の紐付け、期限、管理改訂または照合対象、ディレクトリとManifestを確認する。すべての対象を確認でき、ロックを解放できた場合だけ、リポジトリID順に結果を返す。対象外の登録は読まない。期限切れ、重複・対象差、材料不明、対象観測不能、解放不明は空集合や部分成功へ変換しない。
+`resolveGitHostLinkedAccessCollection` は、外部照会済みの対象と現在登録のリポジトリID・Binding・Gitホスト側の識別子を照合する。同じ管理ロックの中で本人の紐付け、期限、管理改訂または照合対象、ディレクトリとManifestを確認する。すべての対象を確認でき、ロックを解放できた場合だけ、リポジトリID順に結果を返す。対象外の登録は読まない。期限切れ、重複・対象差、材料不明、対象観測不能、解放不明は空集合や部分成功へ変換しない。
 
-`managementRevision` は管理状態の改訂であり、本文の版ではない。返すパスや結び付けは信頼された利用側の同じ要求に限り、UIやMCPへ公開しない。開始済み実行は別の `observeHostedExecutionBinding` で元の本人と登録を照合し、新規要求の本人性や本文公開の判定には流用しない。
+`managementRevision` は管理状態の改訂であり、本文の版ではない。返すパスや結び付けは信頼された利用側の同じ要求に限り、UIやMCPへ公開しない。開始済み実行は別の `observeGitHostLinkedExecutionBinding` で元の本人と登録を照合し、新規要求の本人性や本文公開の判定には流用しない。
 
 ## 4. 物理保存の比較と未決条件
 
@@ -596,7 +598,7 @@ Process喪失やtoken nullは物理的な秘密消去の証明ではなく、再
 
 `readCredentialAdministrationState`は既存のAM保存Ownerが一Lock・一改訂で処理する。形式検査→完全current→現在認証・初回completed・administrator→投影候補→既知材料処置→Lock解放の順とし、材料を処置した要求はSnapshotを返さず次fresh取得へ分ける。観測／清掃／解放不明を空一覧へ変換しない。
 
-返却値はrevision・actorUserId、UserのuserId／username／role、資格のcredentialId／userId／issuanceOperationId／presentation／revoked、既存交換の非秘密相関一件またはnullに限定する。元発行IDからSecretを取得できず、交換nullは現在recordなしという意味だけで、過去完了や未発行の証明ではない。資格材料・Root・内容権限・Exposure・Repository Bindingを含めない。純粋投影は既存credential/crud.ts、物理読取りはstorage/store.tsが所有し、`readManagementState`の対象・Store・Lock・履歴を増やさない。Workbenchの同Process接続・専用POSTの具体契約は[Workbench詳細§6.1.1](../workbench-server/01_Architecture.md#611-同process管理postの具体契約)に置く。局所注入での実HTTP候補と公開Launcher／実Browser成立を区別し、Reader局所成功だけで上位完成を主張しない。
+返却値はrevision・actorUserId、UserのuserId／username／role、資格のcredentialId／userId／issuanceOperationId／presentation／revoked、既存交換の非秘密相関一件またはnullに限定する。元発行IDからSecretを取得できず、交換nullは現在recordなしという意味だけで、過去完了や未発行の証明ではない。資格材料・Root・内容権限・Exposure・Repository Bindingを含めない。純粋投影は既存credential/crud.ts、物理読取りはstorage/store.tsが所有し、`readManagementState`の対象・Store・Lock・履歴を増やさない。Workbenchの同Process接続・専用POSTの具体契約は[変更記録の旧管理POST](../../../99_Roadmap/Changes/CHG-000082/google-management-session-plan.md#同一プロセスの旧管理post)に置く。局所注入での実HTTP候補と公開Launcher／実Browser成立を区別し、Reader局所成功だけで上位完成を主張しない。
 
 ### Host交換の提示Consumerの責務配置 — 2026-10-13
 

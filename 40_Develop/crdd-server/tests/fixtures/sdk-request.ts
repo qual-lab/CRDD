@@ -7,18 +7,33 @@
  * @scope 専門Toolの同一Factory接続。
  * @boundary 試験入力と公式SDKのメモリ内HTTP受付。
  */
-import { createMcpHandler, ProtocolError } from "@modelcontextprotocol/server";
+
 import type { Readable, Writable } from "node:stream";
+import { createMcpHandler, ProtocolError } from "@modelcontextprotocol/server";
+import {
+  inspectProtocolRequest,
+  acceptMcpRequest,
+  isMcpPublicRequest,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
+} from "../../src/transport/mcp-protocol.ts";
 import {
   createMcpServerFactory,
   type McpCoordinatorDependencies,
   type McpServerDependencies,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
-  type McpResponse,
-  runMcpStdio,
 } from "../../src/transport/mcp-server.ts";
-import { startMcpAuthenticatedStreamableHttp } from "../support/mcp-http-listener.ts";
-import type { McpRequestSource } from "../../src/transport/mcp-types.ts";
+import { runMcpStdio } from "../../src/transport/mcp-stdio.ts";
+import type {
+  McpResponse,
+  McpServerFactory,
+} from "../../src/transport/mcp-types.ts";
+import {
+  asMcpFixtureFactory,
+  type McpFixtureSource,
+} from "../support/mcp-factory.ts";
+import {
+  readFixtureMcpAuth,
+  startMcpAuthenticatedStreamableHttp,
+} from "../support/mcp-http-listener.ts";
 
 /**
  * 構成済み接続を公式SDKで一回処理する。
@@ -27,23 +42,23 @@ import type { McpRequestSource } from "../../src/transport/mcp-types.ts";
  * @precondition 合成依存だけを渡す。
  * @stimulus 元入力でFactoryを構成し、安全な搬送包絡をSDKへ渡す。
  * @observation SDK応答とOwner完了を待つ。
- * @oracle 元入力はOwnerへそのまま渡り、getter等をJSON変換で実行しない。
+ * @oracle JSON相当の試験入力はSDKの検査を経てOwnerへ渡る。
  * @cleanup SDKのcloseと開始済みPromiseのjoin。
  * @boundary 試験と本番共通SDK登録。
  */
 export async function invokeMcpSource(
-  source: McpRequestSource,
+  source: McpServerFactory,
   raw: unknown,
   signal: AbortSignal,
 ): Promise<McpResponse>;
 export async function invokeMcpSource(
-  source: McpRequestSource,
+  source: McpServerFactory,
   raw: unknown,
   signal: AbortSignal,
   sdkSignal: AbortSignal,
 ): Promise<McpResponse | null>;
 export async function invokeMcpSource(
-  source: McpRequestSource,
+  source: McpServerFactory,
   raw: unknown,
   signal: AbortSignal,
   sdkSignal?: AbortSignal,
@@ -54,14 +69,22 @@ export async function invokeMcpSource(
     typeof request?.id === "string" || typeof request?.id === "number"
       ? request.id
       : null;
-  if (typeof source === "function")
-    throw new Error("sdk_request_fixture_requires_factory");
   const pending: Promise<McpResponse>[] = [];
+  const auth = readFixtureMcpAuth(source);
   let server: Awaited<ReturnType<typeof source.createServer>>;
   try {
-    server = await source.createServer(raw, signal, (operation) => {
-      pending.push(operation);
-    });
+    const inspected = inspectProtocolRequest(raw);
+    if (!inspected) throw new ProtocolError(-32600, "Invalid Request");
+    if (!isMcpPublicRequest(inspected))
+      throw new ProtocolError(-32601, "Method not found");
+    server = await source.createServer(
+      acceptMcpRequest(inspected),
+      signal,
+      (operation) => {
+        pending.push(operation);
+      },
+      auth,
+    );
   } catch (error) {
     const failure =
       error instanceof ProtocolError
@@ -80,15 +103,11 @@ export async function invokeMcpSource(
       id: request?.id,
       method: request?.method,
       params: {
-        _meta: {
-          "io.modelcontextprotocol/protocolVersion":
-            MCP_COORDINATOR_PROTOCOL_VERSION,
-          "io.modelcontextprotocol/clientCapabilities": {},
-        },
+        _meta: params?._meta,
         ...(request?.method === "tools/call"
           ? {
               name: typeof params?.name === "string" ? params.name : "",
-              arguments: {},
+              arguments: params?.arguments,
             }
           : {}),
       },
@@ -111,6 +130,7 @@ export async function invokeMcpSource(
         body: JSON.stringify(body),
         ...(sdkSignal ? { signal: sdkSignal } : {}),
       }),
+      auth ? { authInfo: auth } : undefined,
     );
     const bodyText = await response.text();
     if (sdkSignal?.aborted && bodyText === "") return null;
@@ -119,6 +139,25 @@ export async function invokeMcpSource(
     await Promise.allSettled(pending);
     await sdk.close();
   }
+}
+
+/** SDKの公開Tool失敗と、通信層エラーを区別する試験用述語。 */
+export function mcpToolErrorText(response: McpResponse): string | undefined {
+  const result = response.result as
+    | {
+        isError?: boolean;
+        content?: { type: string; text?: string }[];
+      }
+    | undefined;
+  return result?.isError === true &&
+    result.content?.length === 1 &&
+    result.content[0]?.type === "text"
+    ? result.content[0].text
+    : undefined;
+}
+
+export function isMcpInvalidArguments(response: McpResponse, _tool: string) {
+  return mcpToolErrorText(response) === "Invalid arguments";
 }
 
 /**
@@ -151,7 +190,7 @@ export function invokeMcpCoordinatorRequest(
 
 /** 合成資格による要求別の解決を本番のHTTP搬送へ接続する。 @trace EST-ST-003 */
 export function startMcpHttpFixture(
-  source: McpRequestSource,
+  source: McpFixtureSource,
   {
     bearerToken,
     ...options
@@ -159,8 +198,9 @@ export function startMcpHttpFixture(
     bearerToken: string;
   },
 ) {
+  const factory = asMcpFixtureFactory(source);
   return startMcpAuthenticatedStreamableHttp(
-    (observed) => (observed === bearerToken ? source : null),
+    (observed) => (observed === bearerToken ? factory : null),
     options,
   );
 }

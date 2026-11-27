@@ -7,6 +7,7 @@
  * @security 資格・物理Root・本文を結果へ追加しない。
  */
 import type { RecordActionView } from "./response.ts";
+import { RESOURCE_ID, workbenchRequest } from "./path.ts";
 
 /**
  * 削除済みDetailから一覧への一回遷移をRouterへ渡す。
@@ -29,10 +30,10 @@ export type ReplaceDeletedRecord = (
  * @responsibility checkbox未選択を欠測や暗黙確認にしない。
  * @trace ARCH-000006
  * @trace ARCH-000012
- * @input 送信対象FormData、現在Repository IDとAction Token。
+ * @input 送信対象FormDataと現在Repository ID。
  * @returns 同じ操作の閉じたForm搬送値。
  * @precondition 既存Formの明示submitから呼ばれる。
- * @postcondition 別Repository・Token・重複値を拒否し、確認をtrueへ補完しない。
+ * @postcondition 別Repositoryと重複値を拒否し、確認をtrueへ補完しない。
  * @effect N/A: メモリ内変換のみ。
  * @failure File、重複field、相関差は固定例外。
  * @invariant Serverの認可・Domain入力検査を代替しない。
@@ -43,7 +44,6 @@ export type ReplaceDeletedRecord = (
 export function createTopicMeetingActionBody(
   data: FormData,
   repositoryId: string,
-  actionToken: string,
 ): URLSearchParams {
   const form = new URLSearchParams();
   for (const [key, value] of data) {
@@ -51,10 +51,7 @@ export function createTopicMeetingActionBody(
       throw new Error("workbench_record_form_invalid");
     form.append(key, value);
   }
-  if (
-    form.get("repositoryId") !== repositoryId ||
-    form.get("actionToken") !== actionToken
-  )
+  if (form.get("repositoryId") !== repositoryId)
     throw new Error("workbench_record_form_invalid");
   const operation = form.get("operation");
   const boolean =
@@ -71,28 +68,40 @@ export function createTopicMeetingActionBody(
   return form;
 }
 
-const resourceId = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+/** 画面から送る記録操作一件と、対応する成功ステータス。 @trace ARCH-000012 */
+export interface RecordSubmission {
+  readonly path: string;
+  readonly method: "POST" | "PATCH" | "PUT" | "DELETE";
+  readonly body: Readonly<Record<string, string | number | boolean | null>>;
+  readonly success: 200 | 201;
+}
 
 /** 画面フォームを、リソースとHTTPメソッドが決まった一件のJSON要求にする。 @trace ARCH-000012 */
-export function createRecordRequest(form: URLSearchParams) {
+export function createRecordRequest(form: URLSearchParams): RecordSubmission {
   const invalid = "workbench_record_form_invalid";
   const repositoryId = form.get("repositoryId") ?? "";
   const kind = form.get("kind");
   const operation = form.get("operation");
   const id = form.get("id") ?? "";
   if (
-    !resourceId.test(repositoryId) ||
+    !RESOURCE_ID.test(repositoryId) ||
     (kind !== "topic" && kind !== "meeting")
   )
     throw new Error(invalid);
-  const collection = `/api/repositories/${repositoryId}/${kind}s`;
   if (operation === "create") {
     const markdown = form.get("markdown");
     if (markdown === null || form.has("id") || form.has("expectedRevision"))
       throw new Error(invalid);
     return {
-      path: collection,
-      method: "POST",
+      ...workbenchRequest(
+        [
+          "POST",
+          kind === "topic"
+            ? "/api/repositories/:repositoryId/topics"
+            : "/api/repositories/:repositoryId/meetings",
+        ],
+        { repositoryId },
+      ),
       body: { markdown },
       success: 201,
     } as const;
@@ -103,18 +112,20 @@ export function createRecordRequest(form: URLSearchParams) {
   const expectedRevision = Number(revision);
   if (!/^[1-9]\d*$/u.test(revision) || !Number.isSafeInteger(expectedRevision))
     throw new Error(invalid);
-  const path = `${collection}/${id}`;
+  const item =
+    kind === "topic"
+      ? "/api/repositories/:repositoryId/topics/:topicId"
+      : "/api/repositories/:repositoryId/meetings/:meetingId";
+  const parameters = { repositoryId, topicId: id, meetingId: id };
   if (operation === "update" && form.has("markdown"))
     return {
-      path,
-      method: "PATCH",
+      ...workbenchRequest(["PATCH", item], parameters),
       body: { expectedRevision, markdown: form.get("markdown") },
       success: 200,
     } as const;
   if (operation === "delete")
     return {
-      path,
-      method: "DELETE",
+      ...workbenchRequest(["DELETE", item], parameters),
       body: {
         expectedRevision,
         confirmed: form.get("confirmed") === "true",
@@ -126,8 +137,10 @@ export function createRecordRequest(form: URLSearchParams) {
     const changeId = form.get("changeId") ?? "";
     if (!/^CHG-\d{6}$/u.test(changeId)) throw new Error(invalid);
     return {
-      path: `${path}/promotion`,
-      method: "POST",
+      ...workbenchRequest(
+        ["POST", "/api/repositories/:repositoryId/topics/:topicId/promotion"],
+        { repositoryId, topicId: id },
+      ),
       body: {
         expectedRevision,
         changeId,
@@ -151,8 +164,13 @@ export function createRecordRequest(form: URLSearchParams) {
       "result",
     ];
     return {
-      path: `${path}/outcomes/${outcomeId}/treatment`,
-      method: "PUT",
+      ...workbenchRequest(
+        [
+          "PUT",
+          "/api/repositories/:repositoryId/meetings/:meetingId/outcomes/:outcomeId/treatment",
+        ],
+        { repositoryId, meetingId: id, outcomeId },
+      ),
       body: {
         expectedRevision,
         ...Object.fromEntries(fields.map((field) => [field, form.get(field)])),

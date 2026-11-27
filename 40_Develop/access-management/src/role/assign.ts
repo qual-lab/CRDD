@@ -6,21 +6,20 @@
  */
 
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
+import { projectManagementOperationResult } from "../authorization/management.ts";
 import {
-  evaluateManagementPermission,
-  projectManagementOperationResult,
-} from "../authorization/management.ts";
-import {
-  acceptsAccessPrincipal,
+  isUnexpiredAccountPrincipal,
   resolveAccessPrincipal,
 } from "../authorization/principal.ts";
 import type { AccountAccessPrincipal } from "../authorization/types.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
-import { isAccessRole } from "../permission/validation.ts";
-import { locked } from "../storage/lock.ts";
-import { parseAccessManagementState } from "../storage/parse.ts";
 import {
-  ATTEMPT_UUID,
+  evaluateManagementPermission,
+  isAccessRole,
+} from "../permission/validation.ts";
+import { locked } from "../storage/lock.ts";
+import { parseAccessManagementState, UUID_V4 } from "../storage/parse.ts";
+import {
   ordinaryChange,
   publishState,
   readCurrent,
@@ -78,7 +77,7 @@ type RoleAssignmentChange = Extract<
  * @input 主体、完全検査済み現在状態、Role変更入力、期待改訂、受付UUID。
  * @returns 所有済み候補または非開示拒否のnull。
  * @precondition 保存Ownerが同じLock内で読み取ったSnapshotだけを渡す。
- * @postcondition 入力状態・資格・初回・未解決交換・Repository登録・Exposureを変更しない。
+ * @postcondition 入力状態は変更せず、候補は対象ロール・改訂・操作IDだけを更新する。
  * @effect N/A: 認証計算とメモリ候補だけ。乱数・保存なし。
  * @failure 未認証・固定分担拒否・途中初回・対象差・不正入力はnull。
  * @invariant managerによるadministratorの付与・解除を拒否する。
@@ -86,7 +85,7 @@ type RoleAssignmentChange = Extract<
  * @security 返却Snapshotは保存Owner限定。古い認証DTOをAuthorityにしない。
  * @concurrency 同期Lock区間内で現在認可を再評価する。
  */
-export function prepareRoleAssignment(
+function prepareRoleAssignment(
   principal: AccountAccessPrincipal,
   current: AccessManagementState,
   change: RoleAssignmentChange,
@@ -130,12 +129,12 @@ export function prepareRoleAssignment(
  * @postcondition 今回の出版・読戻し・材料とLock清掃確認時だけcompleted。
  * @effect 既存Lock、既存pending／replace／current出版。
  * @failure 認可前は固定拒否。認可後は最初の失敗と今回出版事実を保持する。
- * @invariant 先行pendingの出版を今回操作へ帰属せず、鍵・初回・Repository登録・Exposureを変更しない。
+ * @invariant 先行pendingの出版を今回操作へ帰属せず、今回のロール変更でアカウント紐付け・初期設定・リポジトリ登録を変更しない。
  * @boundary 通常User／Role管理と私有Filesystem保存。
  * @security 未認証・未許可に状態情報を返さず、資格材料と回復参照は常に非公開。
  * @concurrency 同じ既存Lock内で現在認証・期待改訂・容量・保存を評価する。
  */
-export function executeRoleAssignment(
+function executeRoleAssignment(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
   expectedRevision: number,
@@ -143,11 +142,11 @@ export function executeRoleAssignment(
   change: RoleAssignmentChange,
 ): UserRoleManagementResult {
   if (
-    !acceptsAccessPrincipal(principal) ||
+    !isUnexpiredAccountPrincipal(principal) ||
     !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 1 ||
     typeof operationId !== "string" ||
-    !ATTEMPT_UUID.test(operationId)
+    !UUID_V4.test(operationId)
   )
     return { status: "unavailable", reason: "management_operation_rejected" };
   let admitted = false;

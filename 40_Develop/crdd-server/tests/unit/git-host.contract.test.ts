@@ -7,11 +7,13 @@ import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { test } from "node:test";
 import {
+  type BoundGitHost,
   bindGitHost,
   configuredGitHosts,
   createGitHostLinks,
-  type BoundGitHost,
   type GitHostProvider,
+  openGitHostExecutionAccess,
+  registerGitHostProvider,
 } from "../../src/service/git-host.ts";
 
 function gitHubHost(
@@ -36,16 +38,89 @@ const observeGitHostRepositoryBinding = ({
 const readGitHostRepositoryName = (host: string, remote: string) =>
   host === fixtureHost.host ? fixtureHost.readRepositoryName(remote) : null;
 
+test("同じ資格の失効完了を待つ間も、ログアウトは実行を止めず再登録を拒否する", async () => {
+  let resolve!: (confirmed: boolean) => void;
+  const promise = new Promise<boolean>((complete) => {
+    resolve = complete;
+  });
+  let observed = 0;
+  const links = createGitHostLinks(undefined, async () => {
+    observed++;
+    return promise;
+  });
+  const owner = { userId: "user", bindingId: "binding" };
+  const linked = {
+    accountId: "29",
+    accessToken: "synthetic",
+    expiresAt: Date.now() + 60_000,
+  };
+  const reference = links.save(owner, linked);
+  assert.ok(reference);
+  const running = links.open(reference, owner);
+  assert.ok(running);
+  try {
+    const logout = links.signOut(owner.userId);
+    assert.equal(links.read(reference, owner), null);
+    assert.equal(running.revocationSignal.aborted, false);
+    assert.equal(links.save(owner, linked), null);
+    const concurrentLogout = links.signOut(owner.userId);
+    resolve(false);
+    assert.equal(await logout, false);
+    assert.equal(await concurrentLogout, false);
+    assert.equal(observed, 1);
+    assert.equal(running.revocationSignal.aborted, false);
+  } finally {
+    running.close();
+    links.close();
+  }
+});
+
+test("GitHubの失効要求は設定したAppの個別トークンだけを取り消す", async (t) => {
+  const revoke = fixtureHost.revokeUserToken;
+  assert.ok(revoke);
+  let status = 204;
+  const send = t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: URL, options: RequestInit) => {
+      assert.equal(
+        String(url),
+        "https://api.github.com/applications/fixture/token",
+      );
+      assert.equal(options.method, "DELETE");
+      assert.equal(options.redirect, "error");
+      assert.ok(options.signal instanceof AbortSignal);
+      assert.equal(
+        new Headers(options.headers).get("authorization"),
+        `Basic ${Buffer.from("fixture:fixture").toString("base64")}`,
+      );
+      assert.equal(options.body, JSON.stringify({ access_token: "synthetic" }));
+      return new Response(null, { status });
+    },
+  );
+  assert.equal(await revoke("synthetic"), true);
+  status = 422;
+  assert.equal(await revoke("synthetic"), false);
+  assert.equal(send.mock.callCount(), 2);
+});
+
 test("同じ提供元の二つのホストに独立した設定を結合し、別ホストへ資格を渡さない", async () => {
   const observations: unknown[] = [];
-  const profile: GitHostProvider = {
+  let parses = 0;
+  const profile: GitHostProvider<string> = {
     kind: "fixture",
     displayName: "Fixture",
     acceptsHost: (host) => host.endsWith(".example.test"),
     acceptsApiBase: (base, host) => base === `https://${host}/api`,
-    readEnvironment: (value, read) => read(value),
-    bind: (configuration) => ({
-      connect: () => ({
+    parseConfiguration: (value, read) => {
+      parses++;
+      const parsed = read?.(value) ?? value;
+      if (typeof parsed !== "string")
+        throw new Error("fixture_configuration_invalid");
+      return parsed;
+    },
+    bind: (configuration, credential) => ({
+      createLinkFlow: () => ({
         begin: () => null,
         cancel: () => {},
         complete: async () => null,
@@ -56,7 +131,7 @@ test("同じ提供元の二つのホストに独立した設定を結合し、�
         observations.push([
           configuration.host,
           configuration.apiBase,
-          configuration.providerData,
+          credential,
           userAccessToken,
         ]);
         return {
@@ -68,7 +143,8 @@ test("同じ提供元の二つのホストに独立した設定を結合し、�
       },
     }),
   };
-  const [one, two] = configuredGitHosts(
+  const registry = new Map([[profile.kind, registerGitHostProvider(profile)]]);
+  const configured = configuredGitHosts(
     ["first.example.test", "second.example.test"].map((host) => ({
       host,
       provider: "fixture",
@@ -76,8 +152,15 @@ test("同じ提供元の二つのホストに独立した設定を結合し、�
       providerData: host,
     })),
     (name) => (name === "first.example.test" ? "first-value" : "second-value"),
-    new Map([[profile.kind, profile]]),
+    registry,
+  );
+  assert.equal(parses, 2);
+  const [one, two] = configuredGitHosts(
+    configured.map(({ configuration }) => configuration),
+    undefined,
+    registry,
   ).map(bindGitHost);
+  assert.equal(parses, 2);
   assert.ok(one && two);
   assert.notEqual(one.id, two.id);
   assert.equal(one.observePermission, undefined);
@@ -137,7 +220,13 @@ test("インストール資格の監視はリポジトリと利用者の安定ID
   let missingPermission = false;
   let repoId = 92;
   let accountId = 51;
+  let accountName = "renamed-user";
+  let nameReads = 0;
   let minted = 0;
+  let notModified = 0;
+  let permissionNotModified = 0;
+  let suppliedPermissionTag: string | undefined;
+  let sentPermissionTag: string | null = null;
   const fetch = t.mock.method(
     globalThis,
     "fetch",
@@ -163,30 +252,144 @@ test("インストール資格の監視はリポジトリと利用者の安定ID
         );
       }
       assert.equal(authorization, "Bearer ghs_test_only");
+      if (url.pathname === "/user/51") nameReads++;
+      const tag =
+        url.pathname === "/user/51"
+          ? `"user-${accountName}"`
+          : `"repo-${repoId}"`;
+      if (
+        (url.pathname === "/installation/repositories" ||
+          url.pathname === "/user/51") &&
+        new Headers(init.headers).get("If-None-Match") === tag
+      ) {
+        notModified++;
+        return new Response(null, { status: 304 });
+      }
       if (url.pathname === "/installation/repositories")
-        return Response.json({
-          total_count: 1,
-          repositories: [{ id: repoId, full_name: "Team/Renamed" }],
-        });
+        return Response.json(
+          {
+            total_count: 1,
+            repositories: [{ id: repoId, full_name: "Team/Renamed" }],
+          },
+          { headers: { ETag: tag } },
+        );
       if (url.pathname === "/user/51")
-        return Response.json({ id: 51, login: "renamed-user" });
-      assert.equal(
+        return Response.json(
+          { id: 51, login: accountName },
+          { headers: { ETag: tag } },
+        );
+      assert.match(
         url.pathname,
-        "/repos/team/renamed/collaborators/renamed-user/permission",
+        /^\/repos\/team\/renamed\/collaborators\/[^/]+\/permission$/u,
       );
-      if (missingPermission) return new Response(null, { status: 404 });
-      return Response.json({ permission, user: { id: accountId } });
+      if (
+        missingPermission ||
+        !url.pathname.endsWith(`/${accountName}/permission`)
+      )
+        return new Response(null, { status: 404 });
+      const permissionTag =
+        suppliedPermissionTag ?? `"permission-${accountId}-${permission}"`;
+      sentPermissionTag = new Headers(init.headers).get("If-None-Match");
+      if (sentPermissionTag === permissionTag) {
+        permissionNotModified++;
+        return new Response(null, { status: 304 });
+      }
+      return Response.json(
+        { permission, user: { id: accountId } },
+        { headers: { ETag: permissionTag } },
+      );
     },
   );
-  assert.deepEqual(await observe(target), {
-    permission: "write",
-    repositoryName: "team/renamed",
+  const abortedCaller = new AbortController();
+  const links = createGitHostLinks();
+  t.after(links.close);
+  const binding = { userId: "user.fixture", bindingId: "binding.fixture" };
+  const reference = links.save(binding, {
+    accountId: target.accountId,
+    accessToken: "not-for-execution-monitoring",
+    expiresAt: Date.now() + 60_000,
   });
+  assert.ok(reference);
+  const connection = { links, observePermission: observe };
+  const first = openGitHostExecutionAccess(connection, reference, binding);
+  const second = openGitHostExecutionAccess(connection, reference, binding);
+  assert.ok(first && second && first !== second);
+  try {
+    const interrupted = first.observePermission({
+      ...target,
+      accountId: first.accountId,
+      signal: abortedCaller.signal,
+    });
+    const shared = second.observePermission({
+      ...target,
+      accountId: second.accountId,
+    });
+    abortedCaller.abort();
+    first.close();
+    assert.equal(await interrupted, "unavailable");
+    assert.deepEqual(await shared, {
+      permission: "write",
+      repositoryName: "team/renamed",
+    });
+  } finally {
+    first.close();
+    second.close();
+  }
+  assert.equal(fetch.mock.callCount(), 5);
+  assert.equal(nameReads, 1, "同じ対象の並行監視は1回の観測を共有する");
   permission = "read";
   assert.deepEqual(await observe(target), {
     permission: "read",
     repositoryName: "team/renamed",
   });
+  assert.equal(fetch.mock.callCount(), 8);
+  assert.equal(notModified, 3);
+  assert.equal(nameReads, 1, "次回の監視は利用者名だけを再利用する");
+  const beforeConditional = fetch.mock.callCount();
+  const observers = [
+    openGitHostExecutionAccess(connection, reference, binding),
+    openGitHostExecutionAccess(connection, reference, binding),
+  ];
+  try {
+    const read = () =>
+      Promise.all(
+        observers.map((observer) => {
+          assert.ok(observer);
+          return observer.observePermission(target);
+        }),
+      );
+    const permissionResult = (permission: string) => ({
+      permission,
+      repositoryName: "team/renamed",
+    });
+    assert.deepEqual(await read(), [
+      permissionResult("read"),
+      permissionResult("read"),
+    ]);
+    assert.equal(permissionNotModified, 1);
+    assert.equal(fetch.mock.callCount() - beforeConditional, 3);
+    permission = "none";
+    assert.deepEqual(await read(), [
+      permissionResult("none"),
+      permissionResult("none"),
+    ]);
+    assert.equal(permissionNotModified, 1, "権限変更は304へ畳まない");
+  } finally {
+    for (const observer of observers) observer?.close?.();
+  }
+  permission = "write";
+  suppliedPermissionTag = "*";
+  assert.deepEqual(await observe(target), {
+    permission: "write",
+    repositoryName: "team/renamed",
+  });
+  permission = "none";
+  suppliedPermissionTag = undefined;
+  assert.deepEqual(await observe(target), {
+    permission: "none",
+    repositoryName: "team/renamed",
+  });
+  assert.equal(sentPermissionTag, null, "無効なタグは次の権限照会へ渡さない");
   permission = "none";
   assert.deepEqual(await observe(target), {
     permission: "none",
@@ -195,11 +398,19 @@ test("インストール資格の監視はリポジトリと利用者の安定ID
   missingPermission = true;
   assert.equal(await observe(target), "unavailable");
   missingPermission = false;
+  accountName = "now-renamed";
+  assert.deepEqual(await observe(target), {
+    permission: "none",
+    repositoryName: "team/renamed",
+  });
+  assert.equal(nameReads, 2, "旧名が使えないなら安定IDから名前を引き直す");
   accountId = 52;
   assert.equal(await observe(target), "unavailable");
+  assert.equal(nameReads, 2, "利用者名のキャッシュで別人の権限を受け付けない");
   accountId = 51;
   repoId = 999;
   assert.equal(await observe(target), "unavailable");
+  assert.equal(nameReads, 3, "ID不一致後は利用者名を引き直す");
   const calls = fetch.mock.callCount();
   assert.equal(
     await observe({
@@ -231,6 +442,21 @@ test("インストール資格の監視はリポジトリと利用者の安定ID
   assert.equal(minted, 1, "同じ対象の有効な読取り専用資格を再利用する");
   repoId = 92;
   const now = Date.now();
+  const afterNameExpiry = t.mock.method(
+    Date,
+    "now",
+    () => now + 5 * 60_000 + 1,
+  );
+  try {
+    assert.deepEqual(await observe(target), {
+      permission: "none",
+      repositoryName: "team/renamed",
+    });
+    assert.equal(minted, 1);
+    assert.equal(nameReads, 4, "5分を超えた利用者名だけを取り直す");
+  } finally {
+    afterNameExpiry.mock.restore();
+  }
   t.mock.method(Date, "now", () => now + 61 * 60_000);
   assert.deepEqual(await observe(target), {
     permission: "none",
@@ -243,7 +469,7 @@ function connection() {
   return gitHubHost({
     clientId: "client-id",
     clientSecret: "test-only-secret",
-  }).connect(new URL("http://127.0.0.1:1234/api/session/git/callback"));
+  }).createLinkFlow(new URL("http://127.0.0.1:1234/api/session/git/callback"));
 }
 
 function beginLink(github: ReturnType<typeof connection>) {
@@ -376,6 +602,67 @@ const target = {
   userAccessToken: "ghu_test_only",
 };
 
+test("GitHubの同じ要求内だけインストールとリポジトリのページを共有する", async (t) => {
+  const fetched: string[] = [];
+  t.mock.method(globalThis, "fetch", (url: URL) => {
+    fetched.push(url.pathname + url.search);
+    if (url.pathname === "/user/installations") return installation("write");
+    return Response.json({
+      total_count: 2,
+      repositories: [
+        {
+          id: 92,
+          full_name: "Team/Project",
+          permissions: { pull: true, push: true },
+        },
+        {
+          id: 93,
+          full_name: "Team/Other",
+          permissions: { pull: true, push: false },
+        },
+      ],
+    });
+  });
+  const observe = fixtureHost.createAccessObservation?.(target.userAccessToken);
+  assert.ok(observe);
+  assert.deepEqual(await observe(target), {
+    status: "allowed",
+    read: true,
+    write: true,
+    name: "team/project",
+  });
+  assert.deepEqual(
+    await observe({
+      ...target,
+      reference: { ...target.reference, repositoryId: "93" },
+    }),
+    {
+      status: "allowed",
+      read: true,
+      write: false,
+      name: "team/other",
+    },
+  );
+  const paths = [
+    "/user/installations?per_page=100&page=1",
+    "/user/installations/24/repositories?per_page=100&page=1",
+  ];
+  assert.deepEqual(fetched, paths);
+  assert.deepEqual(await observe({ ...target, isCurrent: () => false }), {
+    status: "unavailable",
+  });
+  assert.deepEqual(await observe({ ...target, userAccessToken: "another" }), {
+    status: "unavailable",
+  });
+  assert.deepEqual(fetched, paths);
+  const observeNext = fixtureHost.createAccessObservation?.(
+    target.userAccessToken,
+  );
+  assert.ok(observeNext);
+  assert.equal((await observeNext(target)).status, "allowed");
+  assert.deepEqual(fetched, [...paths, ...paths]);
+});
+
 test("Gitホスト資格は別の紐付け・参照・インスタンスでは使えず、解除と期限を反映する", (t) => {
   const links = createGitHostLinks();
   const owner = { userId: "user.fixture", bindingId: "binding.fixture" };
@@ -404,9 +691,8 @@ test("Gitホスト資格は別の紐付け・参照・インスタンスでは�
     accessToken: "another_token",
     expiresAt: now + 60_000,
   });
+  assert.equal(expiring, reference);
   assert.ok(expiring);
-  links.remove(reference);
-  assert.equal(links.read(reference, owner), null);
   assert.equal(links.read(expiring, owner), "another_token");
   t.mock.method(Date, "now", () => now + 60_001);
   assert.equal(links.read(expiring, owner), null);
@@ -421,42 +707,96 @@ test("Gitホスト資格は別の紐付け・参照・インスタンスでは�
   );
 });
 
-test("Gitホスト連携の上限は既存の参照を追い出さず、終了時に全参照を破棄する", (t) => {
+test("同じGitホスト連携を200回更新しても別利用者と開始済み実行を妨げない", (t) => {
   const links = createGitHostLinks();
   t.after(links.close);
   const owner = { userId: "user.fixture", bindingId: "binding.fixture" };
-  const now = Date.now();
-  const first = links.save(owner, {
-    accountId: "51",
-    accessToken: "first_token",
-    expiresAt: now + 1_000,
-  });
+  const linked = { accountId: "51", expiresAt: Date.now() + 60_000 };
+  const first = links.save(owner, { ...linked, accessToken: "original" });
   assert.ok(first);
-  let accepted = 1;
-  for (let index = 0; index < 256; index++) {
-    if (
-      links.save(owner, {
-        accountId: "51",
-        accessToken: "other_token",
-        expiresAt: now + 60_000,
-      }) === null
-    )
-      break;
-    accepted++;
-  }
-  assert.equal(accepted, 128);
-  assert.equal(links.read(first, owner), "first_token");
-  const clock = t.mock.method(Date, "now", () => now + 1_001);
-  const next = links.save(owner, {
-    accountId: "51",
-    accessToken: "replacement_token",
-    expiresAt: now + 60_000,
-  });
+  const running = links.open(first, owner);
+  assert.ok(running);
+  t.after(running.close);
+  for (let index = 0; index < 200; index++)
+    assert.equal(
+      links.save(owner, { ...linked, accessToken: `token-${index}` }),
+      first,
+    );
+  assert.equal(links.read(first, owner), "token-199");
+  assert.equal(running.revocationSignal.aborted, false);
+  const other = { userId: "other", bindingId: owner.bindingId };
+  const next = links.save(other, { ...linked, accessToken: "other" });
   assert.ok(next);
-  assert.equal(links.read(first, owner), null);
-  clock.mock.restore();
-  links.close();
+  assert.notEqual(next, first);
   assert.equal(links.read(next, owner), null);
+  assert.equal(links.read(next, other), "other");
+  links.signOut(owner.userId);
+  assert.equal(links.read(first, owner), null);
+  assert.equal(running.revocationSignal.aborted, false);
+  assert.equal(
+    links.save(owner, { ...linked, accessToken: "reconnected" }),
+    first,
+  );
+  links.disconnect(first, owner);
+  assert.equal(running.revocationSignal.aborted, true);
+  assert.equal(links.read(first, owner), null);
+  assert.notEqual(links.save(owner, { ...linked, accessToken: "new" }), first);
+  links.close();
+  assert.equal(links.read(next, other), null);
+});
+
+test("Gitホスト連携の容量整理はブラウザー・同意・実行が参照する記録を保全する", (t) => {
+  const grantReferences = new Set<string>();
+  const links = createGitHostLinks(() => grantReferences);
+  t.after(links.close);
+  const expiresAt = Date.now() + 60_000;
+  const create = (
+    userId: string,
+    accountId: string,
+    protectedByBrowser?: Set<string>,
+  ) =>
+    links.save(
+      { userId, bindingId: "binding" },
+      { accountId, expiresAt, accessToken: accountId },
+      () => protectedByBrowser ?? new Set(),
+    );
+  const browser = create("browser", "1");
+  const grant = create("grant", "2");
+  const execution = create("execution", "3");
+  const victim = create("victim", "4");
+  assert.ok(browser && grant && execution && victim);
+  grantReferences.add(grant);
+  const running = links.open(execution, {
+    userId: "execution",
+    bindingId: "binding",
+  });
+  assert.ok(running);
+  t.after(running.close);
+  const browserReferences = new Set([browser]);
+  for (let index = 4; index < 128; index++)
+    assert.ok(create(`other-${index}`, "5"));
+  assert.ok(create("next", "6", browserReferences));
+  const read = (id: string, userId: string) =>
+    links.read(id, { userId, bindingId: "binding" });
+  assert.equal(read(browser, "browser"), "1");
+  assert.equal(read(grant, "grant"), "2");
+  assert.equal(read(victim, "victim"), null);
+  assert.equal(running.revocationSignal.aborted, false);
+
+  // 自分の上限に達しても、他利用者の空き枠を使ったり他人の連携を追い出したりしない。
+  const own = new Set<string>();
+  for (let index = 0; index < 8; index++) {
+    const reference = create("bounded", `account-${index}`, own);
+    assert.ok(reference);
+    own.add(reference);
+  }
+  assert.equal(create("bounded", "ninth", own), null);
+  const first = [...own][0];
+  assert.ok(first);
+  own.delete(first);
+  assert.ok(create("bounded", "ninth", own));
+  assert.equal(read(first, "bounded"), null);
+  assert.equal(read(grant, "grant"), "2");
 });
 
 test("実行監視はGitホスト資格の期限切れと明示解除を区別する", (t) => {
@@ -479,12 +819,12 @@ test("実行監視はGitホスト資格の期限切れと明示解除を区別�
   assert.equal(links.read(reference, owner), null);
   assert.equal(execution.revocationSignal.aborted, false);
   assert.equal(execution.accountId, "51");
-  links.remove(reference);
+  links.disconnect(reference, owner);
   assert.equal(execution.revocationSignal.aborted, true);
 });
 
-test("ログアウト後も元の本人・Gitアカウントを指定した明示解除は実行へ届く", (t) => {
-  const links = createGitHostLinks();
+test("ログアウト後も元の本人・Gitアカウントを指定した明示解除は実行へ届く", async (t) => {
+  const links = createGitHostLinks(undefined, async () => true);
   t.after(links.close);
   const owner = { userId: "user.fixture", bindingId: "binding.fixture" };
   const linked = {
@@ -497,16 +837,20 @@ test("ログアウト後も元の本人・Gitアカウントを指定した明�
   const running = links.open(first, owner);
   assert.ok(running);
   t.after(running.close);
-  links.signOut(owner.userId);
+  assert.equal(await links.signOut(owner.userId), true);
   assert.equal(links.read(first, owner), null);
   assert.equal(running.revocationSignal.aborted, false);
-  const other = links.save(owner, { ...linked, accountId: "fixture:other" });
+  const other = links.save(owner, {
+    ...linked,
+    accountId: "fixture:other",
+    accessToken: "other",
+  });
   assert.ok(other);
-  links.disconnect(other, owner);
+  assert.equal(await links.disconnect(other, owner), "revoked");
   assert.equal(running.revocationSignal.aborted, false);
-  const same = links.save(owner, linked);
+  const same = links.save(owner, { ...linked, accessToken: "renewed" });
   assert.ok(same);
-  links.disconnect(same, owner);
+  assert.equal(await links.disconnect(same, owner), "revoked");
   assert.equal(running.revocationSignal.aborted, true);
 });
 

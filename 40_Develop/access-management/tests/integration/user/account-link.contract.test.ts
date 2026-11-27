@@ -23,7 +23,6 @@ import {
   ordinaryChange,
   readCurrent,
   serialize,
-  updateAccessManagementState,
 } from "../../../src/storage/store.ts";
 import {
   acceptInvitation,
@@ -37,8 +36,8 @@ import {
 } from "../../../src/user/crud.ts";
 import { managementFixture } from "../storage/fixture.ts";
 
-test("公開読取りは本人を保存から照合し、旧鍵では保存領域を開かない", (t) => {
-  const { root, state, tokens } = managementFixture(t);
+test("公開読取りは本人を保存から照合し、文字列の主体では保存領域を開かない", (t) => {
+  const { root, state } = managementFixture(t);
   const administrator = state.users.find(
     ({ role }) => role === "administrator",
   );
@@ -75,22 +74,22 @@ test("公開読取りは本人を保存から照合し、旧鍵では保存領�
   );
   assert.ok(opens > 0);
   opens = 0;
-  assert.deepEqual(readCurrentAccess(root, tokens.administrator as never), {
+  assert.deepEqual(readCurrentAccess(root, "invalid-test-principal" as never), {
     status: "unavailable",
     reason: "current_access_authentication_rejected",
   });
   assert.deepEqual(
-    readManagementState(root, tokens.administrator as never, "users"),
+    readManagementState(root, "invalid-test-principal" as never, "users"),
     { status: "unavailable", reason: "management_read_rejected" },
   );
   assert.equal(opens, 0);
 });
 
-test("公開管理書込みは実保存先でも旧鍵を認可に使わない", (t) => {
-  const { root, state, tokens } = managementFixture(t);
+test("公開管理書込みは不正な主体を保存先を開く前に拒否する", (t) => {
+  const { root, state } = managementFixture(t);
   const developer = state.users.find(({ role }) => role === "developer");
   assert.ok(developer);
-  const key = tokens.administrator as never;
+  const key = "invalid-test-principal" as never;
   const revision = state.revision;
   const operation = randomUUID();
   const before = readCurrent(root).bytes;
@@ -541,30 +540,30 @@ test("既存利用者だけにGoogle主体を結び、再紐付けは旧セッ�
     linkAccountFromHost(root, manager.userId, identity, 3).status,
     "unavailable",
   );
-  assert.equal(
-    linkAccountFromHost(root, admin.userId, { ...identity, subject: null }, 1)
-      .status,
-    "unavailable",
+  const staleLink = linkAccountFromHost(
+    root,
+    admin.userId,
+    { ...identity, subject: null },
+    1,
   );
-  const attempted = updateAccessManagementState(root, 3, (next) => {
-    const user = next.users[0];
-    assert.ok(user);
-    delete user.accountLinks;
-    next.revision++;
-    next.operationId = randomUUID();
-    return serialize(next);
-  });
-  assert.equal(attempted.status, "unavailable");
+  assert.equal(staleLink.status, "unavailable");
+  assert.equal(staleLink.reason, "account_link_change_rejected");
   assert.deepEqual(readCurrent(root).bytes, previouslyBound);
 
-  const nameChange = updateAccessManagementState(root, 3, (next) => {
-    const user = next.users[0];
-    assert.ok(user);
-    user.username = "変更後";
-    next.revision++;
-    next.operationId = randomUUID();
-    return serialize(next);
+  const principal = (account: { userId: string; bindingId: string }) => ({
+    kind: "account" as const,
+    userId: account.userId,
+    bindingId: account.bindingId,
+    expiresAt: Date.now() + 60_000,
   });
+  const nameChange = updateUserName(
+    root,
+    principal(first.account),
+    3,
+    randomUUID(),
+    admin.userId,
+    "変更後",
+  );
   assert.equal(nameChange.status, "completed");
   const renamed = readAccount(root, identity, first.account);
   assert.equal(
@@ -605,14 +604,15 @@ test("既存利用者だけにGoogle主体を結び、再紐付けは旧セッ�
 
   const rebound = readAccount(root, identity);
   if (rebound.status !== "completed") assert.fail("Google account unavailable");
-  const demotion = updateAccessManagementState(root, 6, (next) => {
-    const user = next.users[0];
-    assert.ok(user);
-    user.role = "developer";
-    next.revision++;
-    next.operationId = randomUUID();
-    return serialize(next);
-  });
+  const demotion = updateUserRole(
+    root,
+    principal(rebound.account),
+    6,
+    randomUUID(),
+    admin.userId,
+    "administrator",
+    "developer",
+  );
   assert.equal(demotion.status, "completed");
   assert.deepEqual(readReadiness(), {
     status: "existing",

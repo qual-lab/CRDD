@@ -34,7 +34,6 @@
             "module",
             "file",
             "class",
-            "function",
             "config",
             "schema",
             "migration",
@@ -46,6 +45,7 @@
         },
         "path": {
           "type": "string",
+          "description": "試験台帳の owners[].root からの正規化済み相対パス。",
           "minLength": 1,
           "pattern": "^(?!/)(?![A-Za-z]:/)(?!.*\\\\)(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:\\/|$))[^/]+(?:/[^/]+)*$"
         },

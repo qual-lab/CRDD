@@ -216,7 +216,7 @@ test("Objectiveは現在改訂または採用済みWorkspaceを確認してか�
     new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
-  const body = sourceDeclaration(source, "runObjective");
+  const body = sourceDeclaration(source, "runObjectiveAfterCapture");
   const start = body.indexOf("    let revisionConfirmed =");
   const end = body.indexOf("    const groupId =", start);
   assert.ok(start > 0 && end > start);

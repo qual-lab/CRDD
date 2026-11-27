@@ -17,13 +17,15 @@ import type {
 } from "node:http";
 import { setTimeout } from "node:timers/promises";
 import {
-  type AccountAccessPrincipal,
   type AccessRole,
+  type AccountAccessPrincipal,
   type AuthorizedRepository,
+  describeManagementPermissions,
   type FilesystemStoreRoot,
   type ManagementOperationOutcome,
   readCurrentAccess,
   readManagementState,
+  readManagementUsersForDisplay,
 } from "@qual-lab/crdd-access-management";
 import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import type { AiSelectionSnapshot } from "@qual-lab/crdd-configuration-model";
@@ -31,7 +33,6 @@ import {
   type AiSelectionReadResult,
   type AiSelectionSaveResult,
   readRepositoryAiSelection,
-  readRepositoryManifest,
 } from "@qual-lab/crdd-configuration-model";
 import type {
   PortfolioProjection,
@@ -40,7 +41,6 @@ import type {
   TopicMeetingPage,
 } from "@qual-lab/crdd-document-model";
 import type { queryPlan } from "@qual-lab/crdd-execution-model";
-import type { FileDiff, TreePage } from "@qual-lab/crdd-version-control";
 import {
   getRepository,
   type Repository,
@@ -48,116 +48,139 @@ import {
 } from "@qual-lab/crdd-version-control";
 import express from "express";
 import {
+  BrowserPrincipalRejected,
   createAccessViewResponse,
   executeManagementOperation,
-  type HostedAccessSession,
+  type GitHostLinkedAccessSession,
+  type GitHostLinkedRepositoryAccess,
   issueUserInvitation,
-  managementSessionLifetimeSeconds,
-  registerHostedRepository,
-  resolveHostedDevelopmentAccess,
-  resolveHostedRepositories,
+  observeAuthorizedManifest,
+  registerGitHostLinkedRepository,
+  resolveGitHostLinkedDevelopmentAccess,
+  resolveGitHostLinkedRepositories,
 } from "../service/access.ts";
 import type { AiSelectionView } from "../service/configuration.ts";
-import { matchesSecret } from "../secret.ts";
 import {
   canManageAiSelection,
   readAiSelectionView,
   resolveAiSelectionAccess,
   updateAiSelection,
 } from "../service/configuration.ts";
-import {
-  type CoordinatorExecutionOperation,
-  executeCoordinatorOperation,
-  executeDefinitionOperation,
-  isWorkspaceRead,
-  prepareWorkspaceOperation,
-  readAuthorizedExecutionActivity,
-  readAuthorizedPortfolio,
-  resolveTopicMeetingAccess,
-  validateExecutionDefinitionCommand,
-} from "../service/entry.ts";
-import type {
-  AiRequestSnapshot,
-  WorkbenchActivityReader,
-  WorkbenchExecutionActivityObservation,
-} from "../service/execution.ts";
+import type { AiRequestSnapshot } from "../service/execution.ts";
 import {
   type AiRequests,
   type AiSession,
   type AiSessionOperation,
+  type CoordinatorExecutionOperation,
   type DefinitionAccess,
+  executeCoordinatorOperation,
+  executeDefinitionOperation,
   executionDefinitionResources,
   type ObjectiveRuns,
+  type ObservedAiSelection,
   prepareAiRequestStart,
-  projectExecutionActivityForWorkbench,
   readRepositoryExecutionActivity,
-  resolveHostedDefinitionAccess,
+  resolveGitHostLinkedDefinitionAccess,
   resolveLocalDefinitionAccess,
+  validateExecutionDefinitionCommand,
 } from "../service/execution.ts";
 import {
-  createArtifactViewResponse,
+  RESOURCE_ID,
+  RESOURCE_ID_SOURCE,
+  UUID_V4,
+} from "../service/identity.ts";
+import type { PublicLoginProvider } from "../service/login-providers.ts";
+import {
   createPortfolioPage,
+  type ProjectPageResponse,
   type ProjectViewData,
-  projectPortfolioList,
+  summarizeProjectPortfolio,
   readArtifactMarkdown,
-  type readArtifactSelection,
-  readHostedProjectPortfolio,
+  readArtifactSelection,
+  readAuthorizedOwnerArtifactCatalog,
+  readGitHostLinkedProjectPortfolio,
   readLocalProjectPortfolio,
-  readProjectDetailResponse,
   readProjectViewData,
 } from "../service/project-context.ts";
 import {
   assertRepositoryActionTarget,
   executeRepositoryAction,
   inspectRepositoryActionResult,
+  type LocalRepositoryFilesTarget,
   type RepositoryActionRequest,
-  readWorktreeObservation,
+  type RepositoryFilesRequest,
+  readRepositoryFiles,
   withUnknownRepositoryObservation,
 } from "../service/repository.ts";
-import type { RecordDocumentView } from "../service/topic.ts";
+import { matchesSecret } from "../service/secret.ts";
+import { managementSessionLifetimeSeconds } from "../service/session.ts";
 import {
-  createHostedRecords,
+  createGitHostLinkedRecords,
   createLocalRecords,
-  createRecordDetailResponse,
   createRecordDocumentViews,
   type RecordDocumentReader,
   readRecordPages,
   readRecordWrite,
+  resolveTopicMeetingAccess,
 } from "../service/topic.ts";
 import {
+  isWorkspaceRead,
+  prepareWorkspaceOperation,
+} from "../service/workspace-request.ts";
+import {
+  createJsonReply,
   hasContentType,
   matchesActionToken,
   matchesRequestHost,
   matchesRequestOrigin,
-  readRequestBody,
+  RequestBodyTooLarge,
+  readJsonRequestBody,
+  readRouteMethod,
+  requestFailureStatus,
   sendResponseBody,
   setResponseHeaders,
   validatePublicOriginRequest,
 } from "./api-http.ts";
 import {
+  type ClientSessionAccess,
   clientLoginRoute,
   clientSessionPaths,
-  type createClientSessionHandler,
   gitConnectionRoute,
   gitConnectionsRoute,
   managementCookie,
-  sessionCookieHeader,
+  createSessionCookieHeader,
 } from "./api-session.ts";
 import type {
+  ApiErrorResponse,
+  ExecutionHttpFailureCode,
   MainViewResponse,
-  ViewResponse,
   WorkbenchConnectionState,
   WorkbenchPresentationState,
 } from "./api-types.ts";
-import type { PublicLoginProvider } from "./login-providers.ts";
-import { parseUnambiguousJsonDocument } from "./parse-json.ts";
+
+function createApiError(error: ApiErrorResponse["error"]): ApiErrorResponse {
+  return { error };
+}
 
 const CSS_PATH = "/workbench.css";
 const LOGO_PATH = "/assets/crdd-brand-icon.jpg";
 const CLIENT_ASSET_PATH = "/assets/workbench-client.js";
+const workbenchViewResource = {
+  method: "get",
+  path: "/api/workbench/overview",
+} as const;
+export const workbenchContextPath = "/api/workbench/context";
+export const artifactResources = {
+  change: "/api/repositories/:repositoryId/changes/:changeId",
+  owner: "/api/repositories/:repositoryId/artifacts",
+} as const;
 
 /** 実行系の公開HTTPパス。受付と仕様表示で共用する。 @trace ARCH-000012 */
 const executionRepository = "/api/repositories/:repositoryId";
+export const repositoryFilesRoutes = {
+  tree: `${executionRepository}/worktree/tree`,
+  diff: `${executionRepository}/worktree/diff`,
+} as const;
 const executionMilestone = `${executionRepository}/projects/:projectId/milestones/:milestoneId`;
 export const executionStateRoute = `${executionRepository}/runs/:requestId`;
 export const executionActivityRoute = `${executionRepository}/activity`;
@@ -177,6 +200,72 @@ export const aiRequestWriteRoutes = [
   },
   { method: "put", path: aiRequestReadRoutes.current, operation: "select" },
 ] as const;
+const aiSelectionResources = [
+  { method: "get", path: aiSelectionRoute },
+  { method: "put", path: aiSelectionRoute },
+] as const;
+const aiRequestReadResources = Object.values(aiRequestReadRoutes).map(
+  (path) => ({ method: "get", path }) as const,
+);
+const clientSessionResources = [
+  { method: "post", path: clientLoginRoute },
+  { method: "post", path: `${clientLoginRoute}/invitation` },
+  { method: "get", path: clientSessionPaths.session },
+  { method: "delete", path: clientSessionPaths.session },
+] as const;
+const managementSessionLifecycleResources = [
+  { method: "post", path: clientSessionPaths.management },
+  { method: "delete", path: clientSessionPaths.management },
+] as const;
+const gitConnectionResources = [
+  { method: "get", path: gitConnectionsRoute },
+  { method: "get", path: gitConnectionRoute },
+  { method: "post", path: gitConnectionRoute },
+  { method: "delete", path: gitConnectionRoute },
+] as const;
+
+type HttpRoute<Method extends string, Path extends string> = readonly [
+  Uppercase<Method>,
+  Path,
+];
+type RegisteredHttpRoute<T> = T extends {
+  method: infer Method extends string;
+  path: infer Path extends string;
+}
+  ? HttpRoute<Method, Path>
+  : never;
+
+/** Workspace操作と受付のメソッド・パスを対応付けるクライアント向けの型。 */
+export type WorkspaceHttpRoutes = {
+  readonly [Route in (typeof workspaceResources)[number] as Route["operation"]]: RegisteredHttpRoute<Route>;
+};
+
+/** 画面から利用するHTTP経路。値の正本はExpressが参照する登録表。 */
+export type WorkbenchHttpRoute =
+  | RegisteredHttpRoute<
+      | (typeof workspaceResources)[number]
+      | (typeof repositoryWriteRoutes)[number]
+      | (typeof aiSelectionResources)[number]
+      | (typeof aiRequestReadResources)[number]
+      | (typeof aiRequestWriteRoutes)[number]
+      | (typeof clientSessionResources)[number]
+      | (typeof managementSessionLifecycleResources)[number]
+      | (typeof managementSessionResources)[number]
+      | (typeof topicMeetingResources)[number]
+      | (typeof gitConnectionResources)[number]
+      | typeof workbenchViewResource
+    >
+  | HttpRoute<"GET", typeof workbenchContextPath>
+  | HttpRoute<"GET", typeof executionActivityRoute>
+  | HttpRoute<
+      "GET",
+      (typeof repositoryFilesRoutes)[keyof typeof repositoryFilesRoutes]
+    >
+  | HttpRoute<"GET", (typeof artifactResources)[keyof typeof artifactResources]>
+  | HttpRoute<
+      "GET",
+      (typeof projectContextRoutes)[keyof typeof projectContextRoutes]
+    >;
 const decisionCollection = `${executionMilestone}/decisions`;
 const decisionResource = `${decisionCollection}/:decisionId`;
 export const executionWriteRoutes = [
@@ -226,11 +315,13 @@ export const executionWriteRoutes = [
 
 const resourcePathPattern = (path: string) =>
   new RegExp(
-    `^${path.replace(/:(\w+)/gu, "(?<$1>[A-Za-z0-9][A-Za-z0-9._-]{0,127})")}$`,
+    `^${path.replace(/:(\w+)/gu, `(?<$1>${RESOURCE_ID_SOURCE})`)}$`,
     "u",
   );
 const executionStatePath = resourcePathPattern(executionStateRoute);
 const executionActivityPath = resourcePathPattern(executionActivityRoute);
+const repositoryTreePath = resourcePathPattern(repositoryFilesRoutes.tree);
+const repositoryDiffPath = resourcePathPattern(repositoryFilesRoutes.diff);
 const aiSelectionPath = resourcePathPattern(aiSelectionRoute);
 const currentAiRequestPath = resourcePathPattern(aiRequestReadRoutes.current);
 const aiRequestDetailPath = resourcePathPattern(aiRequestReadRoutes.detail);
@@ -319,14 +410,18 @@ const executionWritePaths = executionWriteRoutes.map((route) => ({
 
 export const projectContextRoutes = {
   list: "/api/projects",
+  project: "/api/projects/:projectId",
   detail: "/api/repositories/:repositoryId/projects/:projectId/context",
 } as const;
 const projectDetailPath = resourcePathPattern(projectContextRoutes.detail);
+const projectResourcePath = resourcePathPattern(projectContextRoutes.project);
+const changeArtifactPath = resourcePathPattern(artifactResources.change);
+const ownerArtifactPath = resourcePathPattern(artifactResources.owner);
 
 export const topicMeetingResources = [
   ...(["topic", "meeting"] as const).flatMap((kind) => {
-    const collection = `/api/repositories/:repositoryId/${kind}s`;
-    const item = `${collection}/:${kind}Id`;
+    const collection = `/api/repositories/:repositoryId/${kind}s` as const;
+    const item = `${collection}/:${kind}Id` as const;
     return [
       { kind, operation: "list", method: "get", path: collection },
       { kind, operation: "get", method: "get", path: item },
@@ -422,17 +517,24 @@ export function createApiApplication(
     aiRequestWrite: RequestListener;
     execution: RequestListener;
     executionActivity: RequestListener;
+    repositoryFiles: RequestListener;
     clientSession?: RequestListener;
     changeManagementSession?: RequestListener;
     managementSession?: RequestListener;
     topicMeeting?: RequestListener;
     projectContext: RequestListener;
+    artifact?: RequestListener;
+    workbenchContext?: RequestListener;
     gitConnection?: RequestListener;
     view: RequestListener;
     fallback: RequestListener;
   }>,
   publicOrigin: URL | null,
-  browserAuthentication = false,
+  shared = false,
+  clearInvalidSessionCookies?: (
+    request: IncomingMessage,
+    response: ServerResponse,
+  ) => void,
 ): RequestListener {
   const app = express();
   app.disable("x-powered-by");
@@ -441,76 +543,98 @@ export function createApiApplication(
   app.set("trust proxy", false);
   app.enable("case sensitive routing");
   app.enable("strict routing");
+  type RouteMethod = "get" | "head" | "post" | "put" | "patch" | "delete";
+  const routes = new Map<string, Set<RouteMethod>>();
+  const methodNotAllowed = (
+    response: ServerResponse,
+    methods: Iterable<string>,
+  ) => {
+    setResponseHeaders(response);
+    response.statusCode = 405;
+    response.setHeader(
+      "Allow",
+      [...methods].map((method) => method.toUpperCase()).join(", "),
+    );
+    response.end("method_not_allowed\n");
+  };
+  const register = (
+    method: RouteMethod,
+    path: string,
+    handler: RequestListener,
+    readOnly = true,
+  ) => {
+    const allowed = routes.get(path) ?? new Set<RouteMethod>();
+    routes.set(path, allowed);
+    allowed.add(method);
+    if (method === "get") {
+      if (readOnly) allowed.add("head");
+      app.head(
+        path,
+        readOnly
+          ? handler
+          : (_incoming, response) => methodNotAllowed(response, allowed),
+      );
+    }
+    app[method](path, handler);
+  };
   if (handlers.workspaceResource) {
     for (const { method, path } of workspaceResources) {
-      if (method === "get") app.head(path, handlers.fallback);
-      app[method](path, handlers.workspaceResource);
+      register(method, path, handlers.workspaceResource);
     }
   }
   if (handlers.executionDefinition) {
     for (const { method, path } of Object.values(
       executionDefinitionResources,
     )) {
-      if (method === "get") app.head(path, handlers.fallback);
-      app[method](path, handlers.executionDefinition);
+      register(method, path, handlers.executionDefinition);
     }
   }
   for (const { method, path } of repositoryWriteRoutes)
-    app[method](path, handlers.repository);
-  app.head(aiSelectionRoute, handlers.aiSelection);
-  app.get(aiSelectionRoute, handlers.aiSelection);
-  app.put(aiSelectionRoute, handlers.aiSelection);
-  for (const path of Object.values(aiRequestReadRoutes)) {
-    app.head(path, handlers.aiRequestObservation);
-    app.get(path, handlers.aiRequestObservation);
-  }
+    register(method, path, handlers.repository);
+  for (const { method, path } of aiSelectionResources)
+    register(method, path, handlers.aiSelection);
+  for (const { method, path } of aiRequestReadResources)
+    register(method, path, handlers.aiRequestObservation);
   for (const { method, path } of aiRequestWriteRoutes)
-    app[method](path, handlers.aiRequestWrite);
-  app.head(executionStateRoute, handlers.fallback);
-  app.get(executionStateRoute, handlers.execution);
-  app.head(executionActivityRoute, handlers.fallback);
-  app.get(executionActivityRoute, handlers.executionActivity);
+    register(method, path, handlers.aiRequestWrite);
+  register("get", executionStateRoute, handlers.execution);
+  register("get", executionActivityRoute, handlers.executionActivity);
+  for (const route of Object.values(repositoryFilesRoutes))
+    register("get", route, handlers.repositoryFiles);
   for (const { path } of executionWriteRoutes)
-    app.post(path, handlers.execution);
+    register("post", path, handlers.execution);
   if (handlers.clientSession) {
     const clientSession = handlers.clientSession;
-    app.head(`${clientLoginRoute}/callback`, handlers.fallback);
-    app.head(clientSessionPaths.session, handlers.fallback);
-    app.post(clientLoginRoute, clientSession);
-    app.post(`${clientLoginRoute}/invitation`, clientSession);
-    app.get(`${clientLoginRoute}/callback`, clientSession);
-    app.get(clientSessionPaths.session, clientSession);
-    app.delete(clientSessionPaths.session, clientSession);
+    for (const { method, path } of clientSessionResources)
+      register(method, path, clientSession);
+    register("get", `${clientLoginRoute}/callback`, clientSession, false);
   }
   if (handlers.changeManagementSession) {
-    app.post(clientSessionPaths.management, handlers.changeManagementSession);
-    app.delete(clientSessionPaths.management, handlers.changeManagementSession);
+    for (const { method, path } of managementSessionLifecycleResources)
+      register(method, path, handlers.changeManagementSession);
   }
   if (handlers.managementSession) {
     for (const { method, path } of managementSessionResources) {
-      if (method === "get") app.head(path, handlers.fallback);
-      app[method](path, handlers.managementSession);
+      register(method, path, handlers.managementSession);
     }
   }
   for (const route of Object.values(projectContextRoutes)) {
-    app.head(route, handlers.fallback);
-    app.get(route, handlers.projectContext);
+    register("get", route, handlers.projectContext);
   }
+  if (handlers.artifact)
+    for (const route of Object.values(artifactResources))
+      register("get", route, handlers.artifact);
+  if (handlers.workbenchContext)
+    register("get", workbenchContextPath, handlers.workbenchContext);
   if (handlers.topicMeeting)
     for (const { method, path } of topicMeetingResources) {
-      if (method === "get") app.head(path, handlers.fallback);
-      app[method](path, handlers.topicMeeting);
+      register(method, path, handlers.topicMeeting);
     }
   if (handlers.gitConnection) {
     const gitConnection = handlers.gitConnection;
-    app.head(gitConnectionsRoute, handlers.fallback);
-    app.get(gitConnectionsRoute, gitConnection);
-    app.head(gitConnectionRoute, handlers.fallback);
-    app.head(`${gitConnectionRoute}/callback`, handlers.fallback);
-    app.get(gitConnectionRoute, gitConnection);
-    app.post(gitConnectionRoute, gitConnection);
-    app.delete(gitConnectionRoute, gitConnection);
-    app.get(`${gitConnectionRoute}/callback`, gitConnection);
+    for (const { method, path } of gitConnectionResources)
+      register(method, path, gitConnection);
+    register("get", `${gitConnectionRoute}/callback`, gitConnection, false);
   }
   for (const path of [
     "/",
@@ -520,16 +644,29 @@ export function createApiApplication(
     "/meeting",
     "/change",
     "/owner-artifact",
-    "/api/workbench/view",
     CSS_PATH,
     LOGO_PATH,
     CLIENT_ASSET_PATH,
     "/.well-known/crdd-workbench-health",
   ]) {
-    app.head(path, handlers.view);
-    app.get(path, handlers.view);
+    register("get", path, handlers.view);
   }
-  app.use(handlers.fallback);
+  register(
+    workbenchViewResource.method,
+    workbenchViewResource.path,
+    handlers.view,
+  );
+  for (const [path, allowed] of routes)
+    app.all(path, (_incoming, response) => methodNotAllowed(response, allowed));
+  app.use((incoming, response) => {
+    if (incoming.path !== "/api" && !incoming.path.startsWith("/api/")) {
+      handlers.fallback(incoming, response);
+      return;
+    }
+    setResponseHeaders(response);
+    response.statusCode = 404;
+    response.end();
+  });
   return (incoming, response) => {
     if (!validatePublicOriginRequest(incoming, publicOrigin)) {
       setResponseHeaders(response);
@@ -539,14 +676,8 @@ export function createApiApplication(
     }
     try {
       const url = new URL(incoming.url ?? "/", "http://127.0.0.1");
-      if (url.pathname === "/api/access/connection") {
-        setResponseHeaders(response);
-        response.statusCode = 404;
-        response.end();
-        return;
-      }
       if (
-        browserAuthentication &&
+        shared &&
         url.pathname.startsWith("/api/") &&
         incoming.headersDistinct.authorization !== undefined
       ) {
@@ -556,19 +687,12 @@ export function createApiApplication(
         response.end(
           incoming.method === "HEAD"
             ? undefined
-            : JSON.stringify({ error: "request_rejected" }),
+            : JSON.stringify(createApiError("request_rejected")),
         );
         return;
       }
-      if (
-        url.pathname === "/api/access" ||
-        url.pathname === "/api/access/credentials"
-      ) {
-        setResponseHeaders(response);
-        response.statusCode = 404;
-        response.end();
-        return;
-      }
+      if (url.pathname.startsWith("/api/"))
+        clearInvalidSessionCookies?.(incoming, response);
       incoming.url = url.href;
     } catch {
       setResponseHeaders(response);
@@ -663,7 +787,7 @@ const workspaceResourcePatterns = workspaceResources.map(
     method,
     operation,
     match: new RegExp(
-      `^${path.replace(":repositoryId", "(?<repositoryId>[A-Za-z0-9][A-Za-z0-9._-]{0,127})").replace(":workspaceId", "(?<workspaceId>[a-f0-9-]{36})")}$`,
+      `^${path.replace(":repositoryId", `(?<repositoryId>${RESOURCE_ID_SOURCE})`).replace(":workspaceId", "(?<workspaceId>[a-f0-9-]{36})")}$`,
       "u",
     ),
   }),
@@ -674,13 +798,13 @@ export function createWorkspaceResourceHandler({
   getOrigin,
   repositoryRoot,
   accessRoot,
-  readHostedSession,
+  readGitHostLinkedSession,
 }: Readonly<{
   getOrigin: () => URL | null;
   repositoryRoot: string;
   accessRoot: FilesystemStoreRoot | undefined;
-  readHostedSession:
-    | ((request: IncomingMessage) => HostedAccessSession | null)
+  readGitHostLinkedSession:
+    | ((request: IncomingMessage) => GitHostLinkedAccessSession | null)
     | undefined;
 }>) {
   return async (
@@ -688,51 +812,44 @@ export function createWorkspaceResourceHandler({
     response: ServerResponse,
     signal: AbortSignal,
   ) => {
-    const reply = (status: number, value: unknown) =>
-      sendResponseBody(
-        response,
-        "application/json; charset=utf-8",
-        JSON.stringify(value),
-        false,
-        status,
-      );
+    const reply = createJsonReply(response);
     if (signal.aborted || response.destroyed) return;
     const origin = getOrigin();
-    if (!origin) return reply(503, { error: "workspace_request_unavailable" });
+    if (!origin)
+      return reply(503, createApiError("workspace_request_unavailable"));
     if (
       !matchesRequestHost(incoming, origin.host) ||
       !matchesRequestOrigin(incoming, origin.origin, "optional")
     )
-      return reply(403, { error: "request_rejected" });
+      return reply(403, createApiError("request_rejected"));
     const url = new URL(incoming.url ?? "/", origin);
-    const method = incoming.method?.toLowerCase();
+    const method = readRouteMethod(incoming.method)?.toLowerCase();
     const route = workspaceResourcePatterns.find(
       (entry) => entry.method === method && entry.match.test(url.pathname),
     );
     const groups = route?.match.exec(url.pathname)?.groups;
     if (!route || !groups?.repositoryId)
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     const { repositoryId, workspaceId } = groups;
     const { operation } = route;
     const write = !isWorkspaceRead(operation);
     let input: Record<string, unknown>;
     if (write) {
       if (url.search || !matchesRequestOrigin(incoming, origin.origin))
-        return reply(403, { error: "request_rejected" });
+        return reply(403, createApiError("request_rejected"));
       if (!hasContentType(incoming, "application/json"))
-        return reply(415, { error: "invalid_content_type" });
+        return reply(415, createApiError("invalid_content_type"));
       try {
-        const body = parseUnambiguousJsonDocument(
-          new TextDecoder("utf-8", { fatal: true }).decode(
-            await readRequestBody(incoming, 16 * 1_024),
-          ),
-        );
+        const body = await readJsonRequestBody(incoming, 16 * 1_024);
         if (!body || typeof body !== "object" || Array.isArray(body))
-          return reply(400, { error: "invalid_request" });
+          return reply(400, createApiError("invalid_request"));
         input = { ...body };
-      } catch {
+      } catch (error) {
         if (!signal.aborted && !response.destroyed)
-          reply(400, { error: "invalid_request" });
+          reply(
+            requestFailureStatus(error, response),
+            createApiError("invalid_request"),
+          );
         return;
       }
     } else {
@@ -741,12 +858,12 @@ export function createWorkspaceResourceHandler({
           (key) => url.searchParams.getAll(key).length !== 1,
         )
       )
-        return reply(400, { error: "invalid_request" });
+        return reply(400, createApiError("invalid_request"));
       input = Object.fromEntries(url.searchParams);
       if (operation === "list") {
         const limit = url.searchParams.get("limit");
         if (limit !== null && !/^[1-9]\d?$/u.test(limit))
-          return reply(400, { error: "invalid_request" });
+          return reply(400, createApiError("invalid_request"));
         input.limit = limit === null ? 20 : Number(limit);
         input.cursor = url.searchParams.get("cursor");
       }
@@ -756,22 +873,21 @@ export function createWorkspaceResourceHandler({
       Object.hasOwn(input, "repositoryId") ||
       (workspaceId && Object.hasOwn(input, "workspaceId"))
     )
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     try {
       const prepared = await prepareWorkspaceOperation(
         { ...input, ...(workspaceId && { workspaceId }), operation },
         signal,
       );
       if (signal.aborted || response.destroyed) return;
-      if (!prepared) return reply(400, { error: "invalid_request" });
-      const hostedSession = accessRoot && readHostedSession?.(incoming);
-      if (accessRoot && incoming.headersDistinct.authorization !== undefined)
-        return reply(403, { error: "request_rejected" });
+      if (!prepared) return reply(400, createApiError("invalid_request"));
+      const gitHostLinkedSession =
+        accessRoot && readGitHostLinkedSession?.(incoming);
       const access = accessRoot
-        ? hostedSession
-          ? await resolveHostedDevelopmentAccess(
+        ? gitHostLinkedSession
+          ? await resolveGitHostLinkedDevelopmentAccess(
               accessRoot,
-              hostedSession,
+              gitHostLinkedSession,
               repositoryId,
               write,
               signal,
@@ -784,7 +900,7 @@ export function createWorkspaceResourceHandler({
           );
       if (signal.aborted || response.destroyed) return;
       if (!access || prepared.command.projectId !== access.projectId)
-        return reply(404, { error: "workspace_unavailable" });
+        return reply(404, createApiError("workspace_unavailable"));
       const result = prepared.executeWorkspace(
         access.ownerRoot,
         access.projectId,
@@ -805,11 +921,12 @@ export function createWorkspaceResourceHandler({
       reply(created ? 201 : 200, result);
     } catch {
       if (!signal.aborted && !response.destroyed)
-        reply(503, {
-          error: write
-            ? "workspace_outcome_unconfirmed"
-            : "workspace_unavailable",
-        });
+        reply(
+          503,
+          createApiError(
+            write ? "workspace_outcome_unconfirmed" : "workspace_unavailable",
+          ),
+        );
     }
   };
 }
@@ -820,7 +937,7 @@ export function createExecutionActivityHandler(input: {
   repositoryRoot: string;
   accessRoot: FilesystemStoreRoot | undefined;
   readSession?:
-    | ((incoming: IncomingMessage) => HostedAccessSession | null)
+    | ((incoming: IncomingMessage) => GitHostLinkedAccessSession | null)
     | undefined;
 }) {
   return async (
@@ -828,16 +945,7 @@ export function createExecutionActivityHandler(input: {
     response: ServerResponse,
     signal: AbortSignal,
   ) => {
-    const reply = (status: number, value: unknown) => {
-      if (!signal.aborted && !response.destroyed)
-        sendResponseBody(
-          response,
-          "application/json; charset=utf-8",
-          JSON.stringify(value),
-          false,
-          status,
-        );
-    };
+    const reply = createJsonReply(response, { signal });
     const origin = input.getOrigin();
     if (signal.aborted) return;
     if (
@@ -845,7 +953,7 @@ export function createExecutionActivityHandler(input: {
       !matchesRequestHost(incoming, origin.host) ||
       !matchesRequestOrigin(incoming, origin.origin, "optional")
     )
-      return reply(403, { error: "request_rejected" });
+      return reply(403, createApiError("request_rejected"));
     const url = new URL(incoming.url ?? "/", origin);
     const repositoryId = executionActivityPath.exec(url.pathname)?.groups
       ?.repositoryId;
@@ -853,7 +961,7 @@ export function createExecutionActivityHandler(input: {
     const cursor = url.searchParams.get("cursor");
     if (
       !repositoryId ||
-      incoming.method !== "GET" ||
+      readRouteMethod(incoming.method) !== "GET" ||
       [...url.searchParams.keys()].some(
         (name) =>
           (name !== "limit" && name !== "cursor") ||
@@ -861,12 +969,11 @@ export function createExecutionActivityHandler(input: {
       ) ||
       (limitText !== null && !/^(?:[1-9]|[1-4][0-9]|50)$/u.test(limitText))
     )
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     try {
-      const authorization = incoming.headersDistinct.authorization;
       const hosted = input.accessRoot && input.readSession?.(incoming);
-      if (input.accessRoot && (!hosted || authorization !== undefined))
-        return reply(403, { error: "request_rejected" });
+      if (input.accessRoot && !hosted)
+        return reply(403, createApiError("request_rejected"));
       const observation = await readRepositoryExecutionActivity(
         repositoryId,
         {
@@ -882,10 +989,289 @@ export function createExecutionActivityHandler(input: {
         signal,
       );
       if (observation === null)
-        return reply(404, { error: "execution_activity_unavailable" });
+        return reply(404, createApiError("execution_activity_unavailable"));
       return reply(200, observation);
     } catch {
-      return reply(503, { error: "execution_activity_unavailable" });
+      return reply(503, createApiError("execution_activity_unavailable"));
+    }
+  };
+}
+
+/** 作業ツリーのツリー又は差分の片方だけを認可済みの対象から取得する。 @trace ARCH-000012 */
+export function createRepositoryFilesHandler(input: {
+  getOrigin: () => URL | null;
+  repositoryRoot: string;
+  localTarget: LocalRepositoryFilesTarget | undefined;
+  accessRoot: FilesystemStoreRoot | undefined;
+  readSession?:
+    | ((incoming: IncomingMessage) => GitHostLinkedAccessSession | null)
+    | undefined;
+}) {
+  return async (
+    incoming: IncomingMessage,
+    response: ServerResponse,
+    signal: AbortSignal,
+  ) => {
+    const reply = createJsonReply(response, {
+      signal,
+      head: incoming.method === "HEAD",
+    });
+    const origin = input.getOrigin();
+    if (signal.aborted) return;
+    if (
+      !origin ||
+      !matchesRequestHost(incoming, origin.host) ||
+      !matchesRequestOrigin(incoming, origin.origin, "optional")
+    )
+      return reply(403, createApiError("request_rejected"));
+    const url = new URL(incoming.url ?? "/", origin);
+    const tree = repositoryTreePath.exec(url.pathname);
+    const repositoryId = (tree ?? repositoryDiffPath.exec(url.pathname))?.groups
+      ?.repositoryId;
+    const allowed = tree ? ["directory", "cursor"] : ["path"];
+    const filePath = url.searchParams.get("path");
+    if (
+      !repositoryId ||
+      readRouteMethod(incoming.method) !== "GET" ||
+      [...url.searchParams.keys()].some(
+        (name) =>
+          !allowed.includes(name) || url.searchParams.getAll(name).length !== 1,
+      ) ||
+      (!tree && !filePath)
+    )
+      return reply(400, createApiError("invalid_request"));
+    const cursor = url.searchParams.get("cursor");
+    const request: RepositoryFilesRequest = tree
+      ? {
+          kind: "tree",
+          directory: url.searchParams.get("directory") ?? "",
+          ...(cursor !== null && { cursor }),
+        }
+      : { kind: "diff", path: filePath ?? "" };
+    try {
+      const session = input.accessRoot && input.readSession?.(incoming);
+      if (input.accessRoot && !session)
+        return reply(403, createApiError("request_rejected"));
+      const result = await readRepositoryFiles(
+        repositoryId,
+        request,
+        input.accessRoot && session
+          ? { scope: "shared", root: input.accessRoot, session }
+          : {
+              scope: "local",
+              repositoryRoot: input.repositoryRoot,
+              target: input.localTarget,
+            },
+        signal,
+      );
+      if (result === null)
+        return reply(404, createApiError("repository_files_unavailable"));
+      return reply(200, result);
+    } catch {
+      return reply(503, createApiError("repository_files_unavailable"));
+    }
+  };
+}
+
+/** 概要やGitホストを読まずに単体の起動先と共有のログイン案内を返す。 @trace ARCH-000012 */
+export function createWorkbenchContextHandler(input: {
+  getOrigin: () => URL | null;
+  accessRoot: FilesystemStoreRoot | undefined;
+  localRepositoryId: string | undefined;
+  actionToken: string;
+  loginProviders: readonly PublicLoginProvider[] | undefined;
+  readSession:
+    | ((request: IncomingMessage) => GitHostLinkedAccessSession | null)
+    | undefined;
+}) {
+  return async (
+    incoming: IncomingMessage,
+    response: ServerResponse,
+    signal: AbortSignal,
+  ) => {
+    const reply = createJsonReply(response, {
+      signal,
+      head: incoming.method === "HEAD",
+    });
+    if (signal.aborted || response.destroyed) return;
+    const origin = input.getOrigin();
+    if (
+      !origin ||
+      !matchesRequestHost(incoming, origin.host) ||
+      !matchesRequestOrigin(incoming, origin.origin, "optional")
+    )
+      return reply(403, createApiError("request_rejected"));
+    const url = new URL(incoming.url ?? "/", origin);
+    if (url.pathname !== workbenchContextPath || url.search)
+      return reply(400, createApiError("invalid_request"));
+    const contract = "crdd/workbench/context/v1";
+    if (input.accessRoot === undefined) {
+      return input.localRepositoryId
+        ? reply(200, {
+            contract,
+            mode: "single",
+            repositoryId: input.localRepositoryId,
+          })
+        : reply(503, createApiError("project_context_unavailable"));
+    }
+    const signedIn = readBrowserAuthentication(
+      input.accessRoot,
+      input.readSession?.(incoming),
+    );
+    if (signedIn === null)
+      return reply(503, createApiError("workbench_context_unavailable"));
+    return reply(200, {
+      contract,
+      mode: "shared",
+      login: signedIn
+        ? null
+        : createAccessViewResponse(
+            input.actionToken,
+            false,
+            input.loginProviders,
+          ),
+    });
+  };
+}
+
+/** 本人確認の結果だけを返す。Gitホストや登録先の内容は観測しない。 */
+function readBrowserAuthentication(
+  root: FilesystemStoreRoot,
+  session: GitHostLinkedAccessSession | null | undefined,
+): boolean | null {
+  if (!session || session.isCurrent?.() === false) return false;
+  const access = readCurrentAccess(root, session.principal);
+  if (session.isCurrent?.() === false) return false;
+  if (access.status === "completed") return true;
+  return access.reason === "current_access_authentication_rejected"
+    ? false
+    : null;
+}
+
+/** 成果物の選択、認可および本文取得を画面取得から分離する。 @trace ARCH-000016 */
+export function createArtifactResourceHandler(input: {
+  getOrigin: () => URL | null;
+  repositoryRoot: string;
+  repository: Repository;
+  accessRoot: FilesystemStoreRoot | undefined;
+  localSurface: () => ProjectViewData | undefined;
+  readSession:
+    | ((incoming: IncomingMessage) => GitHostLinkedAccessSession | null)
+    | undefined;
+}) {
+  return async (
+    incoming: IncomingMessage,
+    response: ServerResponse,
+    signal: AbortSignal,
+  ) => {
+    const reply = createJsonReply(response, {
+      signal,
+      head: incoming.method === "HEAD",
+    });
+    const origin = input.getOrigin();
+    if (
+      !origin ||
+      !matchesRequestHost(incoming, origin.host) ||
+      !matchesRequestOrigin(incoming, origin.origin, "optional")
+    )
+      return reply(403, createApiError("request_rejected"));
+    const url = new URL(incoming.url ?? "/", origin);
+    const change = changeArtifactPath.exec(url.pathname)?.groups;
+    const owner = ownerArtifactPath.exec(url.pathname)?.groups;
+    const repositoryId = change?.repositoryId ?? owner?.repositoryId;
+    if (
+      !repositoryId ||
+      readRouteMethod(incoming.method) !== "GET" ||
+      (change
+        ? url.search !== ""
+        : url.searchParams.size !== 1 || !url.searchParams.has("path"))
+    )
+      return reply(400, createApiError("artifact_input_invalid"));
+    let selection: ReturnType<typeof readArtifactSelection>;
+    try {
+      selection = change
+        ? readArtifactSelection("change", change.changeId ?? "")
+        : readArtifactSelection("owner", url.searchParams.get("path") ?? "");
+    } catch {
+      return reply(400, createApiError("artifact_input_invalid"));
+    }
+    const stillReadable = () => {
+      if (signal.aborted || response.destroyed)
+        throw new Error("artifact_access_unavailable");
+    };
+    try {
+      stillReadable();
+      if (input.accessRoot === undefined) {
+        const surface = input.localSurface();
+        if (
+          surface?.context.repositoryId !== repositoryId ||
+          resolveVerifiedRepositoryRoot(input.repository) !==
+            input.repositoryRoot
+        )
+          return reply(403, createApiError("artifact_access_unavailable"));
+        const markdown = await readArtifactMarkdown(
+          input.repositoryRoot,
+          selection,
+          surface.ownerArtifacts,
+          stillReadable,
+        );
+        if (
+          resolveVerifiedRepositoryRoot(input.repository) !==
+          input.repositoryRoot
+        )
+          return reply(403, createApiError("artifact_access_unavailable"));
+        return markdown === null
+          ? reply(404, createApiError("artifact_unavailable"))
+          : reply(200, {
+              repositoryId,
+              scope: "single",
+              ...selection,
+              markdown,
+            });
+      }
+      const session = input.readSession?.(incoming);
+      if (!session) return reply(401, createApiError("login_required"));
+      const hosted = await resolveGitHostLinkedRepositories(
+        input.accessRoot,
+        session,
+        signal,
+        repositoryId,
+      );
+      const selected = hosted?.repositories[0];
+      if (!hosted || !selected || selected.repositoryId !== repositoryId)
+        return reply(403, createApiError("artifact_access_unavailable"));
+      const assertReadable = () => {
+        stillReadable();
+        hosted.assertDirectory(selected);
+      };
+      const assertCurrent = () => {
+        assertReadable();
+        if (observeAuthorizedManifest(selected) !== "current")
+          throw new Error("artifact_access_unavailable");
+        hosted.assertCurrent([selected]);
+      };
+      assertCurrent();
+      const catalog =
+        selection.kind === "owner"
+          ? await readAuthorizedOwnerArtifactCatalog(
+              selected.root,
+              selected.manifest,
+              assertReadable,
+            )
+          : null;
+      if (catalog !== null) assertCurrent();
+      const markdown = await readArtifactMarkdown(
+        selected.root,
+        selection,
+        catalog,
+        assertReadable,
+      );
+      assertCurrent();
+      return markdown === null
+        ? reply(403, createApiError("artifact_access_unavailable"))
+        : reply(200, { repositoryId, scope: "shared", ...selection, markdown });
+    } catch {
+      reply(403, createApiError("artifact_access_unavailable"));
     }
   };
 }
@@ -895,8 +1281,9 @@ export function createProjectContextHandler(input: {
   getOrigin: () => URL | null;
   repositoryRoot: string;
   accessRoot: FilesystemStoreRoot | undefined;
+  portfolio?: PortfolioProjection | undefined;
   readSession:
-    | ((incoming: IncomingMessage) => HostedAccessSession | null)
+    | ((incoming: IncomingMessage) => GitHostLinkedAccessSession | null)
     | undefined;
 }) {
   return async (
@@ -904,66 +1291,111 @@ export function createProjectContextHandler(input: {
     response: ServerResponse,
     signal: AbortSignal,
   ) => {
-    const reply = (status: number, value: unknown) => {
-      if (signal.aborted || response.destroyed) return;
-      sendResponseBody(
-        response,
-        "application/json; charset=utf-8",
-        JSON.stringify(value),
-        false,
-        status,
-      );
-    };
+    const reply = createJsonReply(response, { signal });
     const origin = input.getOrigin();
     if (
       !origin ||
       !matchesRequestHost(incoming, origin.host) ||
       !matchesRequestOrigin(incoming, origin.origin, "optional")
     )
-      return reply(403, { error: "request_rejected" });
+      return reply(403, createApiError("request_rejected"));
     const url = new URL(incoming.url ?? "/", origin);
-    const groups = projectDetailPath.exec(url.pathname)?.groups;
-    const target =
-      groups?.repositoryId && groups.projectId
-        ? { repositoryId: groups.repositoryId, projectId: groups.projectId }
-        : undefined;
+    const groups =
+      projectDetailPath.exec(url.pathname)?.groups ??
+      projectResourcePath.exec(url.pathname)?.groups;
+    const list = url.pathname === projectContextRoutes.list;
+    const query = url.searchParams;
+    const selectedRepository = list ? query.get("repositoryId") : null;
+    const search = query.get("q") ?? "";
+    const state = query.get("state") ?? "";
+    const cursor = query.get("cursor") ?? "";
+    const requestedLimit = query.get("limit");
+    const paged = ["q", "state", "cursor", "limit"].some((key) =>
+      query.has(key),
+    );
+    const target = groups?.projectId
+      ? {
+          projectId: groups.projectId,
+          ...(groups.repositoryId && { repositoryId: groups.repositoryId }),
+        }
+      : selectedRepository === null
+        ? undefined
+        : { repositoryId: selectedRepository };
     if (
-      incoming.method !== "GET" ||
-      url.search ||
-      (!target && url.pathname !== projectContextRoutes.list)
+      readRouteMethod(incoming.method) !== "GET" ||
+      (!list && (url.search || groups?.projectId === undefined)) ||
+      (list &&
+        ([...query.keys()].some(
+          (key) =>
+            !["repositoryId", "q", "state", "cursor", "limit"].includes(key) ||
+            query.getAll(key).length !== 1,
+        ) ||
+          (selectedRepository !== null &&
+            !RESOURCE_ID.test(selectedRepository)) ||
+          (state !== "" &&
+            !["complete", "partial", "conflicting"].includes(state)) ||
+          (requestedLimit !== null &&
+            !/^(?:[1-9]|[1-4][0-9]|50)$/u.test(requestedLimit))))
     )
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
+    const browserListing = list && selectedRepository === null;
     try {
-      let portfolio: Awaited<ReturnType<typeof readLocalProjectPortfolio>>;
-      let session: HostedAccessSession | null = null;
-      if (!input.accessRoot)
-        portfolio = await readLocalProjectPortfolio(
-          input.repositoryRoot,
-          signal,
-          target,
-        );
-      else {
+      let portfolio: PortfolioProjection;
+      let session: GitHostLinkedAccessSession | null = null;
+      if (!input.accessRoot) {
+        portfolio =
+          target?.repositoryId === undefined && input.portfolio
+            ? input.portfolio
+            : await readLocalProjectPortfolio(
+                input.repositoryRoot,
+                signal,
+                target,
+              );
+      } else {
         session = input.readSession?.(incoming) ?? null;
-        if (!session || incoming.headersDistinct.authorization !== undefined)
-          return reply(401, { error: "login_required" });
-        portfolio = await readHostedProjectPortfolio(
+        if (!session) return reply(401, createApiError("login_required"));
+        portfolio = await readGitHostLinkedProjectPortfolio(
           input.accessRoot,
           session,
           signal,
           target,
+          browserListing ? { rejectRevokedPrincipal: true } : undefined,
         );
       }
       if (session?.isCurrent?.() === false)
-        return reply(403, { error: "request_rejected" });
-      if (!target) return reply(200, projectPortfolioList(portfolio));
+        return browserListing
+          ? reply(401, createApiError("login_required"))
+          : reply(403, createApiError("request_rejected"));
+      if (list) {
+        if (!paged) return reply(200, summarizeProjectPortfolio(portfolio));
+        const page = createPortfolioPage(
+          portfolio,
+          {
+            query: search,
+            state,
+            cursor,
+            ...(selectedRepository !== null && {
+              repositoryId: selectedRepository,
+            }),
+          },
+          requestedLimit === null ? 20 : Number(requestedLimit),
+        );
+        return reply(200, {
+          ...summarizeProjectPortfolio(page.portfolio),
+          nextCursor: page.nextCursor,
+          cursorInvalid: page.cursorInvalid,
+        } satisfies ProjectPageResponse);
+      }
       const project = portfolio.projects.find(
-        ({ projectId }) => projectId === target.projectId,
+        ({ projectId }) => projectId === groups?.projectId,
       );
       return project
         ? reply(200, project)
-        : reply(404, { error: "project_context_unavailable" });
-    } catch {
-      return reply(503, { error: "project_context_unavailable" });
+        : reply(404, createApiError("project_context_unavailable"));
+    } catch (error) {
+      if (error instanceof BrowserPrincipalRejected)
+        return reply(401, createApiError("login_required"));
+      return reply(503, createApiError("project_context_unavailable"));
     }
   };
 }
@@ -973,9 +1405,10 @@ export function createTopicMeetingHandler(input: {
   getOrigin: () => URL | null;
   repositoryRoot: string;
   accessRoot: FilesystemStoreRoot | undefined;
+  localContext?: ProjectViewData["context"] | undefined;
   onLocalWrite?: () => void;
   readSession:
-    | ((incoming: IncomingMessage) => HostedAccessSession | null)
+    | ((incoming: IncomingMessage) => GitHostLinkedAccessSession | null)
     | undefined;
 }) {
   return async (
@@ -983,14 +1416,7 @@ export function createTopicMeetingHandler(input: {
     response: ServerResponse,
     signal: AbortSignal,
   ) => {
-    const reply = (status: number, value: unknown) =>
-      sendResponseBody(
-        response,
-        "application/json; charset=utf-8",
-        JSON.stringify(value),
-        false,
-        status,
-      );
+    const reply = createJsonReply(response);
     if (signal.aborted || response.destroyed) return;
     const origin = input.getOrigin();
     if (
@@ -998,11 +1424,12 @@ export function createTopicMeetingHandler(input: {
       !matchesRequestHost(incoming, origin.host) ||
       !matchesRequestOrigin(incoming, origin.origin, "optional")
     )
-      return reply(403, { error: "request_rejected" });
+      return reply(403, createApiError("request_rejected"));
     const url = new URL(incoming.url ?? "/", origin);
     const record = topicMeetingPaths.find(
       ({ method, match }) =>
-        method.toUpperCase() === incoming.method && match.test(url.pathname),
+        method.toUpperCase() === readRouteMethod(incoming.method) &&
+        match.test(url.pathname),
     );
     const fields = record?.match.exec(url.pathname)?.groups;
     const repositoryId = fields?.repositoryId;
@@ -1017,15 +1444,19 @@ export function createTopicMeetingHandler(input: {
             recordId,
           )))
     )
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     const { kind, operation } = record;
     const resolve = () => {
       if (!input.accessRoot)
-        return createLocalRecords(input.repositoryRoot, repositoryId, signal);
+        return createLocalRecords(
+          input.repositoryRoot,
+          repositoryId,
+          signal,
+          input.localContext,
+        );
       const session = input.readSession?.(incoming);
-      if (!session || incoming.headersDistinct.authorization !== undefined)
-        return null;
-      return createHostedRecords(
+      if (!session) return null;
+      return createGitHostLinkedRecords(
         input.accessRoot,
         session,
         repositoryId,
@@ -1035,9 +1466,9 @@ export function createTopicMeetingHandler(input: {
     try {
       if (operation !== "list" && operation !== "get") {
         if (url.search || !matchesRequestOrigin(incoming, origin.origin))
-          return reply(403, { error: "request_rejected" });
+          return reply(403, createApiError("request_rejected"));
         if (!hasContentType(incoming, "application/json"))
-          return reply(415, { error: "invalid_content_type" });
+          return reply(415, createApiError("invalid_content_type"));
         const pathFields =
           operation === "promote"
             ? { topicId: recordId }
@@ -1048,14 +1479,13 @@ export function createTopicMeetingHandler(input: {
                 : {};
         let body: unknown;
         try {
-          body = parseUnambiguousJsonDocument(
-            new TextDecoder("utf-8", { fatal: true }).decode(
-              await readRequestBody(incoming, 16 * 1_024),
-            ),
-          );
-        } catch {
+          body = await readJsonRequestBody(incoming, 16 * 1_024);
+        } catch (error) {
           if (!signal.aborted && !response.destroyed)
-            reply(400, { error: "invalid_request" });
+            reply(
+              requestFailureStatus(error, response),
+              createApiError("invalid_request"),
+            );
           return;
         }
         if (signal.aborted || response.destroyed) return;
@@ -1065,53 +1495,53 @@ export function createTopicMeetingHandler(input: {
           Array.isArray(body) ||
           Object.keys(pathFields).some((key) => Object.hasOwn(body, key))
         )
-          return reply(400, { error: "invalid_request" });
+          return reply(400, createApiError("invalid_request"));
         const action = readRecordWrite(kind, operation, {
           ...body,
           ...pathFields,
         });
-        if (!action) return reply(400, { error: "invalid_request" });
+        if (!action) return reply(400, createApiError("invalid_request"));
         const records = resolve();
-        if (!records) return reply(401, { error: "login_required" });
+        if (!records) return reply(401, createApiError("login_required"));
         const result = await records.write(action).finally(() => {
           if (!input.accessRoot) input.onLocalWrite?.();
         });
         if (signal.aborted || response.destroyed) return;
         return !result
-          ? reply(404, { error: "record_unavailable" })
+          ? reply(404, createApiError("record_unavailable"))
           : result.status === "completed"
             ? reply(operation === "create" ? 201 : 200, result)
             : reply(result.status === "blocked" ? 409 : 503, result);
       }
       const reader = resolve();
-      if (!reader) return reply(401, { error: "login_required" });
+      if (!reader) return reply(401, createApiError("login_required"));
       {
         if (recordId !== undefined) {
-          const result = await reader.get(kind, recordId);
+          const result = await reader.get(kind, recordId, true);
           if (signal.aborted || response.destroyed) return;
           return result?.status === "completed"
             ? reply(200, result)
-            : reply(404, { error: "record_unavailable" });
+            : reply(404, createApiError("record_unavailable"));
         }
         const input = readTopicMeetingQuery(url.searchParams);
-        if (!input) return reply(400, { error: "invalid_request" });
+        if (!input) return reply(400, createApiError("invalid_request"));
         const result = await reader.list({ kind, ...input });
         if (signal.aborted || response.destroyed) return;
         return result.status === "complete"
           ? reply(200, result.page)
           : result.status === "invalid"
-            ? reply(400, { error: "invalid_request" })
-            : reply(404, { error: "record_unavailable" });
+            ? reply(400, createApiError("invalid_request"))
+            : reply(404, createApiError("record_unavailable"));
       }
     } catch {
       if (!signal.aborted && !response.destroyed)
-        reply(503, { error: "record_unavailable" });
+        reply(503, createApiError("record_unavailable"));
     }
   };
 }
 
 /** 管理セッションを利用する読み取りと操作を、メソッドと対象リソースで固定する。 */
-export const managementSessionResources = [
+const managementSessionResources = [
   { method: "get", path: "/api/access/me", view: "current" },
   { method: "get", path: "/api/users", view: "users" },
   { method: "get", path: "/api/repositories", view: "registeredRepositories" },
@@ -1155,7 +1585,7 @@ export const managementSessionResources = [
 const managementPatterns = managementSessionResources.map((resource) => ({
   resource,
   pattern: new RegExp(
-    `^${resource.path.replace(/:(\w+)/gu, "(?<$1>[A-Za-z0-9][A-Za-z0-9._-]{0,127})")}$`,
+    `^${resource.path.replace(/:(\w+)/gu, `(?<$1>${RESOURCE_ID_SOURCE})`)}$`,
     "u",
   ),
 }));
@@ -1177,9 +1607,7 @@ function managementWriteStatus(
 /** HTTPで短命の管理セッションを開始・終了し、ブラウザーにCookieを返す。 @trace ARCH-000012 */
 export function createManagementSessionLifecycleHandler(
   origin: URL,
-  changeManagement: ReturnType<
-    typeof createClientSessionHandler
-  >["changeManagement"],
+  changeManagement: ClientSessionAccess["changeManagement"],
 ) {
   return async (
     request: IncomingMessage,
@@ -1220,7 +1648,7 @@ export function createManagementSessionLifecycleHandler(
     if (result.status === "unavailable") return reject(503);
     response.setHeader(
       "Set-Cookie",
-      sessionCookieHeader(
+      createSessionCookieHeader(
         origin,
         managementCookie,
         result.status === "opened" ? result.id : "",
@@ -1259,38 +1687,27 @@ export function createManagementSessionHandler(
     response: ServerResponse,
     signal: AbortSignal,
   ) => {
-    const reply = (status: number, value: unknown) =>
-      sendResponseBody(
-        response,
-        "application/json; charset=utf-8",
-        JSON.stringify(value),
-        false,
-        status,
-      );
+    const reply = createJsonReply(response);
     if (signal.aborted || response.destroyed) return;
     const url = new URL(incoming.url ?? "/", origin);
-    const method = incoming.method?.toLowerCase();
+    const method = readRouteMethod(incoming.method)?.toLowerCase();
     const matched = managementPatterns.find(
       ({ resource, pattern }) =>
         resource.method === method && pattern.test(url.pathname),
     );
-    if (!matched || url.search) return reply(400, { error: "invalid_request" });
+    if (!matched || url.search)
+      return reply(400, createApiError("invalid_request"));
     const route = matched.resource;
     const targets = matched.pattern.exec(url.pathname)?.groups ?? {};
     const targetId = targets.userId;
-    if (
-      targetId &&
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
-        targetId,
-      )
-    )
-      return reply(400, { error: "invalid_request" });
+    if (targetId && !UUID_V4.test(targetId))
+      return reply(400, createApiError("invalid_request"));
     if (!matchesRequestOrigin(incoming, origin.origin, "optional"))
-      return reply(403, { error: "request_rejected" });
+      return reply(403, createApiError("request_rejected"));
     const session = readManagement(incoming);
     if ("view" in route && route.view === "current") {
       const principal = session?.principal ?? readPrincipal(incoming);
-      if (!principal) return reply(401, { error: "login_required" });
+      if (!principal) return reply(401, createApiError("login_required"));
       const result = readCurrentAccess(root, principal);
       const status =
         result.status === "completed"
@@ -1301,20 +1718,22 @@ export function createManagementSessionHandler(
       return reply(
         status,
         result.status === "completed" && session
-          ? { ...result, formToken: session.formToken }
+          ? {
+              ...result,
+              formToken: session.formToken,
+              management: describeManagementPermissions(result.user.role),
+            }
           : result,
       );
     }
-    if (!session) return reply(401, { error: "management_session_required" });
+    if (!session)
+      return reply(401, createApiError("management_session_required"));
     const { principal } = session;
     if ("view" in route) {
-      const result = readManagementState(root, principal, route.view);
-      if (
-        route.view === "users" &&
-        gitHostingEnabled &&
-        result.status === "completed"
-      )
-        response.setHeader("x-crdd-hosted-registration", "github.com");
+      const result =
+        route.view === "users"
+          ? readManagementUsersForDisplay(root, principal)
+          : readManagementState(root, principal, route.view);
       return reply(
         result.status === "completed"
           ? 200
@@ -1327,19 +1746,18 @@ export function createManagementSessionHandler(
       );
     }
     if (!matchesRequestOrigin(incoming, origin.origin))
-      return reply(403, { error: "request_rejected" });
+      return reply(403, createApiError("request_rejected"));
     if (!hasContentType(incoming, "application/json"))
-      return reply(415, { error: "invalid_content_type" });
+      return reply(415, createApiError("invalid_content_type"));
     let input: unknown;
     try {
-      input = parseUnambiguousJsonDocument(
-        new TextDecoder("utf-8", { fatal: true }).decode(
-          await readRequestBody(incoming, 4_096),
-        ),
-      );
-    } catch {
+      input = await readJsonRequestBody(incoming, 4_096);
+    } catch (error) {
       if (!signal.aborted && !response.destroyed)
-        reply(400, { error: "invalid_request" });
+        reply(
+          requestFailureStatus(error, response),
+          createApiError("invalid_request"),
+        );
       return;
     }
     if (signal.aborted || response.destroyed) return;
@@ -1357,11 +1775,9 @@ export function createManagementSessionHandler(
       input.expectedRevision < 1 ||
       !("operationId" in input) ||
       typeof input.operationId !== "string" ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
-        input.operationId,
-      )
+      !UUID_V4.test(input.operationId)
     )
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     // 本文の待機中に終了したセッションを使って保存しない。
     const current = readManagement(incoming);
     if (
@@ -1371,22 +1787,23 @@ export function createManagementSessionHandler(
       !matchesSecret(current.formToken, session.formToken) ||
       !matchesSecret(input.formToken, current.formToken)
     )
-      return reply(401, { error: "login_required" });
+      return reply(401, createApiError("login_required"));
     const publishManagementResult = (
       status: ManagementOperationOutcome["status"],
     ) => {
       if (
         !matchesSecret(readManagement(incoming)?.formToken, current.formToken)
       ) {
-        reply(401, { error: "management_session_required" });
+        reply(401, createApiError("management_session_required"));
         return false;
       }
       if (status !== "rejected") {
         const { status: binding } = observeSessionBinding(incoming);
         if (binding !== "completed") {
-          reply(binding === "rejected" ? 401 : 503, {
-            error: "management_result_unavailable",
-          });
+          reply(
+            binding === "rejected" ? 401 : 503,
+            createApiError("management_result_unavailable"),
+          );
           return false;
         }
       }
@@ -1394,16 +1811,16 @@ export function createManagementSessionHandler(
     };
     if (route.operation === "registerRepository") {
       if (!gitHostingEnabled)
-        return reply(403, { error: "git_host_connection_required" });
+        return reply(403, createApiError("git_host_connection_required"));
       if (
         !("repositoryId" in input) ||
         typeof input.repositoryId !== "string" ||
-        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(input.repositoryId) ||
+        !RESOURCE_ID.test(input.repositoryId) ||
         !("directory" in input) ||
         typeof input.directory !== "string"
       )
-        return reply(400, { error: "invalid_request" });
-      const result = await registerHostedRepository(
+        return reply(400, createApiError("invalid_request"));
+      const result = await registerGitHostLinkedRepository(
         root,
         current.principal,
         {
@@ -1447,7 +1864,7 @@ export function createManagementSessionHandler(
         ? { username: input.username, role: input.role }
         : null;
     if (!target || !("email" in input) || typeof input.email !== "string")
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     const { result, invitation } = issueUserInvitation(
       root,
       current.principal,
@@ -1484,7 +1901,7 @@ const executionDefinitionPatterns = Object.entries(
   operation,
   method,
   pattern: new RegExp(
-    `^${path.replace(/:(\w+)/gu, "(?<$1>[A-Za-z0-9][A-Za-z0-9._-]{0,127})")}$`,
+    `^${path.replace(/:(\w+)/gu, `(?<$1>${RESOURCE_ID_SOURCE})`)}$`,
     "u",
   ),
 }));
@@ -1508,13 +1925,13 @@ export function createExecutionDefinitionHandler({
   getOrigin,
   capability,
   accessRoot,
-  readHostedSession,
+  readGitHostLinkedSession,
 }: Readonly<{
   getOrigin: () => URL | null;
   capability: Repository;
   accessRoot: FilesystemStoreRoot | undefined;
-  readHostedSession:
-    | ((request: IncomingMessage) => HostedAccessSession | null)
+  readGitHostLinkedSession:
+    | ((request: IncomingMessage) => GitHostLinkedAccessSession | null)
     | undefined;
 }>) {
   return async (
@@ -1522,56 +1939,59 @@ export function createExecutionDefinitionHandler({
     response: ServerResponse,
     signal: AbortSignal,
   ) => {
-    const reply = (status: number, value: unknown) =>
-      sendResponseBody(
-        response,
-        "application/json; charset=utf-8",
-        JSON.stringify(value),
-        false,
-        status,
-      );
+    const reply = createJsonReply(response);
     const alive = () => !signal.aborted && !response.destroyed;
     if (!alive()) return;
     const origin = getOrigin();
     if (!origin)
-      return reply(503, { error: "execution_definition_unavailable" });
+      return reply(503, createApiError("execution_definition_unavailable"));
     if (
       !matchesRequestHost(incoming, origin.host) ||
       !matchesRequestOrigin(incoming, origin.origin, "optional")
     )
-      return reply(403, { error: "request_rejected" });
+      return reply(403, createApiError("request_rejected"));
     const url = new URL(incoming.url ?? "/", origin);
     const route = executionDefinitionPatterns.find(
       ({ method, pattern }) =>
-        incoming.method?.toLowerCase() === method && pattern.test(url.pathname),
+        readRouteMethod(incoming.method)?.toLowerCase() === method &&
+        pattern.test(url.pathname),
     );
     const ids = route?.pattern.exec(url.pathname)?.groups;
     if (!route || !ids?.repositoryId || !ids.projectId || !ids.milestoneId)
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     const { repositoryId, ...target } = ids;
     const write = route.method !== "get";
+    const hosted = accessRoot ? readGitHostLinkedSession?.(incoming) : null;
+    if (accessRoot && !hosted)
+      return reply(403, createApiError("execution_definition_unavailable"));
     let input: Record<string, unknown>;
     if (write) {
       if (url.search || !matchesRequestOrigin(incoming, origin.origin))
-        return reply(403, { error: "request_rejected" });
+        return reply(403, createApiError("request_rejected"));
       if (!hasContentType(incoming, "application/json"))
-        return reply(415, { error: "invalid_content_type" });
+        return reply(415, createApiError("invalid_content_type"));
       if (
-        Number(incoming.headers["content-length"]) >
-        MAXIMUM_EXECUTION_REQUEST_BYTES
+        accessRoot &&
+        hosted &&
+        readCurrentAccess(accessRoot, hosted.principal).status !== "completed"
       )
-        return reply(403, { error: "request_rejected" });
+        return reply(403, createApiError("execution_definition_unavailable"));
       try {
-        const body = parseUnambiguousJsonDocument(
-          new TextDecoder("utf-8", { fatal: true }).decode(
-            await readRequestBody(incoming, MAXIMUM_EXECUTION_REQUEST_BYTES),
-          ),
+        const body = await readJsonRequestBody(
+          incoming,
+          MAXIMUM_EXECUTION_REQUEST_BYTES,
         );
         if (!body || typeof body !== "object" || Array.isArray(body))
-          return reply(400, { error: "invalid_request" });
+          return reply(400, createApiError("invalid_request"));
         input = { ...body };
-      } catch {
-        if (alive()) reply(400, { error: "invalid_request" });
+      } catch (error) {
+        if (alive()) {
+          if (error instanceof RequestBodyTooLarge) {
+            response.setHeader("Connection", "close");
+            return reply(413, createApiError("request_body_too_large"));
+          }
+          reply(400, createApiError("invalid_request"));
+        }
         return;
       }
     } else {
@@ -1583,7 +2003,7 @@ export function createExecutionDefinitionHandler({
             url.searchParams.getAll(name).length !== 1,
         )
       )
-        return reply(400, { error: "invalid_request" });
+        return reply(400, createApiError("invalid_request"));
       input = Object.fromEntries(url.searchParams);
     }
     if (
@@ -1596,21 +2016,18 @@ export function createExecutionDefinitionHandler({
         "taskId",
       ].some((name) => Object.hasOwn(input, name))
     )
-      return reply(400, { error: "invalid_request" });
+      return reply(400, createApiError("invalid_request"));
     const command = validateExecutionDefinitionCommand(
       { ...input, ...target, operation: route.operation },
       write ? "write" : "read",
     );
-    if (!command) return reply(400, { error: "invalid_request" });
+    if (!command) return reply(400, createApiError("invalid_request"));
     let dispatched = false;
     try {
       let access: DefinitionAccess | null = null;
       if (accessRoot) {
-        const hosted = readHostedSession?.(incoming);
-        if (incoming.headersDistinct.authorization !== undefined)
-          return reply(403, { error: "request_rejected" });
         if (hosted) {
-          access = await resolveHostedDefinitionAccess(
+          access = await resolveGitHostLinkedDefinitionAccess(
             accessRoot,
             hosted,
             repositoryId,
@@ -1623,7 +2040,7 @@ export function createExecutionDefinitionHandler({
       }
       if (!alive()) return;
       if (!access)
-        return reply(403, { error: "execution_definition_unavailable" });
+        return reply(403, createApiError("execution_definition_unavailable"));
       dispatched = true;
       const result = executeDefinitionOperation(access, command);
       if (!alive()) return;
@@ -1633,13 +2050,20 @@ export function createExecutionDefinitionHandler({
           command.input as Parameters<typeof queryPlan>[1],
         )
       )
-        return reply(503, { error: "execution_definition_unavailable" });
-      return reply(200, result);
+        return reply(503, createApiError("execution_definition_unavailable"));
+      const created =
+        route.operation === "initialize" &&
+        typeof result === "object" &&
+        result !== null &&
+        "status" in result &&
+        result.status === "saved";
+      return reply(created ? 201 : 200, result);
     } catch {
       if (alive())
-        return reply(dispatched ? 503 : 403, {
-          error: "execution_definition_unavailable",
-        });
+        return reply(
+          dispatched ? 503 : 403,
+          createApiError("execution_definition_unavailable"),
+        );
     }
   };
 }
@@ -1662,7 +2086,7 @@ export async function handleExecution({
   actionToken,
   repositoryRoot,
   localAccessRoot,
-  readHostedSession,
+  readGitHostLinkedSession,
   objectiveRuns,
 }: Readonly<{
   incoming: IncomingMessage;
@@ -1674,8 +2098,8 @@ export async function handleExecution({
   repositoryRoot: string;
   localAccessRoot: FilesystemStoreRoot | undefined;
   objectiveRuns?: ObjectiveRuns;
-  readHostedSession?:
-    | ((request: IncomingMessage) => HostedAccessSession | null)
+  readGitHostLinkedSession?:
+    | ((request: IncomingMessage) => GitHostLinkedAccessSession | null)
     | undefined;
 }>): Promise<void> {
   const shared = localAccessRoot !== undefined;
@@ -1688,7 +2112,7 @@ export async function handleExecution({
   const operation: CoordinatorExecutionOperation = write?.operation ?? "state";
   let repositoryId: string | null;
   let args: Readonly<Record<string, unknown>>;
-  const fail = (status: number, reason: string) => {
+  const fail = (status: number, reason: ExecutionHttpFailureCode) => {
     if (requestSignal.aborted || response.destroyed) return;
     sendResponseBody(
       response,
@@ -1710,11 +2134,8 @@ export async function handleExecution({
     fail(403, "execution_access_unavailable");
     return;
   }
-  const hosted = shared ? readHostedSession?.(incoming) : undefined;
-  if (
-    shared &&
-    (!hosted || incoming.headersDistinct.authorization !== undefined)
-  ) {
+  const hosted = shared ? readGitHostLinkedSession?.(incoming) : undefined;
+  if (shared && !hosted) {
     fail(403, "execution_access_unavailable");
     return;
   }
@@ -1735,10 +2156,18 @@ export async function handleExecution({
         fail(415, "execution_input_invalid");
         return;
       }
-      const body = parseUnambiguousJsonDocument(
-        new TextDecoder("utf-8", { fatal: true }).decode(
-          await readRequestBody(incoming, MAXIMUM_EXECUTION_REQUEST_BYTES),
-        ),
+      if (
+        localAccessRoot &&
+        hosted &&
+        readCurrentAccess(localAccessRoot, hosted.principal).status !==
+          "completed"
+      ) {
+        fail(403, "execution_access_unavailable");
+        return;
+      }
+      const body = await readJsonRequestBody(
+        incoming,
+        MAXIMUM_EXECUTION_REQUEST_BYTES,
       );
       if (
         !body ||
@@ -1757,7 +2186,7 @@ export async function handleExecution({
       const target = executionStatePath.exec(requestUrl.pathname)?.groups;
       const fields = ["projectId", "repositoryRevision"];
       if (
-        incoming.method !== "GET" ||
+        readRouteMethod(incoming.method) !== "GET" ||
         !target?.repositoryId ||
         !target.requestId ||
         [...query.keys()].some(
@@ -1775,8 +2204,12 @@ export async function handleExecution({
       const queueId = query.get("queueId");
       if (queueId !== null) args = { ...args, queueId };
     }
-  } catch {
-    fail(400, "execution_input_invalid");
+  } catch (error) {
+    if (requestSignal.aborted || response.destroyed) return;
+    if (error instanceof RequestBodyTooLarge) {
+      response.setHeader("Connection", "close");
+      fail(413, "request_body_too_large");
+    } else fail(400, "execution_input_invalid");
     return;
   }
   const outcome = await executeCoordinatorOperation(
@@ -1835,11 +2268,11 @@ async function sendAiRequestObservation(
   response: ServerResponse,
   signal: AbortSignal,
   method: string,
-  observe: () => Promise<AiRequestSnapshot | null>,
+  observe: () => Promise<ObservedAiSelection | null>,
 ): Promise<void> {
   if (signal.aborted || response.destroyed) return;
   setResponseHeaders(response);
-  if (method !== "GET") {
+  if (readRouteMethod(method) !== "GET") {
     response.statusCode = 405;
     response.setHeader("Allow", "GET");
     response.end();
@@ -1848,7 +2281,9 @@ async function sendAiRequestObservation(
   response.setHeader("Cache-Control", "no-store");
   let snapshot: AiRequestSnapshot | null;
   try {
-    snapshot = await observe();
+    const result = await observe();
+    if (signal.aborted || response.destroyed) return;
+    snapshot = result?.canPublish() ? result.snapshot : null;
   } catch {
     if (signal.aborted || response.destroyed) return;
     response.statusCode = 503;
@@ -1861,8 +2296,12 @@ async function sendAiRequestObservation(
     response.end("ai_request_rejected\n");
     return;
   }
-  response.setHeader("Content-Type", "application/json; charset=utf-8");
-  response.end(JSON.stringify(snapshot));
+  sendResponseBody(
+    response,
+    "application/json; charset=utf-8",
+    JSON.stringify(snapshot),
+    method === "HEAD",
+  );
 }
 
 /** 固定された対象・資格で現在または指定した依頼を観測する。 @trace ARCH-000015 */
@@ -1873,7 +2312,7 @@ export async function handleAiRequestObservation({
   method,
   localAccessRoot,
   localRepositoryId,
-  openHostedAiSession,
+  openGitHostLinkedAiSession,
   aiRequests,
   presentation,
 }: Readonly<{
@@ -1883,11 +2322,12 @@ export async function handleAiRequestObservation({
   method: string;
   localAccessRoot: FilesystemStoreRoot | undefined;
   localRepositoryId: string | undefined;
-  openHostedAiSession?:
+  openGitHostLinkedAiSession?:
     | ((
         repositoryId: string,
         operation: AiSessionOperation,
         signal: AbortSignal,
+        observedRequestId?: string,
       ) => Promise<AiSession | null>)
     | undefined;
   aiRequests: AiRequests | undefined;
@@ -1900,11 +2340,12 @@ export async function handleAiRequestObservation({
       current ?? aiRequestDetailPath.exec(requestUrl.pathname)?.groups;
     const repositoryId = target?.repositoryId;
     if (!repositoryId) return null;
-    const session = openHostedAiSession
-      ? await openHostedAiSession(
+    const session = openGitHostLinkedAiSession
+      ? await openGitHostLinkedAiSession(
           repositoryId,
           current ? "view" : "read",
           requestSignal,
+          target?.requestId,
         )
       : null;
     const owner = localAccessRoot
@@ -1921,12 +2362,15 @@ export async function handleAiRequestObservation({
       snapshot.requestId !== requestId ||
       (!current &&
         (snapshot.mode === null ||
-          snapshot.reason === "coordinator_task_not_available")) ||
-      (current && readCurrentId() !== requestId) ||
-      (localAccessRoot && !session?.authorize())
+          snapshot.reason === "coordinator_task_not_available"))
     )
       return null;
-    return snapshot;
+    return {
+      snapshot,
+      canPublish: () =>
+        (!current || readCurrentId() === requestId) &&
+        (!localAccessRoot || session?.authorize() === true),
+    };
   });
 }
 
@@ -1940,7 +2384,7 @@ export async function handleAiRequestWrite({
   actionToken,
   localAccessRoot,
   localRepositoryId,
-  openHostedAiSession,
+  openGitHostLinkedAiSession,
   aiRequests,
   presentation,
 }: Parameters<typeof handleAiRequestObservation>[0] &
@@ -1950,20 +2394,11 @@ export async function handleAiRequestWrite({
     actionToken: string;
     presentation: Pick<
       WorkbenchPresentationState,
-      "currentAiRequestId" | "aiRequestSnapshot" | "aiRequestNotice"
+      "currentAiRequestId" | "aiRequestSnapshot"
     >;
   }>): Promise<void> {
   let dispatched = false;
-  const reply = (status: number, value: unknown) => {
-    if (requestSignal.aborted || response.destroyed) return;
-    sendResponseBody(
-      response,
-      "application/json; charset=utf-8",
-      JSON.stringify(value),
-      false,
-      status,
-    );
-  };
+  const reply = createJsonReply(response, { signal: requestSignal });
   try {
     const route = aiRequestWritePaths.find(
       ({ method, pattern }) =>
@@ -1982,14 +2417,10 @@ export async function handleAiRequestWrite({
       !hasContentType(incoming, "application/json") ||
       !matchesActionToken(incoming, actionToken)
     )
-      return reply(400, { error: "ai_request_rejected" });
-    const value = parseUnambiguousJsonDocument(
-      new TextDecoder("utf-8", { fatal: true }).decode(
-        await readRequestBody(incoming, 16 * 1024),
-      ),
-    );
+      return reply(400, createApiError("ai_request_rejected"));
+    const value = await readJsonRequestBody(incoming, 16 * 1024);
     if (!value || typeof value !== "object" || Array.isArray(value))
-      return reply(400, { error: "ai_request_rejected" });
+      return reply(400, createApiError("ai_request_rejected"));
     const body = value as Record<string, unknown>;
     const { operation } = route;
     let command: Parameters<AiRequests["start"]>[0] | undefined;
@@ -2014,7 +2445,7 @@ export async function handleAiRequestWrite({
         (body.workspaceId != null && typeof body.workspaceId !== "string") ||
         (body.allowedPaths != null && typeof body.allowedPaths !== "string")
       )
-        return reply(400, { error: "ai_request_rejected" });
+        return reply(400, createApiError("ai_request_rejected"));
       command = prepareAiRequestStart(
         {
           requestId: typeof body.requestId === "string" ? body.requestId : "",
@@ -2029,20 +2460,16 @@ export async function handleAiRequestWrite({
       );
     } else if (operation === "select") {
       if (Object.keys(body).length !== 1 || typeof body.requestId !== "string")
-        return reply(400, { error: "ai_request_rejected" });
+        return reply(400, createApiError("ai_request_rejected"));
       requestId = body.requestId;
     } else if (Object.keys(body).length !== 0) {
-      return reply(400, { error: "ai_request_rejected" });
+      return reply(400, createApiError("ai_request_rejected"));
     }
-    if (
-      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
-        command?.requestId ?? requestId ?? "",
-      )
-    )
-      return reply(400, { error: "ai_request_rejected" });
+    if (!RESOURCE_ID.test(command?.requestId ?? requestId ?? ""))
+      return reply(400, createApiError("ai_request_rejected"));
     if (requestSignal.aborted || response.destroyed) return;
-    const session = openHostedAiSession
-      ? await openHostedAiSession(
+    const session = openGitHostLinkedAiSession
+      ? await openGitHostLinkedAiSession(
           repositoryId,
           command?.mode ?? (operation === "select" ? "select" : "cancel"),
           requestSignal,
@@ -2053,32 +2480,27 @@ export async function handleAiRequestWrite({
       : repositoryId === localRepositoryId
         ? aiRequests
         : undefined;
-    if (!owner) return reply(403, { error: "ai_request_rejected" });
+    if (!owner) return reply(403, createApiError("ai_request_rejected"));
     const isCurrent = () => !localAccessRoot || session?.authorize() === true;
-    const select = (
-      id: string,
-      snapshot: AiRequestSnapshot | null,
-      notice: string,
-    ) => {
+    const select = (id: string, snapshot: AiRequestSnapshot | null) => {
       if (session) session.currentId = id;
       else {
         presentation.currentAiRequestId = id;
         presentation.aiRequestSnapshot = snapshot;
-        presentation.aiRequestNotice = notice;
       }
     };
     if (command) {
       dispatched = true;
       const result = await owner.start(command, requestSignal);
       if (!isCurrent())
-        return reply(503, { error: "ai_request_outcome_unconfirmed" });
+        return reply(503, createApiError("ai_request_outcome_unconfirmed"));
       if (
         result.status === "accepted" &&
         result.requestId === command.requestId &&
         result.reason === null
       ) {
         // 切断は結果の公開だけを止め、Ownerが受理した同じ依頼の再照会を妨げない。
-        select(result.requestId, null, "AI依頼を受け付けました。");
+        select(result.requestId, null);
         return reply(201, result);
       }
       if (
@@ -2087,10 +2509,10 @@ export async function handleAiRequestWrite({
         typeof result.reason !== "string" ||
         !result.reason
       )
-        return reply(503, { error: "ai_request_outcome_unconfirmed" });
+        return reply(503, createApiError("ai_request_outcome_unconfirmed"));
       return reply(409, result);
     }
-    if (!requestId) return reply(400, { error: "ai_request_rejected" });
+    if (!requestId) return reply(400, createApiError("ai_request_rejected"));
     const previous = await owner.observe(requestId, requestSignal);
     if (
       previous.requestId !== requestId ||
@@ -2100,27 +2522,36 @@ export async function handleAiRequestWrite({
       response.destroyed ||
       !isCurrent()
     )
-      return reply(403, { error: "ai_request_rejected" });
+      return reply(403, createApiError("ai_request_rejected"));
     if (operation === "select") {
-      select(requestId, previous, "保存済み依頼を確認しました。");
+      select(requestId, previous);
       return reply(200, previous);
     }
     if (session && previous.mode === "workspace_edit" && !session.canWrite)
-      return reply(403, { error: "ai_request_rejected" });
+      return reply(403, createApiError("ai_request_rejected"));
     dispatched = true;
     const cancelled = await owner.cancel(requestId, requestSignal);
     if (cancelled.requestId !== requestId || !isCurrent())
-      return reply(503, { error: "ai_request_outcome_unconfirmed" });
+      return reply(503, createApiError("ai_request_outcome_unconfirmed"));
     const currentId = session
       ? session.currentId
       : presentation.currentAiRequestId;
     if (currentId === null || currentId === requestId)
-      select(requestId, cancelled, "取消結果を取得しました。");
+      select(requestId, cancelled);
     return reply(200, cancelled);
-  } catch {
+  } catch (error) {
+    if (
+      !requestSignal.aborted &&
+      !response.destroyed &&
+      error instanceof RequestBodyTooLarge
+    )
+      return reply(
+        requestFailureStatus(error, response),
+        createApiError("request_body_too_large"),
+      );
     return dispatched
-      ? reply(503, { error: "ai_request_outcome_unconfirmed" })
-      : reply(400, { error: "ai_request_rejected" });
+      ? reply(503, createApiError("ai_request_outcome_unconfirmed"))
+      : reply(400, createApiError("ai_request_rejected"));
   }
 }
 /**
@@ -2148,7 +2579,7 @@ export async function handleAiSelection({
   capability,
   localAccessRoot,
   localRepositoryId,
-  readHostedSession,
+  readGitHostLinkedSession,
   readManagementSession,
 }: Readonly<{
   incoming: IncomingMessage;
@@ -2160,12 +2591,10 @@ export async function handleAiSelection({
   capability: Repository;
   localAccessRoot: FilesystemStoreRoot | undefined;
   localRepositoryId: string | undefined;
-  readHostedSession:
-    | ReturnType<typeof createClientSessionHandler>["readHostedAccessSession"]
+  readGitHostLinkedSession:
+    | ClientSessionAccess["readGitHostLinkedAccessSession"]
     | undefined;
-  readManagementSession:
-    | ReturnType<typeof createClientSessionHandler>["readManagement"]
-    | undefined;
+  readManagementSession: ClientSessionAccess["readManagement"] | undefined;
 }>): Promise<void> {
   let dispatched = false;
   try {
@@ -2174,12 +2603,11 @@ export async function handleAiSelection({
       ?.repositoryId;
     if (!repositoryId || requestUrl.search !== "")
       throw new Error("ai_selection_input_invalid");
-    const session = readHostedSession?.(incoming) ?? null;
+    const session = readGitHostLinkedSession?.(incoming) ?? null;
     const management = write ? readManagementSession?.(incoming) : undefined;
     if (
       localAccessRoot !== undefined &&
-      (incoming.headersDistinct.authorization !== undefined ||
-        !session ||
+      (!session ||
         (write &&
           (!management ||
             management.principal.userId !== session.principal.userId ||
@@ -2199,10 +2627,9 @@ export async function handleAiSelection({
         !matchesActionToken(incoming, actionToken)
       )
         throw new Error("ai_selection_input_invalid");
-      const json = parseUnambiguousJsonDocument(
-        new TextDecoder("utf-8", { fatal: true }).decode(
-          await readRequestBody(incoming, 3 * 1_024 * 1_024 + 16 * 1_024),
-        ),
+      const json = await readJsonRequestBody(
+        incoming,
+        3 * 1_024 * 1_024 + 16 * 1_024,
       );
       if (
         !json ||
@@ -2231,7 +2658,7 @@ export async function handleAiSelection({
       repositoryId,
       localRepositoryId,
       requestSignal,
-      readHostedSession && {
+      readGitHostLinkedSession && {
         session,
         confirmManagement: management
           ? () =>
@@ -2272,9 +2699,20 @@ export async function handleAiSelection({
       "application/json; charset=utf-8",
       body,
       incoming.method === "HEAD",
+      result.status === "conflict" ? 409 : 200,
     );
-  } catch {
+  } catch (error) {
     if (requestSignal.aborted || response.destroyed) return;
+    if (error instanceof RequestBodyTooLarge) {
+      response.setHeader("Connection", "close");
+      return sendResponseBody(
+        response,
+        "application/json; charset=utf-8",
+        JSON.stringify(createApiError("request_body_too_large")),
+        false,
+        413,
+      );
+    }
     setResponseHeaders(response);
     response.statusCode = dispatched
       ? 503
@@ -2291,13 +2729,13 @@ export async function handleAiSelection({
 
 /**
  * 単体表示・固定配信を元のGET／HEAD契約で処理する。
- * @responsibility Owner観測・表示構築・通知消費・応答の順序と現在状態の参照を維持する。
+ * @responsibility Owner観測・表示構築・応答の順序と現在状態の参照を維持する。
  * @trace ARCH-000012
  * @input 当該要求の応答・Signal・URL、既存の表示値・Owner・設定と読取り済みAsset。
  * @returns 表示処理と当該Ownerの終了を待つPromise。
  * @precondition 共通Origin・Artifact Query・接続形態ごとの前段を元の順序で実行済みである。
- * @postcondition GETのAPI表示だけ通知を消費し、HEAD・HTML・途中拒否では消費しない。
- * @effect 既存Reader・AI Ownerの観測とHTTP応答。通知消費は従来の単体GET条件だけで行う。
+ * @postcondition 操作の成否は操作の応答で伝え、表示要求では消費しない。
+ * @effect 既存Reader・AI Ownerの観測とHTTP応答。
  * @failure 元の拒否・観測不能・例外を維持し、資格や自由なError本文を公開しない。
  * @invariant 観測不能を正常空へ補完せず、結果不明から再送やrollbackを推定しない。
  * @boundary Workbench HTTPから既存の表示・観測Ownerへの接続。
@@ -2310,15 +2748,13 @@ export async function handleRepositoryView({
   method,
   requestUrl,
   requestPath,
-  artifactSelection,
   repositoryRoot,
   capability,
   topicMeeting,
   portfolio,
   connectionState,
-  presentation,
+  presentation: currentPresentation,
   aiRequests,
-  activityReader,
   actionToken,
   configuration,
   assets,
@@ -2331,7 +2767,6 @@ export async function handleRepositoryView({
   method: string;
   requestUrl: URL;
   requestPath: string;
-  artifactSelection: ReturnType<typeof readArtifactSelection>;
   repositoryRoot: string;
   capability: Repository;
   topicMeeting: TopicMeetingAccess | undefined;
@@ -2339,7 +2774,6 @@ export async function handleRepositoryView({
   connectionState: WorkbenchConnectionState;
   presentation: WorkbenchPresentationState;
   aiRequests: AiRequests | undefined;
-  activityReader: WorkbenchActivityReader | undefined;
   actionToken: string;
   configuration: Readonly<{ localAccessRoot?: FilesystemStoreRoot }>;
   assets: WorkbenchAssets;
@@ -2348,6 +2782,8 @@ export async function handleRepositoryView({
   healthPath: string;
 }>): Promise<void> {
   const staticAsset = readStaticAsset(requestPath, assets);
+  const presentation =
+    method === "HEAD" ? { ...currentPresentation } : currentPresentation;
   let body: string | Buffer;
   let contentType: string;
   if (presentation.projectSurface === undefined || topicMeeting === undefined)
@@ -2355,8 +2791,10 @@ export async function handleRepositoryView({
   if (
     requestPath === "/" ||
     requestPath === "/index.html" ||
-    requestPath === "/api/workbench/view"
+    requestPath === "/api/workbench/overview"
   ) {
+    // 更新印はサーバー内の投影キャッシュを更新するためのもの。利用者向け通知ではない。
+    // 並行GETは同じ更新を観測でき、後から立った別の印は先行GETで消さない。
     const pendingRecordRefresh = presentation.pendingRecordRefresh;
     let currentProjectSurface = presentation.projectSurface;
     if (pendingRecordRefresh !== undefined) {
@@ -2389,46 +2827,13 @@ export async function handleRepositoryView({
         });
       }
     }
-    if (activityReader !== undefined) {
-      try {
-        const activityCursor = requestUrl.searchParams.get("activityCursor");
-        const page = {
-          ...(activityCursor === null ? {} : { cursor: activityCursor }),
-          limit: 20,
-        };
-        presentation.executionActivityObservation =
-          await activityReader.observe(
-            currentProjectSurface.context.projectId,
-            page,
-          );
-      } catch {
-        presentation.executionActivityObservation = Object.freeze({
-          state: "unknown",
-          reason: "observation_failed",
-          projection: null,
-          eventState: "unknown",
-          eventReason: "observation_failed",
-          events: Object.freeze([]),
-          eventContinuation: null,
-        });
-      }
-    }
     const selectedRepositoryId = undefined;
     const { topicPage, topicQuery, meetingPage, meetingQuery, reader } =
       readRecordPages(topicMeeting, requestUrl.searchParams);
-    const worktreeView = Object.freeze(
-      readWorktreeObservation(
-        capability,
-        currentProjectSurface.repository,
-        requestUrl.searchParams.get("treeDirectory") ?? "",
-        requestUrl.searchParams.get("treeCursor") ?? undefined,
-        requestUrl.searchParams.get("diffPath"),
-      ),
-    );
     presentation.aiSelection = readAiSelectionView(repositoryRoot);
     const baseModel = readMainViewData(
       currentProjectSurface,
-      portfolio,
+      portfolio !== undefined,
       actionToken,
       connectionState,
       reader,
@@ -2442,17 +2847,8 @@ export async function handleRepositoryView({
         getModelCatalog().catalog,
       ).snapshot ?? undefined,
       true,
-      presentation.aiSelectionManagementResult,
       aiRequests,
       presentation.aiRequestSnapshot,
-      presentation.aiRequestNotice,
-      presentation.executionActivityObservation,
-      Object.freeze({
-        query: requestUrl.searchParams.get("portfolioQuery") ?? "",
-        state: requestUrl.searchParams.get("portfolioState") ?? "",
-        cursor: requestUrl.searchParams.get("portfolioCursor") ?? "",
-      }),
-      worktreeView,
       selectedRepositoryId,
     );
     let network = null;
@@ -2471,94 +2867,12 @@ export async function handleRepositoryView({
           network?.status === "ready" ? network.additionalHosts : null,
       },
     };
-    let responseModel: ViewResponse = clientModel;
-    const clientRoute = requestUrl.searchParams.get("route") ?? "/";
-    if (clientRoute === "/project") {
-      const projectId = requestUrl.searchParams.get("id") ?? "";
-      const projectDetail = readProjectDetailResponse(portfolio, projectId);
-      if (projectDetail === null) {
-        setResponseHeaders(response);
-        response.statusCode = 404;
-        response.end(method === "HEAD" ? undefined : "not_found\n");
-        return;
-      }
-      responseModel = Object.freeze(projectDetail);
-    } else if (artifactSelection !== null) {
-      if (
-        requestUrl.searchParams.has("repositoryId") &&
-        requestUrl.searchParams.get("repositoryId") !==
-          presentation.projectSurface.context.repositoryId
-      ) {
-        setResponseHeaders(response);
-        response.statusCode = 403;
-        response.end("artifact_access_unavailable\n");
-        return;
-      }
-      const markdown = await readArtifactMarkdown(
-        repositoryRoot,
-        presentation.projectSurface,
-        artifactSelection,
-      );
-      if (markdown === null) {
-        setResponseHeaders(response);
-        response.statusCode = 404;
-        response.end("artifact_unavailable\n");
-        return;
-      }
-      if (requestSignal.aborted || response.destroyed) return;
-      responseModel = createArtifactViewResponse(
-        artifactSelection,
-        markdown,
-        presentation.projectSurface.context.repositoryId,
-        null,
-      );
-    } else if (clientRoute === "/topic" || clientRoute === "/meeting") {
-      const kind = clientRoute === "/topic" ? "topic" : "meeting";
-      const id = requestUrl.searchParams.get("id") ?? "";
-      const expectedPattern =
-        kind === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u;
-      const repositoryId = requestUrl.searchParams.get("repositoryId");
-      let recordView: RecordDocumentView | null = null;
-      if (
-        expectedPattern.test(id) &&
-        (repositoryId === null ||
-          repositoryId === presentation.projectSurface.context.repositoryId)
-      ) {
-        const document = topicMeeting[kind].getDocument(id);
-        if (document !== null)
-          recordView = Object.freeze({
-            kind,
-            id,
-            document,
-            relations: Object.freeze([...topicMeeting[kind].relations(id)]),
-          });
-      }
-      if (recordView === null) {
-        setResponseHeaders(response);
-        response.statusCode = 404;
-        response.end(method === "HEAD" ? undefined : "not_found\n");
-        return;
-      }
-      responseModel = Object.freeze(
-        createRecordDetailResponse(
-          actionToken,
-          repositoryId,
-          presentation.projectSurface.context.repositoryId,
-          true,
-          recordView,
-        ),
-      );
-    }
     body =
-      requestPath === "/api/workbench/view"
-        ? JSON.stringify(responseModel)
+      requestPath === "/api/workbench/overview"
+        ? JSON.stringify(clientModel)
         : assets.document;
-    if (method === "GET" && requestPath === "/api/workbench/view") {
-      presentation.aiSelectionManagementResult = null;
-      presentation.aiRequestNotice = null;
-    }
     contentType =
-      requestPath === "/api/workbench/view"
+      requestPath === "/api/workbench/overview"
         ? "application/json; charset=utf-8"
         : "text/html; charset=utf-8";
   } else if (
@@ -2617,12 +2931,11 @@ export async function handleSharedView({
   method,
   requestUrl,
   requestPath,
-  artifactSelection,
   shared,
   loginProviders,
   actionToken,
   configuration,
-  observeHostedAiSelection,
+  observeGitHostLinkedAiSelection,
   assets,
   contract: CONTRACT,
   host: HOST,
@@ -2633,11 +2946,10 @@ export async function handleSharedView({
   method: string;
   requestUrl: URL;
   requestPath: string;
-  artifactSelection: ReturnType<typeof readArtifactSelection>;
   shared?:
     | Readonly<{
         root: FilesystemStoreRoot;
-        session: HostedAccessSession;
+        session: GitHostLinkedAccessSession;
         hasManagementSession: () => boolean;
       }>
     | undefined;
@@ -2646,12 +2958,12 @@ export async function handleSharedView({
   configuration: Readonly<{
     sharedAiRequestsFactory?: unknown;
   }>;
-  observeHostedAiSelection?:
+  observeGitHostLinkedAiSelection?:
     | ((
-        session: HostedAccessSession,
+        session: GitHostLinkedAccessSession,
         target: AuthorizedRepository,
         signal: AbortSignal,
-      ) => Promise<AiRequestSnapshot | null>)
+      ) => Promise<ObservedAiSelection | null>)
     | undefined;
   assets: WorkbenchAssets;
   contract: string;
@@ -2669,10 +2981,10 @@ export async function handleSharedView({
     requestPath === "/meeting" ||
     requestPath === "/change" ||
     requestPath === "/owner-artifact" ||
-    requestPath === "/api/workbench/view"
+    requestPath === "/api/workbench/overview"
   ) {
     const selectedId =
-      requestPath === "/api/workbench/view"
+      requestPath === "/api/workbench/overview"
         ? requestUrl.searchParams.get("repositoryId") || null
         : null;
     const unavailable = () => {
@@ -2682,70 +2994,63 @@ export async function handleSharedView({
         method === "HEAD" ? undefined : "local_repository_access_unavailable\n",
       );
     };
-    if (selectedId && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(selectedId)) {
+    if (selectedId && !RESOURCE_ID.test(selectedId)) {
       unavailable();
       return true;
     }
-    let currentPortfolio: PortfolioProjection | null = null;
-    let hosted: Awaited<ReturnType<typeof resolveHostedRepositories>> = null;
+    let hosted: GitHostLinkedRepositoryAccess | null = null;
     let repositories: readonly AuthorizedRepository[] = [];
-    let notice: string | null = null;
-    const requireCurrentHosted = () => {
+    const requireCurrentGitHostLinked = (reuseOriginConfiguration = false) => {
       if (!hosted) return;
       for (const repository of hosted.repositories) {
         hosted.assertDirectory(repository);
-        const manifest = readRepositoryManifest(repository.root);
-        if (
-          manifest.status !== "ready" ||
-          JSON.stringify(manifest.manifest) !==
-            JSON.stringify(repository.manifest)
-        )
+        if (observeAuthorizedManifest(repository) !== "current")
           throw new Error("workbench_selected_content_unavailable");
       }
-      hosted.assertCurrent(hosted.repositories);
+      hosted.assertCurrent(hosted.repositories, reuseOriginConfiguration);
     };
-    if (shared) {
+    if (requestPath === "/api/workbench/overview" && selectedId === null) {
+      const authenticated = shared
+        ? readBrowserAuthentication(shared.root, shared.session)
+        : false;
+      if (authenticated === null) {
+        createJsonReply(response, {
+          signal: requestSignal,
+          head: method === "HEAD",
+        })(503, createApiError("workbench_context_unavailable"));
+        return true;
+      }
+      localBody = JSON.stringify(
+        createAccessViewResponse(actionToken, authenticated, loginProviders),
+      );
+    }
+    if (shared && selectedId !== null) {
       try {
-        const access = await resolveHostedRepositories(
+        const access = await resolveGitHostLinkedRepositories(
           shared.root,
           shared.session,
           requestSignal,
-          selectedId ?? undefined,
+          selectedId,
+          "read",
+          { captureOriginConfiguration: true },
         );
         hosted = access;
-        if (selectedId && !access)
-          throw new Error("workbench_selected_content_unavailable");
-        repositories = access?.repositories ?? [];
-        // 内容の認可がない接続では空の投影も返さない。本人のログインと管理権限は別のAPIで確認する。
-        if (access !== null)
-          currentPortfolio = readAuthorizedPortfolio(
-            repositories,
-            requestSignal,
-            (repository) => access.assertDirectory(repository),
-          );
+        if (!access) throw new Error("workbench_selected_content_unavailable");
+        repositories = access.repositories;
       } catch {
-        if (selectedId) {
-          if (!requestSignal.aborted && !response.destroyed) unavailable();
-          return true;
-        }
-        notice = "現在の内容を確認できません。";
+        if (!requestSignal.aborted && !response.destroyed) unavailable();
+        return true;
       }
     }
-    let model: ViewResponse = createAccessViewResponse(
-      actionToken,
-      notice,
-      currentPortfolio,
-      hosted !== null,
-      loginProviders,
-    );
+    let selectedAi: ObservedAiSelection | null = null;
+    let model: MainViewResponse | undefined;
     if (
-      requestPath === "/api/workbench/view" &&
+      requestPath === "/api/workbench/overview" &&
       selectedId !== null &&
-      selectedId !== "" &&
-      !(artifactSelection !== null && !shared)
+      selectedId !== ""
     ) {
       try {
-        if (!shared || !hosted || currentPortfolio === null)
+        if (!shared || !hosted)
           throw new Error("workbench_selected_content_unavailable");
         const selected =
           repositories.find((entry) => entry.repositoryId === selectedId) ??
@@ -2758,7 +3063,7 @@ export async function handleSharedView({
         );
         if (!selected || !records)
           throw new Error("workbench_selected_content_unavailable");
-        requireCurrentHosted();
+        requireCurrentGitHostLinked(true);
         const write = hosted.canWrite(selectedId);
         const root = selected.root;
         const verification = getRepository(root);
@@ -2767,9 +3072,18 @@ export async function handleSharedView({
         const assertReadable = () => {
           if (requestSignal.aborted || response.destroyed)
             throw new Error("workbench_selected_content_unavailable");
-          requireCurrentHosted();
+          hosted.assertDirectory(selected);
         };
-        const projectData = await readProjectViewData(root, assertReadable);
+        const assertCurrentReadAccess = () => {
+          if (requestSignal.aborted || response.destroyed)
+            throw new Error("workbench_selected_content_unavailable");
+          requireCurrentGitHostLinked(true);
+        };
+        const projectData = await readProjectViewData(
+          root,
+          assertReadable,
+          assertCurrentReadAccess,
+        );
         if (requestSignal.aborted || response.destroyed) return true;
         assertReadable();
         if (
@@ -2777,63 +3091,21 @@ export async function handleSharedView({
           projectData.context.projectId !== selected.manifest.projectId
         )
           throw new Error("workbench_selected_content_unavailable");
+        // 文書群の完了待ちと、記録ページでの新しい読取りは別の境界。
+        assertCurrentReadAccess();
         const { topicPage, topicQuery, meetingPage, meetingQuery, reader } =
           readRecordPages(records, requestUrl.searchParams);
-        const worktree = readWorktreeObservation(
-          verification.capability,
-          projectData.repository,
-          requestUrl.searchParams.get("treeDirectory") ?? "",
-          requestUrl.searchParams.get("treeCursor") ?? undefined,
-          requestUrl.searchParams.get("diffPath"),
-        );
-        let activity: WorkbenchExecutionActivityObservation;
         await setTimeout(0);
         if (requestSignal.aborted || response.destroyed) return true;
-        try {
-          const cursor = requestUrl.searchParams.get("activityCursor");
-          const observation = await readAuthorizedExecutionActivity(
-            {
-              projectId: selected.manifest.projectId,
-              limit: 20,
-              ...(cursor === null ? {} : { cursor }),
-            },
-            repositories.filter(
-              (entry) =>
-                entry.manifest.projectId === selected.manifest.projectId,
-            ),
-            () => {
-              try {
-                requireCurrentHosted();
-                return !response.destroyed;
-              } catch {
-                return false;
-              }
-            },
-            requestSignal,
-          );
-          if (observation.projectId !== selected.manifest.projectId)
-            throw new Error("workbench_activity_unavailable");
-          activity = projectExecutionActivityForWorkbench(observation);
-        } catch {
-          activity = {
-            state: "unknown",
-            reason: "observation_failed",
-            projection: null,
-            eventState: "unknown",
-            eventReason: "observation_failed",
-            events: [],
-            eventContinuation: null,
-          };
-        }
-        await setTimeout(0);
-        if (requestSignal.aborted || response.destroyed) return true;
-        requireCurrentHosted();
-        const selectedAiSnapshot =
-          (await observeHostedAiSelection?.(
+        assertCurrentReadAccess();
+        selectedAi =
+          (await observeGitHostLinkedAiSelection?.(
             shared.session,
             selected,
             requestSignal,
           )) ?? null;
+        if (requestSignal.aborted || response.destroyed) return true;
+        assertCurrentReadAccess();
         const sharedSelection = canManageAiSelection(
           shared.root,
           shared.session,
@@ -2844,7 +3116,7 @@ export async function handleSharedView({
           sharedSelection !== null && write && shared.hasManagementSession();
         model = readMainViewData(
           projectData,
-          currentPortfolio,
+          true,
           actionToken,
           "cros_available",
           reader,
@@ -2855,17 +3127,8 @@ export async function handleSharedView({
           null,
           undefined,
           false,
-          null,
           undefined,
           null,
-          null,
-          activity,
-          {
-            query: requestUrl.searchParams.get("portfolioQuery") ?? "",
-            state: requestUrl.searchParams.get("portfolioState") ?? "",
-            cursor: requestUrl.searchParams.get("portfolioCursor") ?? "",
-          },
-          worktree,
           selectedId,
           write,
           write ? ["prepare", "unprepare"] : [],
@@ -2885,55 +3148,10 @@ export async function handleSharedView({
           aiRequest: {
             additionalHosts: null,
             configured: configuration.sharedAiRequestsFactory !== undefined,
-            snapshot: selectedAiSnapshot,
+            snapshot: null,
             notice: null,
           },
         };
-        const route = requestUrl.searchParams.get("route") ?? "/";
-        if (route === "/project") {
-          const projectDetail = readProjectDetailResponse(
-            currentPortfolio,
-            requestUrl.searchParams.get("id"),
-          );
-          if (projectDetail === null)
-            throw new Error("workbench_selected_content_unavailable");
-          model = projectDetail;
-        } else if (route === "/topic" || route === "/meeting") {
-          const kind = route === "/topic" ? "topic" : "meeting";
-          const id = requestUrl.searchParams.get("id") ?? "";
-          const document = reader.getDocument(kind, id);
-          if (!document)
-            throw new Error("workbench_selected_content_unavailable");
-          model = createRecordDetailResponse(
-            actionToken,
-            selectedId,
-            selectedId,
-            write,
-            {
-              kind,
-              id,
-              document,
-              relations: reader.relations(kind, id),
-            },
-          );
-        } else if (artifactSelection !== null) {
-          const markdown = await readArtifactMarkdown(
-            root,
-            projectData,
-            artifactSelection,
-            assertReadable,
-          );
-          if (markdown === null)
-            throw new Error("workbench_selected_content_unavailable");
-          model = createArtifactViewResponse(
-            artifactSelection,
-            markdown,
-            selected.manifest.repositoryId,
-            selectedId,
-          );
-        } else if (route !== "/" && route !== "/index.html") {
-          throw new Error("workbench_selected_content_unavailable");
-        }
         if (resolveVerifiedRepositoryRoot(verification.capability) !== root)
           throw new Error("workbench_selected_content_unavailable");
       } catch {
@@ -2944,20 +3162,24 @@ export async function handleSharedView({
         return true;
       }
     }
-    localBody =
-      requestPath === "/api/workbench/view"
-        ? JSON.stringify(model)
-        : assets.document;
     if (requestSignal.aborted || response.destroyed) return true;
-    if (requestPath === "/api/workbench/view") {
+    if (requestPath === "/api/workbench/overview") {
       try {
-        requireCurrentHosted();
+        requireCurrentGitHostLinked();
+        if (selectedAi?.canPublish() && model)
+          model = {
+            ...model,
+            aiRequest: { ...model.aiRequest, snapshot: selectedAi.snapshot },
+          };
       } catch {
         if (!requestSignal.aborted && !response.destroyed) unavailable();
         return true;
       }
+      if (model) localBody = JSON.stringify(model);
+    } else {
+      localBody = assets.document;
     }
-    if (requestPath === "/api/workbench/view")
+    if (requestPath === "/api/workbench/overview")
       localContentType = "application/json; charset=utf-8";
   } else if (staticAsset !== null) {
     localBody = staticAsset.body;
@@ -2967,7 +3189,7 @@ export async function handleSharedView({
       contract: CONTRACT,
       status: "ready",
       host: HOST,
-      mode: "local-cros",
+      mode: "shared",
       readOnly: false,
     });
     localContentType = "application/json; charset=utf-8";
@@ -3091,7 +3313,7 @@ export async function handleRepositoryAction({
   origin,
   actionToken,
   localAccessRoot,
-  readHostedSession,
+  readGitHostLinkedSession,
   localRepositoryId,
   repositoryRoot,
   capability,
@@ -3104,8 +3326,8 @@ export async function handleRepositoryAction({
   origin: string | null;
   actionToken: string;
   localAccessRoot: FilesystemStoreRoot | undefined;
-  readHostedSession:
-    | ((request: IncomingMessage) => HostedAccessSession | null)
+  readGitHostLinkedSession:
+    | ((request: IncomingMessage) => GitHostLinkedAccessSession | null)
     | undefined;
   localRepositoryId: string | undefined;
   repositoryRoot: string;
@@ -3126,17 +3348,13 @@ export async function handleRepositoryAction({
     input = readRepositoryWrite(
       incoming.method ?? "",
       requestUrl.pathname,
-      parseUnambiguousJsonDocument(
-        new TextDecoder("utf-8", { fatal: true }).decode(
-          await readRequestBody(incoming, 16 * 1024),
-        ),
-      ),
+      await readJsonRequestBody(incoming, 16 * 1024),
     );
     if (requestSignal.aborted || response.destroyed) return;
-  } catch {
+  } catch (error) {
     if (!requestSignal.aborted && !response.destroyed) {
       setResponseHeaders(response);
-      response.statusCode = 400;
+      response.statusCode = requestFailureStatus(error, response);
       response.end("repository_action_rejected\n");
     }
     return;
@@ -3144,7 +3362,7 @@ export async function handleRepositoryAction({
   if (localAccessRoot !== undefined) {
     let dispatched = false;
     try {
-      const session = readHostedSession?.(incoming);
+      const session = readGitHostLinkedSession?.(incoming);
       // 共有のインデックス変更はCookieで確認した本人の現在書込み権限に限る。
       if (
         !session ||
@@ -3152,7 +3370,7 @@ export async function handleRepositoryAction({
           input.request.operation !== "unprepare")
       )
         throw new Error("workbench_repository_access_unavailable");
-      const access = await resolveHostedDevelopmentAccess(
+      const access = await resolveGitHostLinkedDevelopmentAccess(
         localAccessRoot,
         session,
         input.repositoryId,
@@ -3249,7 +3467,7 @@ export async function handleRepositoryAction({
  */
 function readMainViewData(
   projectData: ProjectViewData,
-  portfolio: PortfolioProjection | undefined,
+  portfolioAvailable: boolean,
   actionToken: string,
   connectionState: WorkbenchConnectionState,
   topicMeeting: RecordDocumentReader,
@@ -3260,17 +3478,8 @@ function readMainViewData(
   aiSelection: AiSelectionView | null,
   aiSelectionManagementSnapshot: AiSelectionSnapshot | undefined,
   aiSelectionManagementAllowed: boolean,
-  aiSelectionManagementResult: AiSelectionSaveResult | null,
   aiRequests: AiRequests | undefined,
   aiRequestSnapshot: AiRequestSnapshot | null,
-  aiRequestNotice: string | null,
-  executionActivity: WorkbenchExecutionActivityObservation | undefined,
-  portfolioQuery: Readonly<{ query: string; state: string; cursor: string }>,
-  worktree: Readonly<{
-    state: "available" | "unknown";
-    tree: TreePage | null;
-    diff: FileDiff | null;
-  }>,
   selectedRepositoryId?: string,
   recordActionsConfigured = connectionState === "repository",
   repositoryActions: MainViewResponse["repositoryActions"] = connectionState ===
@@ -3278,17 +3487,12 @@ function readMainViewData(
     ? repositoryWriteRoutes.map(({ operation }) => operation)
     : [],
 ): MainViewResponse {
-  const portfolioPage = createPortfolioPage(portfolio, portfolioQuery);
   return Object.freeze({
     contract: "crdd/workbench/view/v1",
     view: "main",
     actionToken,
     projectData,
-    portfolio: portfolioPage.portfolio,
-    portfolioPage: Object.freeze({
-      nextCursor: portfolioPage.nextCursor,
-      cursorInvalid: portfolioPage.cursorInvalid,
-    }),
+    portfolioAvailable,
     connection: Object.freeze({
       state: connectionState,
     }),
@@ -3304,19 +3508,17 @@ function readMainViewData(
     selectedRepositoryId: selectedRepositoryId ?? null,
     recordActionsConfigured,
     repositoryActions,
-    worktree,
     aiSelection,
     aiSelectionManagement: Object.freeze({
       snapshot: aiSelectionManagementSnapshot ?? null,
       allowed: aiSelectionManagementAllowed,
-      result: aiSelectionManagementResult,
+      result: null,
     }),
     aiRequest: Object.freeze({
       configured: aiRequests !== undefined,
       additionalHosts: null,
       snapshot: aiRequestSnapshot,
-      notice: aiRequestNotice,
+      notice: null,
     }),
-    executionActivity: executionActivity ?? null,
   });
 }

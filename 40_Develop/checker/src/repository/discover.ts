@@ -386,6 +386,7 @@ export function observeProjectFiles(
       .sort();
     return {
       files,
+      trackedFilePaths: repositoryEntries.trackedFilePaths,
       source: "git",
       git_failure: null,
       gitlink_detection: isStagedOutputValid
@@ -482,6 +483,7 @@ export function observeProjectFiles(
       unavailableDirectories,
       fallbackGitlinkPaths,
     ),
+    trackedFilePaths: null,
     source: "walk-fallback",
     git_failure: gitFailure,
     gitlink_detection: "unavailable",

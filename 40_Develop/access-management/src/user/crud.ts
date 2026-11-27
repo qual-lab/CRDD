@@ -7,12 +7,13 @@
 
 import crypto from "node:crypto";
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
+import { projectManagementOperationResult } from "../authorization/management.ts";
 import {
+  canRenewUserInvitation,
   evaluateManagementPermission,
-  projectManagementOperationResult,
-} from "../authorization/management.ts";
+} from "../permission/validation.ts";
 import {
-  acceptsAccessPrincipal,
+  isUnexpiredAccountPrincipal,
   resolveAccessPrincipal,
 } from "../authorization/principal.ts";
 import type { AccountAccessPrincipal } from "../authorization/types.ts";
@@ -23,9 +24,9 @@ import {
   isInvitationDigest,
   isInvitationEmail,
   parseAccessManagementState,
+  UUID_V4,
 } from "../storage/parse.ts";
 import {
-  ATTEMPT_UUID,
   invitationChange,
   ordinaryChange,
   publishState,
@@ -68,12 +69,12 @@ function isUserName(value: unknown): value is string {
 
 /**
  * 同じ現在状態で管理認可と対象を確認し変更候補を作る。
- * @responsibility 変更前認可を使い、意図したUser／Role fieldだけを変える。
+ * @responsibility 変更前認可を使い、利用者登録・表示名変更・招待更新の候補を作る。
  * @trace ARCH-000013
- * @input 確認済みアカウント主体、完全検査済み現在状態、対象二操作入力、期待改訂、受付UUID。
+ * @input 確認済みアカウント主体、完全検査済み現在状態、利用者操作入力、期待改訂、受付UUID。
  * @returns 所有済み候補または非開示拒否のnull。
  * @precondition 保存Ownerが同じLock内で読み取ったSnapshotだけを渡す。
- * @postcondition 入力状態・資格・初回・未解決交換・Repository登録・Exposureを変更しない。
+ * @postcondition 入力状態は変更せず、候補は対象の利用者操作・改訂・操作IDだけを反映する。
  * @effect N/A: 認証計算とメモリ候補だけ。乱数・保存なし。
  * @failure 未認証・固定分担拒否・途中初回・対象差・不正入力はnull。
  * @invariant administratorの表示名変更はadministratorだけに許可する。
@@ -81,7 +82,7 @@ function isUserName(value: unknown): value is string {
  * @security 返却Snapshotは保存Owner限定。古い認証DTOをAuthorityにしない。
  * @concurrency 同期Lock区間内で現在認可を再評価する。
  */
-export function prepareUserChange(
+function prepareUserChange(
   principal: AccountAccessPrincipal,
   current: AccessManagementState,
   change: Extract<
@@ -134,7 +135,10 @@ export function prepareUserChange(
     userId = target.userId;
 
     if (change.operation === "renewInvitation") {
-      if (actor.role !== "administrator" || target.accountLinks) return null;
+      if (
+        !canRenewUserInvitation(actor.role, target.accountLinks !== undefined)
+      )
+        return null;
       target.invitation = { ...change.invitation };
       return { next, registersUser: false, userId };
     }
@@ -153,21 +157,21 @@ export function prepareUserChange(
 }
 
 /**
- * 対象二操作の現在認可・変更・保存を直列化する。
+ * 利用者操作の現在認可・変更・保存を直列化する。
  * @responsibility 非開示拒否と今回出版事実を既存保存部品へ接続する。
  * @trace ARCH-000013
- * @input 検証済みRoot、確認済みアカウント主体、期待改訂、受付UUID、対象二操作入力。
+ * @input 検証済みRoot、確認済みアカウント主体、期待改訂、受付UUID、利用者操作入力。
  * @returns 非秘密の管理結果。
  * @precondition 用途限定Rootを使う内部Consumerだけが呼ぶ。入力は本関数も検査する。
  * @postcondition 今回の出版・読戻し・材料とLock清掃確認時だけcompleted。
  * @effect 既存Lock、登録時だけUUID一回、既存pending／replace／current出版。
  * @failure 認可前は固定拒否。認可後は最初の失敗と今回出版事実を保持する。
- * @invariant 先行pendingの出版を今回操作へ帰属せず、鍵・初回・Repository登録・Exposureを変更しない。
+ * @invariant 先行pendingの出版を今回操作へ帰属せず、今回の利用者操作で既存のアカウント紐付け・初期設定・リポジトリ登録を変更しない。
  * @boundary 通常User／Role管理と私有Filesystem保存。
  * @security 未認証・未許可に状態情報を返さず、資格材料と回復参照は常に非公開。
  * @concurrency 同じ既存Lock内で現在認証・期待改訂・容量・保存を評価する。
  */
-export function executeUserRoleManagementMutation(
+function executeUserRoleManagementMutation(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
   expectedRevision: number,
@@ -178,12 +182,12 @@ export function executeUserRoleManagementMutation(
   >,
 ): UserRoleManagementResult {
   if (
-    !acceptsAccessPrincipal(principal) ||
+    !isUnexpiredAccountPrincipal(principal) ||
     (change.operation === "registerUser" && !change.invitation) ||
     !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 1 ||
     typeof operationId !== "string" ||
-    !ATTEMPT_UUID.test(operationId)
+    !UUID_V4.test(operationId)
   )
     return { status: "unavailable", reason: "management_operation_rejected" };
   let admitted = false;
@@ -249,7 +253,7 @@ export function executeUserRoleManagementMutation(
         stage = "identity";
         const userId = crypto.randomUUID();
         if (
-          !ATTEMPT_UUID.test(userId) ||
+          !UUID_V4.test(userId) ||
           userId === operationId ||
           current.state.users.some((user) => user.userId === userId)
         )

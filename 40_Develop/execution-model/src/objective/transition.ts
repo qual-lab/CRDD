@@ -311,7 +311,7 @@ export function prepareExecutionDefinitionChange(
         )
       : [...snapshot.projects, project],
   };
-  const bytes = Buffer.from(encodeStateValue(next) + "\n");
+  const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
   if (!decodeStateSnapshot(bytes, binding)) return denied("input_invalid");
   return { status: "prepared" as const, bytes, value };
 }

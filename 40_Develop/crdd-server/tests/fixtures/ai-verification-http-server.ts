@@ -8,7 +8,7 @@
 import { createServer } from "node:http";
 
 const server = createServer((request, response) => {
-  if (request.url !== "/api/workbench/view?route=%2F") {
+  if (request.url !== "/api/workbench/overview") {
     response.writeHead(404).end();
     return;
   }

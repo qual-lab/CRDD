@@ -4,6 +4,14 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.cli.entry",
+      "kind": "file",
+      "path": "bin/coordinator.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
       "symbolId": "coordinator.workspace.execution-target",
       "kind": "file",
       "path": "src/lifecycle/workspace.ts",
@@ -495,6 +503,23 @@
       ],
       "verifies": [
         "coordinator.execution.provider-observation",
+        "coordinator.state-storage.coordinator-state-runtime",
+        "coordinator.state-storage.coordinator-state-model",
+        "coordinator.source.src.security.docker.recovery.runtime.internal"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-restart-recovery-storage",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-restart-recovery-storage.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003",
+        "ERB-IT-014"
+      ],
+      "verifies": [
         "coordinator.state-storage.coordinator-state-runtime",
         "coordinator.state-storage.coordinator-state-model",
         "coordinator.source.src.security.docker.recovery.runtime.internal"
@@ -3243,6 +3268,12 @@
       "archIds": [
         "ARCH-000004"
       ]
+    },
+    {
+      "symbolId": "coordinator.objective-child-entry",
+      "kind": "file",
+      "path": "src/objective-child.ts",
+      "archIds": ["ARCH-000004"]
     },
     {
       "symbolId": "orchestrator.execution-contract",

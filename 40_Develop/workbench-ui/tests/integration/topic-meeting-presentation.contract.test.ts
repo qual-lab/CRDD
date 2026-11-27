@@ -140,27 +140,21 @@ test("内容Formはboolean一件と選択Repositoryを維持する", () => {
       kind: "meeting",
       operation,
       repositoryId: "repo-a",
-      actionToken: "fixture",
     }))
       data.set(key, value);
     const field = operation === "delete" ? "confirmed" : "closeMeeting";
     assert.deepEqual(
-      createTopicMeetingActionBody(data, "repo-a", "fixture").getAll(field),
+      createTopicMeetingActionBody(data, "repo-a").getAll(field),
       ["false"],
     );
     data.set(field, "true");
     assert.deepEqual(
-      createTopicMeetingActionBody(data, "repo-a", "fixture").getAll(field),
+      createTopicMeetingActionBody(data, "repo-a").getAll(field),
       ["true"],
     );
-    assert.throws(() =>
-      createTopicMeetingActionBody(data, "repo-b", "fixture"),
-    );
-    assert.throws(() => createTopicMeetingActionBody(data, "repo-a", "other"));
+    assert.throws(() => createTopicMeetingActionBody(data, "repo-b"));
     data.append(field, "false");
-    assert.throws(() =>
-      createTopicMeetingActionBody(data, "repo-a", "fixture"),
-    );
+    assert.throws(() => createTopicMeetingActionBody(data, "repo-a"));
   }
 });
 
@@ -278,16 +272,15 @@ test("内容結果は五fieldと操作・種別・Effectを相関検査する", 
  */
 test("fresh表示URLは選択と検索条件を落とさない", () => {
   const current = new URL(
-    "http://localhost/topic?repositoryId=repo-a&id=TOPIC-000001&topicQuery=abc#topics",
+    "http://localhost/?repositoryId=repo-a&topicQuery=abc#topics",
   );
   const next = new URL(
     createSelectedWorkbenchViewUrl(current, "repo-a"),
     current,
   );
-  assert.equal(next.pathname, "/api/workbench/view");
+  assert.equal(next.pathname, "/api/workbench/overview");
   assert.equal(next.searchParams.get("repositoryId"), "repo-a");
-  assert.equal(next.searchParams.get("route"), "/topic");
-  assert.equal(next.searchParams.get("id"), "TOPIC-000001");
+  assert.equal(next.searchParams.has("route"), false);
   assert.equal(next.searchParams.get("topicQuery"), "abc");
   assert.throws(() => createSelectedWorkbenchViewUrl(current, "repo-b"));
   current.searchParams.append("repositoryId", "repo-a");
@@ -297,6 +290,6 @@ test("fresh表示URLは選択と検索条件を落とさない", () => {
       createSelectedWorkbenchViewUrl(new URL("http://localhost/"), null),
       current,
     ).searchParams.get("route"),
-    "/",
+    null,
   );
 });

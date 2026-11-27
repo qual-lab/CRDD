@@ -10,6 +10,7 @@ import {
   consumeOAuthEnvironment,
   readSharedOAuthConfiguration,
 } from "../../src/cli/environment.ts";
+import { bindGitHost, configuredGitHosts } from "../../src/service/git-host.ts";
 
 test("共有OAuthは部分設定・重複Client・HTTP公開URLで旧方式に戻らない", () => {
   const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -84,16 +85,11 @@ test("共有OAuthは部分設定・重複Client・HTTP公開URLで旧方式に�
   assert.ok(consumeOAuthEnvironment(environment, true));
   assert.deepEqual(environment, { UNRELATED: "preserve" });
   const sharedGitHub = { ...github };
-  assert.deepEqual(consumeOAuthEnvironment(sharedGitHub, true)?.gitHosts, [
-    {
-      host: "github.com",
-      provider: "github",
-      providerData: {
-        clientId: github.CRDD_GIT_HOST_SAMPLE_CLIENT_ID,
-        clientSecret: github.CRDD_GIT_HOST_SAMPLE_CLIENT_SECRET,
-      },
-    },
-  ]);
+  const configured = consumeOAuthEnvironment(sharedGitHub, true)?.gitHosts;
+  assert.equal(configured?.[0]?.providerData, undefined);
+  const [host] = configuredGitHosts(configured).map(bindGitHost);
+  assert.equal(host?.host, "github.com");
+  assert.equal(host?.observePermission, undefined);
   assert.deepEqual(sharedGitHub, {});
   const withMonitor = {
     ...github,
@@ -108,14 +104,10 @@ test("共有OAuthは部分設定・重複Client・HTTP公開URLで旧方式に�
     ]),
     CRDD_GITHUB_APP_PRIVATE_KEY: configuration.CRDD_MCP_OAUTH_SIGNING_KEY,
   };
-  assert.deepEqual(
-    consumeOAuthEnvironment(withMonitor, true)?.gitHosts?.[0]?.providerData,
-    {
-      clientId: github.CRDD_GIT_HOST_SAMPLE_CLIENT_ID,
-      clientSecret: github.CRDD_GIT_HOST_SAMPLE_CLIENT_SECRET,
-      privateKey: configuration.CRDD_MCP_OAUTH_SIGNING_KEY,
-    },
-  );
+  const [monitored] = configuredGitHosts(
+    consumeOAuthEnvironment(withMonitor, true)?.gitHosts,
+  ).map(bindGitHost);
+  assert.equal(typeof monitored?.observePermission, "function");
   assert.deepEqual(withMonitor, {});
   const localGitHub = { ...github };
   assert.equal(consumeOAuthEnvironment(localGitHub, false), undefined);

@@ -5626,6 +5626,152 @@ type ObjectiveAccess = Readonly<{
   beforeTask?: () => Promise<boolean>;
 }>;
 
+type ObjectiveAccessSource =
+  | string
+  | ((
+      target: Readonly<{ projectId: string; workspaceId?: string }>,
+    ) => ObjectiveAccess | null | Promise<() => ObjectiveAccess | null>);
+
+type ObserveObjectiveWorkspace = (
+  directory: string,
+  projectId: string,
+  workspaceId: string,
+) => ReturnType<NonNullable<ObjectiveAccess["prepareWorkspaceTarget"]>>;
+
+let objectiveChildServing = false;
+
+/**
+ * 固定のServer子が、起動元から確定済みObjectiveを一件だけ受け取る接続。
+ * @trace ARCH-000004 ARCH-000012
+ * @boundary ユーザー入力は親が先に検査する。IPCの封筒は実行許可ではない。
+ * @security 外から渡すChannelや検査済み印を受けず、親の現在認可を実行前に確認する。
+ */
+export function serveObjectiveChild(
+  loadWorkspaceObserver: () => Promise<ObserveObjectiveWorkspace>,
+): void {
+  if (!process.send || !process.connected || objectiveChildServing)
+    throw Error("objective_child_requires_ipc");
+  objectiveChildServing = true;
+  const send = process.send.bind(process);
+  const cancellation = new AbortController();
+  let received = false;
+  let pending:
+    | {
+        kind: "grant" | "confirmed";
+        resolve: (message: Record<string, unknown> | null) => void;
+      }
+    | undefined;
+  const isFrame = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const disconnect = () => {
+    if (process.connected) process.disconnect();
+  };
+  const stop = () => {
+    cancellation.abort();
+    pending?.resolve(null);
+    pending = undefined;
+  };
+  const ask = (kind: "grant" | "confirmed", message: object) =>
+    new Promise<Record<string, unknown> | null>((resolve) => {
+      if (cancellation.signal.aborted || !process.connected)
+        return resolve(null);
+      pending = { kind, resolve };
+      send(message, (error: Error | null) => {
+        if (error) stop();
+      });
+    });
+  const run = async (request: CoordinatorObjectiveRequest) => {
+    const result = await runObjectiveAfterCapture(
+      () => request,
+      cancellation.signal,
+      async (target) => {
+        const message = await ask("grant", { kind: "authorize", ...target });
+        const grant = message?.grant;
+        if (
+          !isFrame(grant) ||
+          typeof grant.directory !== "string" ||
+          typeof grant.principalId !== "string" ||
+          cancellation.signal.aborted
+        )
+          return () => null;
+        const { directory, principalId } = grant;
+        const workspaceId = target.workspaceId;
+        const observer = workspaceId ? await loadWorkspaceObserver() : null;
+        const confirmed = await ask("confirmed", { kind: "confirm" });
+        return () =>
+          confirmed?.allowed === true && !cancellation.signal.aborted
+            ? {
+                directory,
+                principalId,
+                ...(observer &&
+                  workspaceId && {
+                    prepareWorkspaceTarget: () =>
+                      observer(directory, target.projectId, workspaceId),
+                  }),
+                revalidate: async () =>
+                  (await ask("confirmed", { kind: "confirm" }))?.allowed ===
+                  true,
+                ...(grant.confirmBeforeTask === true && {
+                  beforeTask: async () =>
+                    (
+                      await ask("confirmed", {
+                        kind: "confirm",
+                        purpose: "task",
+                      })
+                    )?.allowed === true,
+                }),
+              }
+            : null;
+      },
+      undefined,
+      undefined,
+    );
+    if (process.connected)
+      await new Promise<void>((resolve) =>
+        send({ kind: "result", value: result }, () => resolve()),
+      );
+  };
+  const onDisconnect = () => {
+    process.removeListener("message", onMessage);
+    stop();
+  };
+  const onMessage = (message: unknown) => {
+    if (isFrame(message)) {
+      if (!received && message.kind === "execute") {
+        const request = message.request;
+        // ここでは起動元の通信形式だけを確認し、計画の意味は再検査しない。
+        if (
+          Reflect.ownKeys(message).length === 2 &&
+          isFrame(request) &&
+          (request.operation === "start" || request.operation === "resume") &&
+          validIdentity(request.requestId) &&
+          validIdentity(request.projectId) &&
+          validIdentity(request.milestoneId) &&
+          isFrame(request.plan) &&
+          Array.isArray(request.taskInputs)
+        ) {
+          received = true;
+          void run(request as CoordinatorObjectiveRequest)
+            .catch(() => {
+              process.exitCode = 1;
+            })
+            .finally(disconnect);
+          return;
+        }
+      } else if (pending && message.kind === pending.kind) {
+        const waiting = pending;
+        pending = undefined;
+        waiting.resolve(message);
+        return;
+      }
+    }
+    stop();
+    if (!received) disconnect();
+  };
+  process.once("disconnect", onDisconnect);
+  process.on("message", onMessage);
+}
+
 /**
  * CLI・MCP共通の公開Objectiveを受け付ける。
  *
@@ -5645,20 +5791,30 @@ type ObjectiveAccess = Readonly<{
 export function runObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
-  directoryOrAccess:
-    | string
-    | ((
-        target: Readonly<{ projectId: string; workspaceId?: string }>,
-      ) =>
-        | ObjectiveAccess
-        | null
-        | Promise<() => ObjectiveAccess | null>) = process.cwd(),
+  directoryOrAccess: ObjectiveAccessSource = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
   workspaceTarget?: PreparedWorkspaceTarget | null,
 ) {
   // 既定のcwd評価が失敗した時は従来どおり同期で通知する。
+  return runObjectiveAfterCapture(
+    () => inspectCoordinatorObjectiveRequest(rawRequest),
+    cancellationSignal,
+    directoryOrAccess,
+    authenticationContext,
+    workspaceTarget,
+  );
+}
+
+// 検査済みの入力だけを扱う。外部へ公開せず、現在認可や対象実体はこの先で照合する。
+function runObjectiveAfterCapture(
+  capture: () => CoordinatorObjectiveRequest | null,
+  cancellationSignal: AbortSignal,
+  directoryOrAccess: ObjectiveAccessSource,
+  authenticationContext: Readonly<{ principalId: string }> | undefined,
+  workspaceTarget: PreparedWorkspaceTarget | null | undefined,
+) {
   return (async () => {
-    const request = inspectCoordinatorObjectiveRequest(rawRequest);
+    const request = capture();
     if (!request)
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,

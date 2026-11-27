@@ -117,11 +117,11 @@ export function runTestCatalog(request: CheckerRunRequest): CheckerResult {
   let stage = "observation";
   try {
     const intake = readTestCatalog(root);
-    const failures = intake.failures;
+    const { failures, warnings } = intake;
     if (intake.status === "invalid") {
       stage = "output";
       request.writeOutput(
-        `${JSON.stringify({ status: "invalid", failures, effectIssued: false }, null, 2)}\n`,
+        `${JSON.stringify({ status: "invalid", failures, warnings, effectIssued: false }, null, 2)}\n`,
       );
       return { exitCode: 1 };
     }
@@ -131,7 +131,7 @@ export function runTestCatalog(request: CheckerRunRequest): CheckerResult {
     if (!hasSelection) {
       stage = "output";
       request.writeOutput(
-        `${JSON.stringify({ status: "valid", testCount: catalog.tests.length, testExecution: "not_started", effectIssued: false }, null, 2)}\n`,
+        `${JSON.stringify({ status: "valid", warnings, testCount: catalog.tests.length, testExecution: "not_started", effectIssued: false }, null, 2)}\n`,
       );
       return { exitCode: 0 };
     }
@@ -189,6 +189,7 @@ export function runTestCatalog(request: CheckerRunRequest): CheckerResult {
           contract: "crdd/regression-test-plan",
           contractRevision: 3,
           status: "planned",
+          warnings,
           changedPaths: flags.has("--all") ? [] : paths,
           selectionBasis: flags.has("--all")
             ? "all_catalog_tests"

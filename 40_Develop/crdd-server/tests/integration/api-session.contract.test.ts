@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
+import { createGitHostLinkedAccessSession } from "../../src/service/access.ts";
 import { createGitHostLinks } from "../../src/service/git-host.ts";
 import { createApiServer } from "../../src/transport/api-http.ts";
 import {
@@ -24,7 +25,208 @@ import {
 const googlePaths = clientLoginPaths("google");
 const gitConnectionPaths = gitHostConnectionPaths("github");
 
-test("同じ本人のブラウザーセッションだけを上限で整理する", async (t) => {
+test("共有接続は受付で確定したホスト連携だけを使い、実行監視に対話用資格を要求しない", () => {
+  const host = "git.example.test";
+  const binding = {
+    userId: "00000000-0000-4000-8000-000000000001",
+    bindingId: "00000000-0000-4000-8000-000000000002",
+  };
+  for (const browser of [false, true]) {
+    let isCurrent = true;
+    let reference: string | null = "admitted";
+    let token: string | null = "fixture";
+    let tokenReads = 0;
+    let observeStarts = 0;
+    const session = createGitHostLinkedAccessSession({
+      principal: { kind: "account", ...binding, expiresAt: Date.now() + 1000 },
+      repositoryScope: () => false,
+      readGitHost: () => undefined,
+      ...(browser && { browserSessionKey: {} }),
+      isCurrent: () => isCurrent,
+      readReference: (requested) => (requested === host ? reference : null),
+      readToken(requested, selected) {
+        assert.equal(requested, host);
+        assert.equal(selected, "admitted");
+        tokenReads++;
+        return token;
+      },
+      open(requested, selected) {
+        assert.equal(requested, host);
+        assert.equal(selected, "admitted");
+        observeStarts++;
+        return {
+          accountId: "fixture-account",
+          observePermission: async () => "unavailable",
+        };
+      },
+    });
+    assert.equal(session.readHostToken(host), "fixture");
+    assert.equal(tokenReads, 1);
+    assert.equal(session.readHostToken("other.example.test"), null);
+    assert.equal(
+      session.readHostReference?.(host),
+      browser ? "admitted" : undefined,
+    );
+    assert.equal(tokenReads, browser ? 2 : 1);
+    token = null;
+    const beforeOpen = tokenReads;
+    assert.equal(session.openExecution?.(host)?.accountId, "fixture-account");
+    assert.equal(tokenReads, beforeOpen);
+    assert.equal(observeStarts, 1);
+    reference = null;
+    assert.equal(session.openExecution?.(host), null);
+    assert.equal(session.readHostToken(host), null);
+    reference = "admitted";
+    isCurrent = false;
+    assert.equal(session.openExecution?.(host), null);
+    assert.equal(session.readHostToken(host), null);
+    assert.equal(observeStarts, 1);
+    assert.equal(tokenReads, beforeOpen);
+  }
+});
+
+test("HTTPSのセッションCookieはHost限定で、提供元の相関と不正値を混ぜない", async (t) => {
+  const transport = createApiServer();
+  const { server } = transport;
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  t.after(() => transport.close());
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const inner = new URL(`http://127.0.0.1:${address.port}`);
+  const origin = new URL(`https://${inner.host}`);
+  const a = "a".repeat(43);
+  const b = "b".repeat(43);
+  const accountReads: string[] = [];
+  const login = (provider: string, binding: string) => ({
+    async start() {
+      return {
+        location: new URL("https://provider.example.test"),
+        browserBinding: binding,
+      };
+    },
+    async complete(_search: URLSearchParams, observed: string | undefined) {
+      return observed === binding
+        ? {
+            identity: {
+              issuer: `https://${provider}.example.test`,
+              subject: `${provider}-account`,
+            },
+            returnTo: "/",
+          }
+        : null;
+    },
+  });
+  const browser = createClientSessionHandler(
+    origin,
+    { google: login("google", a), fixture: login("fixture", b) },
+    ({ issuer, subject }) => {
+      accountReads.push(`${issuer}|${subject}`);
+      return {
+        status: "completed",
+        account: {
+          userId: "00000000-0000-4000-8000-000000000001",
+          bindingId: "00000000-0000-4000-8000-000000000002",
+          username: "本人",
+          role: "developer",
+        },
+      };
+    },
+  );
+  t.after(browser.close);
+  server.on("request", transport.handleRequest(browser.handle));
+  const call = (route: string, method: string, cookie?: string) =>
+    fetch(new URL(route, inner), {
+      method,
+      redirect: "manual",
+      headers: { origin: origin.origin, ...(cookie && { cookie }) },
+    });
+  const google = await call(googlePaths.login, "POST");
+  const fixture = await call(clientLoginPaths("fixture").login, "POST");
+  assert.match(
+    google.headers.get("set-cookie") ?? "",
+    /^__Host-crdd-client-login-google=.*; Path=\/;.*; Secure$/u,
+  );
+  assert.match(
+    fixture.headers.get("set-cookie") ?? "",
+    /^__Host-crdd-client-login-fixture=.*; Path=\/;.*; Secure$/u,
+  );
+  assert.equal(
+    (
+      await call(
+        googlePaths.callback,
+        "GET",
+        `__Host-crdd-client-login-fixture=${b}`,
+      )
+    ).status,
+    403,
+  );
+  const callback = await call(
+    googlePaths.callback,
+    "GET",
+    `__Host-crdd-client-login-google=${a}`,
+  );
+  assert.equal(callback.status, 303);
+  const session = callback.headers
+    .getSetCookie()
+    .find((cookie) => cookie.startsWith("__Host-crdd-client-session="));
+  assert.match(session ?? "", /; Path=\/;.*; Secure$/u);
+  assert.ok(session);
+  assert.deepEqual(accountReads, [
+    "https://google.example.test|google-account",
+  ]);
+  const invalid = await call(
+    clientSessionPaths.session,
+    "GET",
+    `__Host-crdd-client-session=${a}; __Host-crdd-client-session=${b}`,
+  );
+  assert.equal(invalid.status, 401);
+  assert.match(
+    invalid.headers.get("set-cookie") ?? "",
+    /^__Host-crdd-client-session=; Path=\/; Max-Age=0;.*; Secure$/u,
+  );
+  assert.equal(accountReads.length, 1);
+  const malformed = await call(
+    clientSessionPaths.session,
+    "GET",
+    "__Host-crdd-client-session=not-a-session-token",
+  );
+  assert.equal(malformed.status, 401);
+  assert.match(
+    malformed.headers.get("set-cookie") ?? "",
+    /^__Host-crdd-client-session=; Path=\/; Max-Age=0;.*; Secure$/u,
+  );
+  assert.equal(accountReads.length, 1);
+  const recovered = await call(
+    clientSessionPaths.session,
+    "GET",
+    session.split(";", 1)[0],
+  );
+  assert.equal(recovered.status, 200);
+  assert.equal((await recovered.json()).username, "本人");
+  assert.equal(accountReads.length, 2);
+
+  const other = await call(
+    clientLoginPaths("fixture").callback,
+    "GET",
+    `__Host-crdd-client-login-google=${a}; __Host-crdd-client-login-fixture=${b}`,
+  );
+  assert.equal(other.status, 303);
+  assert.ok(
+    other.headers
+      .getSetCookie()
+      .some((cookie) => cookie.startsWith("__Host-crdd-client-session=")),
+  );
+  assert.deepEqual(accountReads, [
+    "https://google.example.test|google-account",
+    "https://google.example.test|google-account",
+    "https://fixture.example.test|fixture-account",
+  ]);
+});
+
+test("本人ごとの上限と全体の上限でブラウザーセッションを整理する", async (t) => {
   const transport = createApiServer();
   const { server } = transport;
   await new Promise<void>((resolve, reject) => {
@@ -45,7 +247,7 @@ test("同じ本人のブラウザーセッションだけを上限で整理す�
         },
         async complete(search) {
           const subject = search.get("code");
-          if (subject !== "A" && subject !== "B") return null;
+          if (!subject || !/^(?:A|B|test-[0-9]+)$/u.test(subject)) return null;
           return {
             identity: { issuer: "https://fixture.example", subject },
             returnTo: "/",
@@ -92,15 +294,39 @@ test("同じ本人のブラウザーセッションだけを上限で整理す�
     await response.arrayBuffer();
   }
   const existing = await session(other);
-  assert.deepEqual(await existing.json(), { username: "B", role: "developer" });
-  const next = await session(await signIn("B"));
-  assert.deepEqual(await next.json(), { username: "B", role: "developer" });
+  const developerManagement = {
+    openSession: false,
+    registerRoles: [],
+    registerRepository: false,
+    unregisterRepository: false,
+  };
+  assert.deepEqual(await existing.json(), {
+    username: "B",
+    role: "developer",
+    management: developerManagement,
+  });
+  // Aの4件とBの1件を残したまま、別の本人で全体を128件にする。
+  for (let index = 0; index < 123; index++) await signIn(`test-${index}`);
+  const atCapacity = await session(other);
+  assert.equal(atCapacity.status, 200);
+  await atCapacity.arrayBuffer();
+  const newest = await signIn("test-123");
+  const evicted = await session(other);
+  assert.equal(evicted.status, 401);
+  await evicted.arrayBuffer();
+  assert.ok(sessions[1]);
+  for (const kept of [sessions[1], newest]) {
+    const response = await session(kept);
+    assert.equal(response.status, 200);
+    await response.arrayBuffer();
+  }
   assert.deepEqual(invalidated, []);
 });
 
 test("外部ログインのセッションは現在の紐付けを読み、Bearerと共用しない", async (t) => {
   const transport = createApiServer();
   const { server } = transport;
+  let releasePendingRevocation: (() => void) | undefined;
   try {
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
@@ -124,6 +350,10 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     let consumed = false;
     let registered = false;
     let accountUnavailable = false;
+    let expireDuringGitApproval = false;
+    let expireDuringAccountRead = false;
+    let advancedTime: number | undefined;
+    let gitSaves = 0;
     const invalidatedAccounts: string[] = [];
     let starts = 0;
     let resume = "/";
@@ -135,8 +365,26 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     let alternateStarts = 0;
     let linkedSession: string | undefined;
     let githubLifetimeMs = 60_000;
-    const links = createGitHostLinks();
-    const otherHostLinks = createGitHostLinks();
+    const revokedTokens: string[] = [];
+    const links = createGitHostLinks(undefined, async (token) => {
+      revokedTokens.push(token);
+      return true;
+    });
+    let startRevocation!: () => void;
+    const revocationStarted = new Promise<void>((resolve) => {
+      startRevocation = resolve;
+    });
+    let finishRevocation!: (result: boolean) => void;
+    const revocation = new Promise<boolean>((resolve) => {
+      finishRevocation = resolve;
+    });
+    releasePendingRevocation = () => finishRevocation(false);
+    let otherRevocations = 0;
+    const otherHostLinks = createGitHostLinks(undefined, async () => {
+      otherRevocations++;
+      startRevocation();
+      return revocation;
+    });
     const otherPaths = gitHostConnectionPaths("fixture-host");
     let otherPending: string | undefined;
     let linkReference: ReturnType<typeof links.save> = null;
@@ -199,6 +447,10 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
         },
       },
       (subject, session) => {
+        if (expireDuringAccountRead) {
+          expireDuringAccountRead = false;
+          advancedTime = Date.now() + 31 * 60_000;
+        }
         assert.deepEqual(subject, identity);
         if (session)
           assert.deepEqual(session, {
@@ -218,11 +470,12 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
           links: {
             ...links,
             save(...input) {
+              gitSaves++;
               linkReference = links.save(...input);
               return linkReference;
             },
           },
-          connection: {
+          linkFlow: {
             begin(id) {
               linkedSession = id;
               return new URL(
@@ -237,6 +490,7 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
               )
                 return null;
               linkedSession = undefined;
+              if (expireDuringGitApproval) expireDuringAccountRead = true;
               return {
                 accountId: "29",
                 accessToken: "never_public",
@@ -253,7 +507,7 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
           host: "git.example.test",
           displayName: "Fixture Host",
           links: otherHostLinks,
-          connection: {
+          linkFlow: {
             begin(id) {
               otherPending = id;
               return new URL("https://git.example.test/authorize");
@@ -318,6 +572,7 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
       aiRequestWrite: fallback,
       execution: fallback,
       executionActivity: fallback,
+      repositoryFiles: fallback,
     };
     const withoutGit = createApiApplication(handlers, null);
     server.on("request", withoutGit);
@@ -334,13 +589,28 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
       (await request(`${gitConnectionPaths.callback}?state=synthetic`)).status,
       404,
     );
+    let firstHandlerSettled = false;
+    let firstResponseEnds = 0;
+    let firstConnectionClosed!: () => void;
+    const firstClosed = new Promise<void>((resolve) => {
+      firstConnectionClosed = resolve;
+    });
     server.off("request", withoutGit);
     server.on(
       "request",
       createApiApplication(
         {
           ...handlers,
-          gitConnection: transport.handleRequest(browser.handleGitConnection),
+          gitConnection: transport.handleRequest(async (...args) => {
+            const [incoming, outgoing] = args;
+            if (incoming.headers["x-fixture-disconnect"] !== "first")
+              return browser.handleGitConnection(...args);
+            const end = t.mock.method(outgoing, "end");
+            outgoing.once("close", firstConnectionClosed);
+            await browser.handleGitConnection(...args);
+            firstHandlerSettled = true;
+            firstResponseEnds = end.mock.callCount();
+          }),
         },
         null,
       ),
@@ -457,6 +727,12 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     assert.deepEqual(await user.json(), {
       username: "利用者",
       role: "administrator",
+      management: {
+        openSession: true,
+        registerRoles: ["developer", "manager", "administrator"],
+        registerRepository: true,
+        unregisterRepository: true,
+      },
     });
     const { connection, callback: gitCallback } = gitConnectionPaths;
     const sameSite = { origin: origin.origin, cookie: requestCookie };
@@ -548,21 +824,52 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
       ).json(),
       { connected: true },
     );
-    assert.equal(
-      (
-        await request(otherPaths.connection, {
-          method: "DELETE",
-          headers: sameSite,
-        })
-      ).status,
-      204,
-    );
+    const deleting = new AbortController();
+    const firstDisconnect = request(otherPaths.connection, {
+      method: "DELETE",
+      headers: { ...sameSite, "x-fixture-disconnect": "first" },
+      signal: deleting.signal,
+    });
+    const firstDisconnected = assert.rejects(firstDisconnect);
+    await Promise.race([
+      revocationStarted,
+      firstDisconnect.then(() => assert.fail("revocation was not started")),
+    ]);
     assert.deepEqual(
       await (
         await request(otherPaths.connection, { headers: sameSite })
       ).json(),
       { connected: false },
     );
+    const secondAccepted = new Promise<void>((resolve) => {
+      server.prependOnceListener("request", () => resolve());
+    });
+    const secondDisconnect = request(otherPaths.connection, {
+      method: "DELETE",
+      headers: sameSite,
+    });
+    await secondAccepted;
+    deleting.abort();
+    await firstDisconnected;
+    await firstClosed;
+    assert.equal(firstHandlerSettled, false);
+    finishRevocation(false);
+    const rejectedDisconnect = await secondDisconnect;
+    assert.equal(rejectedDisconnect.status, 502);
+    assert.equal(
+      await rejectedDisconnect.text(),
+      "git_host_revocation_unconfirmed\n",
+    );
+    assert.equal(otherRevocations, 1);
+    assert.equal(firstHandlerSettled, true);
+    assert.equal(firstResponseEnds, 0);
+    const alreadyAbsent = await request(otherPaths.connection, {
+      method: "DELETE",
+      headers: sameSite,
+    });
+    assert.equal(alreadyAbsent.status, 200);
+    assert.equal(await alreadyAbsent.text(), "git_host_link_absent\n");
+    assert.equal(otherRevocations, 1);
     assert.deepEqual(
       await (await request(connection, { headers: sameSite })).json(),
       { connected: true },
@@ -607,7 +914,7 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
           headers: { ...sameSite, cookie: secondCookie },
         })
       ).status,
-      204,
+      200,
     );
     assert.deepEqual(
       await (
@@ -639,7 +946,7 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     assert.equal(
       (await request(connection, { method: "DELETE", headers: sameSite }))
         .status,
-      204,
+      200,
     );
     assert.equal(monitored.revocationSignal.aborted, true);
     monitored.close();
@@ -732,7 +1039,16 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
       await (
         await request(sessionPath, { headers: { cookie: requestCookie } })
       ).json(),
-      { username: "利用者", role: "developer" },
+      {
+        username: "利用者",
+        role: "developer",
+        management: {
+          openSession: false,
+          registerRoles: [],
+          registerRepository: false,
+          unregisterRepository: false,
+        },
+      },
     );
     assert.equal(
       (
@@ -759,6 +1075,34 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     );
     assert.ok(linkReference);
     const retainedReference = linkReference;
+    const priorGitSaves = gitSaves;
+    const beforeApproval = Date.now();
+    const approvalClock = t.mock.method(
+      Date,
+      "now",
+      () => advancedTime ?? beforeApproval,
+    );
+    try {
+      assert.equal(
+        (await request(connection, { method: "POST", headers: secondHeaders }))
+          .status,
+        303,
+      );
+      expireDuringGitApproval = true;
+      assert.equal(
+        (
+          await request(`${gitCallback}?state=synthetic`, {
+            headers: secondHeaders,
+          })
+        ).status,
+        403,
+      );
+      assert.notEqual(advancedTime, undefined);
+      assert.equal(gitSaves, priorGitSaves);
+    } finally {
+      approvalClock.mock.restore();
+      expireDuringGitApproval = false;
+    }
     const now = Date.now();
     const clock = t.mock.method(Date, "now", () => now + 31 * 60_000);
     try {
@@ -809,7 +1153,21 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     const running = links.open(logoutReference, account);
     assert.ok(running);
     t.after(running.close);
-    assert.notEqual(logoutReference, retainedReference);
+    assert.equal(logoutReference, retainedReference);
+    for (let generation = 0; generation < 200; generation++) {
+      assert.equal(
+        (await request(connection, { method: "POST", headers: sameSite }))
+          .status,
+        303,
+      );
+      assert.equal(
+        (await request(`${gitCallback}?state=synthetic`, { headers: sameSite }))
+          .status,
+        303,
+      );
+      assert.equal(linkReference, retainedReference);
+    }
+    assert.equal(running.revocationSignal.aborted, false);
     await begin();
     const otherBrowser = await request(callback, { headers: callbackHeaders });
     const pendingCookie = otherBrowser.headers
@@ -817,13 +1175,27 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
       .find((value) => value.startsWith("crdd-client-session="))
       ?.split(";")[0];
     assert.ok(pendingCookie);
+    const pendingHeaders = { cookie: pendingCookie, origin: origin.origin };
+    assert.equal(
+      (await request(connection, { method: "POST", headers: pendingHeaders }))
+        .status,
+      303,
+    );
     assert.equal(
       (
-        await request(connection, {
-          method: "POST",
-          headers: { cookie: pendingCookie, origin: origin.origin },
+        await request(`${gitCallback}?state=synthetic`, {
+          headers: pendingHeaders,
         })
       ).status,
+      303,
+    );
+    assert.deepEqual(
+      await (await request(connection, { headers: pendingHeaders })).json(),
+      { connected: true },
+    );
+    assert.equal(
+      (await request(connection, { method: "POST", headers: pendingHeaders }))
+        .status,
       303,
     );
     accountUnavailable = true;
@@ -832,6 +1204,7 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     assert.equal(links.read(logoutReference, account), "never_public");
     accountUnavailable = false;
     assert.equal((await logout()).status, 204);
+    assert.deepEqual(revokedTokens, ["never_public"]);
     assert.deepEqual(invalidatedAccounts, [account.userId]);
     assert.equal(links.read(logoutReference, account), null);
     assert.equal(links.read(retainedReference, account), null);
@@ -844,6 +1217,18 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
         })
       ).status,
       403,
+    );
+    assert.equal(
+      links.save(account, {
+        accountId: "29",
+        accessToken: "after_explicit_relink",
+        expiresAt: Date.now() + 60_000,
+      }),
+      logoutReference,
+    );
+    assert.deepEqual(
+      await (await request(connection, { headers: pendingHeaders })).json(),
+      { connected: false },
     );
     assert.equal((await logout()).status, 401);
     assert.deepEqual(invalidatedAccounts, [account.userId]);
@@ -886,6 +1271,7 @@ test("外部ログインのセッションは現在の紐付けを読み、Beare
     );
     assert.equal(acceptedInvitations, 1);
   } finally {
+    releasePendingRevocation?.();
     if (server.listening) await transport.close();
   }
 });

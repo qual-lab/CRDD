@@ -10,6 +10,7 @@ export {
 } from "./activity/federate-relations.ts";
 export {
   readTopicMeetingList,
+  recordListQueryConstraints,
   type TopicMeetingListReadResult,
 } from "./activity/operations.ts";
 export type {
@@ -259,6 +260,7 @@ export type {
 export { inspectSpecConsistency } from "./spec/validation.ts";
 export {
   readTestCatalog,
+  testCatalogPath,
   type TestCatalog,
   type TestCatalogEntry,
   type TestCatalogReadResult,

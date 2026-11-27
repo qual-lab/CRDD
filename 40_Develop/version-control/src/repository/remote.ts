@@ -4,8 +4,13 @@
  * @trace ARCH-000009
  */
 import type { SpawnSyncReturns } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
 import { executeGit } from "../git/execute.ts";
-import { resolveVerifiedRepositoryRoot, type Repository } from "./location.ts";
+import {
+  observeVerifiedRepositoryLayout,
+  resolveVerifiedRepositoryRoot,
+  type Repository,
+} from "./location.ts";
 import type {
   RemoteTarget,
   RepositoryPushRequest,
@@ -74,8 +79,39 @@ function singleLineValue(result: ProcessResult): string | null {
   }
 }
 
-/** ローカル設定に明示された単一のHTTPS Remoteを観測する。送信先の実行許可ではない。 */
-export function readOriginHttpsRemote(repository: Repository): string | null {
+/**
+ * ローカル設定に明示された単一のHTTPS接続先を観測する。送信先の実行許可ではない。
+ * 設定の捕捉を指定した場合、正式な読取りと同じ設定を次の観測と照合できる。
+ * 照合はGitを起動せず、実体と内容の一致だけを返す。差異と観測不能はどちらもfalse。
+ */
+export function readOriginHttpsRemote(repository: Repository): string | null;
+export function readOriginHttpsRemote(
+  repository: Repository,
+  options: Readonly<{ captureConfiguration: true }>,
+): Readonly<{ address: string; configurationIsCurrent: () => boolean }> | null;
+export function readOriginHttpsRemote(
+  repository: Repository,
+  options?: Readonly<{ captureConfiguration: true }>,
+):
+  | string
+  | Readonly<{ address: string; configurationIsCurrent: () => boolean }>
+  | null {
+  if (options?.captureConfiguration) {
+    const observation = observeVerifiedRepositoryLayout(repository, true);
+    const captured = observation?.layout.configSnapshot;
+    if (!observation || !captured?.contentSha256) return null;
+    const address = readLocalHttpsRemote(observation.root, "url");
+    const configurationIsCurrent = () =>
+      isDeepStrictEqual(
+        captured,
+        observeVerifiedRepositoryLayout(repository, true)?.layout
+          .configSnapshot,
+      );
+    // 正式なGit読取りを前後で同じ設定に結び付ける。差や観測不能は再利用しない。
+    return address && configurationIsCurrent()
+      ? Object.freeze({ address, configurationIsCurrent })
+      : null;
+  }
   const root = resolveVerifiedRepositoryRoot(repository);
   if (root === null) return null;
   return readLocalHttpsRemote(root, "url") ?? null;

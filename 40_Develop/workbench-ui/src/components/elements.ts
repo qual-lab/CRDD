@@ -20,7 +20,7 @@ import { createElement, type ReactElement, type ReactNode } from "react";
  * @security Raw HTMLを型契約として受け取らない。
  * @compatibility React 19のReactNode契約を使用する。
  */
-export type WorkbenchPanelProps = Readonly<{
+type WorkbenchPanelProps = Readonly<{
   id: string;
   eyebrow: string;
   title: string;

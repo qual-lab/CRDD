@@ -69,5 +69,6 @@ export function publishSemanticCoverage(
   return publishSemanticCoverageBundleWithHooks(root, {
     outputRelativePath: request.outputRelativePath,
     content: `${JSON.stringify(bundle, null, 2)}\n`,
+    existingContract: bundle.contract,
   });
 }

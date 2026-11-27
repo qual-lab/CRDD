@@ -7,17 +7,21 @@
  * @effect N/A: 純粋な検査だけで通信・保存を行わない。
  * @security 資格・認可Authorityを新設せず、既存の秘密非搬送と受理条件を維持する。
  */
+
 import type {
   AiSelectionReadResult,
   AiSelectionSnapshot,
 } from "@qual-lab/crdd-configuration-model";
+import type { FederatedProjectProjection } from "@qual-lab/crdd-document-model";
 import type {
   AiRequestSnapshot,
+  ExecutionActivityObservation,
   ManagementResult,
   ManagementView,
+  ProjectPageResponse,
   ViewResponse,
 } from "@qual-lab/crdd-server";
-import type { FederatedProjectProjection } from "@qual-lab/crdd-document-model";
+import { RESOURCE_ID, UUID_V4 } from "./path.ts";
 
 export type {
   AiRequestMode,
@@ -188,17 +192,15 @@ export function validateViewResponse(value: unknown): ViewResponse {
   if (!isRecord(value) || value.contract !== "crdd/workbench/view/v1")
     throw new Error("workbench_client_model_invalid");
   if (value.view === "access") {
-    const portfolio = value.portfolio;
     const loginProviders = value.loginProviders;
     if (
       Object.keys(value).sort().join(",") !==
         (loginProviders !== undefined
-          ? "actionToken,authenticated,contract,loginProviders,notice,portfolio,view"
-          : "actionToken,authenticated,contract,notice,portfolio,view") ||
+          ? "actionToken,authenticated,contract,loginProviders,view"
+          : "actionToken,authenticated,contract,view") ||
       typeof value.actionToken !== "string" ||
       !/^[A-Za-z0-9_-]{43}$/u.test(value.actionToken) ||
       typeof value.authenticated !== "boolean" ||
-      !isNullableString(value.notice) ||
       (loginProviders !== undefined &&
         (!Array.isArray(loginProviders) ||
           loginProviders.length === 0 ||
@@ -213,15 +215,7 @@ export function validateViewResponse(value: unknown): ViewResponse {
               provider.displayName.length <= 128,
           ) ||
           new Set(loginProviders.map(({ id }) => id)).size !==
-            loginProviders.length)) ||
-      (portfolio !== null &&
-        (!isRecord(portfolio) ||
-          Object.keys(portfolio).sort().join(",") !==
-            "projects,retainedAsSourceOfTruth" ||
-          portfolio.retainedAsSourceOfTruth !== false ||
-          !Array.isArray(portfolio.projects) ||
-          !portfolio.projects.every(isFederatedProject))) ||
-      (!value.authenticated && portfolio !== null)
+            loginProviders.length))
     )
       throw new Error("workbench_client_model_invalid");
     return value as AccessViewResponse;
@@ -238,12 +232,9 @@ export function validateViewResponse(value: unknown): ViewResponse {
   }
   if (value.view === "record-detail") {
     if (
-      typeof value.actionToken !== "string" ||
       !isNullableString(value.repositoryId) ||
       typeof value.operationRepositoryId !== "string" ||
-      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
-        value.operationRepositoryId,
-      ) ||
+      !RESOURCE_ID.test(value.operationRepositoryId) ||
       (value.repositoryId !== null &&
         value.repositoryId !== value.operationRepositoryId) ||
       typeof value.recordActionsConfigured !== "boolean" ||
@@ -254,6 +245,154 @@ export function validateViewResponse(value: unknown): ViewResponse {
   }
   if (value.view === "artifact") return validateArtifactResponse(value);
   throw new Error("workbench_client_model_invalid");
+}
+
+/** Project一覧の要約と、明示したRepository範囲の一致を検査する。 */
+export function validateProjectPage(
+  value: unknown,
+  repositoryId: string | null,
+): ProjectPageResponse {
+  // 順序はServerの正本。Browserの言語設定で並べ替えたり拒否したりしない。
+  const unique = (ids: readonly unknown[]) => new Set(ids).size === ids.length;
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(",") !==
+      "cursorInvalid,nextCursor,projects,retainedAsSourceOfTruth" ||
+    value.retainedAsSourceOfTruth !== false ||
+    !isNullableString(value.nextCursor) ||
+    typeof value.cursorInvalid !== "boolean" ||
+    !Array.isArray(value.projects) ||
+    value.projects.length > 20 ||
+    !value.projects.every((project: unknown) => {
+      if (
+        !isRecord(project) ||
+        Object.keys(project).sort().join(",") !==
+          "projectId,repositoryIds,sourceCount,sources,state" ||
+        typeof project.projectId !== "string" ||
+        !RESOURCE_ID.test(project.projectId) ||
+        typeof project.state !== "string" ||
+        !["complete", "partial", "conflicting"].includes(project.state) ||
+        !Array.isArray(project.sources) ||
+        !Array.isArray(project.repositoryIds) ||
+        project.sources.length === 0 ||
+        project.sourceCount !== project.sources.length ||
+        project.repositoryIds.length !== project.sources.length
+      )
+        return false;
+      const repositoryIds = project.repositoryIds;
+      const validSources = project.sources.every(
+        (source: unknown, index: number) =>
+          isRecord(source) &&
+          Object.keys(source).sort().join(",") === "repositoryId,state" &&
+          typeof source.repositoryId === "string" &&
+          RESOURCE_ID.test(source.repositoryId) &&
+          source.repositoryId === repositoryIds[index] &&
+          (repositoryId === null || source.repositoryId === repositoryId) &&
+          typeof source.state === "string" &&
+          ["complete", "missing", "unavailable", "conflicting"].includes(
+            source.state,
+          ),
+      );
+      if (!validSources || !unique(repositoryIds)) return false;
+      const states = project.sources.map(({ state }) => state);
+      return (
+        project.state ===
+        (states.includes("conflicting")
+          ? "conflicting"
+          : states.every((state) => state === "complete")
+            ? "complete"
+            : "partial")
+      );
+    }) ||
+    !unique(value.projects.map((project) => project.projectId)) ||
+    (value.cursorInvalid &&
+      (value.nextCursor !== null || value.projects.length !== 0))
+  )
+    throw new Error("workbench_project_page_invalid");
+  return value as ProjectPageResponse;
+}
+
+/** 記録リソースを要求対象と照合し、Workbench表示へ投影する。 @trace ARCH-000012 */
+export function validateRecordResource(
+  value: unknown,
+  repositoryId: string,
+  kind: "topic" | "meeting",
+  id: string,
+): ViewResponse {
+  if (
+    !isRecord(value) ||
+    value.status !== "completed" ||
+    value.repositoryId !== repositoryId ||
+    typeof value.writable !== "boolean" ||
+    (value.relationScope !== undefined && value.relationScope !== "repository")
+  )
+    throw new Error("workbench_client_model_unavailable");
+  return validateViewResponse({
+    contract: "crdd/workbench/view/v1",
+    view: "record-detail",
+    repositoryId: value.relationScope === "repository" ? repositoryId : null,
+    operationRepositoryId: repositoryId,
+    recordActionsConfigured: value.writable,
+    record: {
+      kind,
+      id,
+      document: { record: value.record, markdown: value.markdown },
+      relations: value.relations,
+    },
+  });
+}
+
+/** 共通入口の狭い応答から、起動先または未ログイン案内だけを受け取る。 @trace ARCH-000012 */
+export function validateWorkbenchContext(
+  value: unknown,
+):
+  | { mode: "single"; repositoryId: string }
+  | { mode: "shared"; login: AccessViewResponse | null } {
+  if (!isRecord(value) || value.contract !== "crdd/workbench/context/v1")
+    throw new Error("workbench_context_invalid");
+  if (
+    value.mode === "single" &&
+    Object.keys(value).sort().join(",") === "contract,mode,repositoryId" &&
+    typeof value.repositoryId === "string" &&
+    RESOURCE_ID.test(value.repositoryId)
+  )
+    return { mode: "single", repositoryId: value.repositoryId };
+  if (
+    value.mode !== "shared" ||
+    Object.keys(value).sort().join(",") !== "contract,login,mode"
+  )
+    throw new Error("workbench_context_invalid");
+  if (value.login === null) return { mode: "shared", login: null };
+  const login = validateViewResponse(value.login);
+  if (login.view !== "access" || login.authenticated)
+    throw new Error("workbench_context_invalid");
+  return { mode: "shared", login };
+}
+
+/** 成果物リソースの出所と選択を照合し、画面の戻り先を構成する。 @trace ARCH-000016 */
+export function validateArtifactResource(
+  value: unknown,
+  repositoryId: string,
+  kind: "change" | "owner",
+  identity: string,
+): ArtifactViewResponse {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(",") !==
+      "identity,kind,markdown,repositoryId,scope" ||
+    value.repositoryId !== repositoryId ||
+    value.kind !== kind ||
+    value.identity !== identity ||
+    (value.scope !== "single" && value.scope !== "shared")
+  )
+    throw new Error("workbench_client_model_unavailable");
+  return validateArtifactResponse({
+    contract: "crdd/workbench/view/v1",
+    view: "artifact",
+    repositoryId,
+    selectedRepositoryId: value.scope === "shared" ? repositoryId : null,
+    artifact: { kind, identity, markdown: value.markdown },
+  });
 }
 
 /**
@@ -272,7 +411,7 @@ export function validateViewResponse(value: unknown): ViewResponse {
  * @security Root・Token等の余剰fieldを拒否する。
  * @concurrency N/A: 一Snapshotの同期検査。
  */
-export function validateArtifactResponse(value: unknown): ArtifactViewResponse {
+function validateArtifactResponse(value: unknown): ArtifactViewResponse {
   if (
     !isRecord(value) ||
     Object.keys(value).sort().join(",") !==
@@ -280,7 +419,7 @@ export function validateArtifactResponse(value: unknown): ArtifactViewResponse {
     value.contract !== "crdd/workbench/view/v1" ||
     value.view !== "artifact" ||
     typeof value.repositoryId !== "string" ||
-    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value.repositoryId) ||
+    !RESOURCE_ID.test(value.repositoryId) ||
     !isNullableString(value.selectedRepositoryId) ||
     (value.selectedRepositoryId !== null &&
       value.selectedRepositoryId !== value.repositoryId) ||
@@ -346,7 +485,7 @@ function activityGraphsAreValid(value: unknown): boolean {
         row.queueId,
         row.milestoneId,
         ...(row.workspaceId === null ? [] : [row.workspaceId]),
-      ].every((id) => /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(id)) ||
+      ].every((id) => RESOURCE_ID.test(id)) ||
       (row.progress !== null &&
         (!isRecord(row.progress) ||
           typeof row.progress.milestoneState !== "string" ||
@@ -359,6 +498,89 @@ function activityGraphsAreValid(value: unknown): boolean {
     ids.add(id);
     return true;
   });
+}
+
+/** 専用APIの読取り結果を、選択したProjectとRepositoryに照合する。 */
+export function validateExecutionActivity(
+  value: unknown,
+  projectId: string,
+  repositoryId: string,
+): ExecutionActivityObservation {
+  const ownsRows = (items: unknown) =>
+    Array.isArray(items) &&
+    items.every(
+      (row: unknown) => isRecord(row) && row.repositoryId === repositoryId,
+    );
+  const invalid = () => new Error("workbench_activity_response_invalid");
+  if (
+    !isRecord(value) ||
+    value.projectId !== projectId ||
+    (value.state !== "observed" &&
+      value.state !== "absent" &&
+      value.state !== "unknown") ||
+    value.reason !== `runtime_activity_state_${value.state}` ||
+    (value.eventState !== "observed" && value.eventState !== "unknown") ||
+    value.eventReason !== `runtime_activity_events_${value.eventState}` ||
+    !isNullableString(value.eventContinuation) ||
+    !ownsRows(value.sources) ||
+    !Array.isArray(value.sources) ||
+    value.sources.length !== 1 ||
+    !Array.isArray(value.events) ||
+    !ownsRows(value.events) ||
+    value.events.length > 20 ||
+    !activityGraphsAreValid(value.graphs) ||
+    (value.graphs !== undefined && !ownsRows(value.graphs)) ||
+    (value.singleTasks !== undefined && !ownsRows(value.singleTasks))
+  )
+    throw invalid();
+  if (value.state === "observed") {
+    const projection = value.projection;
+    if (
+      value.currentSourceRepositoryId !== repositoryId ||
+      !isRecord(projection) ||
+      projection.projectId !== projectId ||
+      ![
+        projection.milestoneId,
+        projection.milestoneState,
+        projection.workProgress,
+        projection.nextAction,
+      ].every((item) => typeof item === "string")
+    )
+      throw invalid();
+  } else if (
+    value.projection !== null ||
+    value.currentSourceRepositoryId !== null
+  )
+    throw invalid();
+  if (
+    (value.eventState === "unknown" &&
+      (value.events.length > 0 || value.eventContinuation !== null)) ||
+    !value.events.every(
+      (event) =>
+        typeof event.eventId === "string" &&
+        typeof event.occurredAt === "string" &&
+        typeof event.status === "string" &&
+        ["completed", "blocked", "cancelled", "unknown"].includes(
+          event.status,
+        ) &&
+        typeof event.reason === "string" &&
+        typeof event.objectiveId === "string" &&
+        typeof event.taskId === "string",
+    ) ||
+    (Array.isArray(value.singleTasks) &&
+      !value.singleTasks.every(
+        (task) =>
+          typeof task.requestId === "string" &&
+          (task.mode === "read_only_advice" ||
+            task.mode === "workspace_edit") &&
+          typeof task.phase === "string" &&
+          typeof task.status === "string" &&
+          typeof task.cleanupConfirmed === "boolean" &&
+          typeof task.recoveryRequired === "boolean",
+      ))
+  )
+    throw invalid();
+  return value as ExecutionActivityObservation;
 }
 
 /**
@@ -476,8 +698,7 @@ const mainViewFields = new Set<string>([
   "view",
   "actionToken",
   "projectData",
-  "portfolio",
-  "portfolioPage",
+  "portfolioAvailable",
   "connection",
   "topicPage",
   "topicQuery",
@@ -488,11 +709,9 @@ const mainViewFields = new Set<string>([
   "recordActionsConfigured",
   "repositoryActions",
   "workspaceAccess",
-  "worktree",
   "aiSelection",
   "aiSelectionManagement",
   "aiRequest",
-  "executionActivity",
 ] satisfies readonly (keyof MainViewResponse)[]);
 
 /**
@@ -514,11 +733,6 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
   if (Object.keys(value).some((field) => !mainViewFields.has(field)))
     return false;
   const projectData = value.projectData;
-  const portfolio = value.portfolio;
-  const portfolioProjects =
-    isRecord(portfolio) && Array.isArray(portfolio.projects)
-      ? portfolio.projects
-      : null;
   const ownerArtifacts = isRecord(projectData)
     ? projectData.ownerArtifacts
     : null;
@@ -598,27 +812,6 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
         ["quality_projection_invalid", "observation_failed"].includes(
           String(projectData.quality.reason),
         )));
-  const portfolioIsValid = (() => {
-    if (portfolio === null) return true;
-    if (
-      !isRecord(portfolio) ||
-      portfolio.retainedAsSourceOfTruth !== false ||
-      portfolioProjects === null ||
-      !portfolioProjects.every(isFederatedProject)
-    )
-      return false;
-    const projectIds = portfolioProjects
-      .filter(isRecord)
-      .map((project) => String(project.projectId));
-    const sortedProjectIds = [...projectIds].sort((left, right) =>
-      left.localeCompare(right),
-    );
-    return (
-      projectIds.every(
-        (projectId, index) => projectId === sortedProjectIds[index],
-      ) && new Set(projectIds).size === projectIds.length
-    );
-  })();
   return (
     isRecord(projectData) &&
     isProjectContext(projectData.context) &&
@@ -758,36 +951,10 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
         (value.workspaceAccess === "read" ||
           value.workspaceAccess === "write" ||
           value.workspaceAccess === "unavailable"))) &&
-    portfolioIsValid &&
-    isRecord(value.portfolioPage) &&
-    isNullableString(value.portfolioPage.nextCursor) &&
-    typeof value.portfolioPage.cursorInvalid === "boolean" &&
+    typeof value.portfolioAvailable === "boolean" &&
     isRecord(value.connection) &&
     Object.keys(value.connection).join(",") === "state" &&
     ["repository", "cros_available"].includes(String(value.connection.state)) &&
-    isRecord(value.worktree) &&
-    ["available", "unknown"].includes(String(value.worktree.state)) &&
-    (value.worktree.tree === null ||
-      (isRecord(value.worktree.tree) &&
-        typeof value.worktree.tree.directory === "string" &&
-        isNullableString(value.worktree.tree.nextCursor) &&
-        Array.isArray(value.worktree.tree.entries) &&
-        value.worktree.tree.entries.every(
-          (entry) =>
-            isRecord(entry) &&
-            typeof entry.path === "string" &&
-            typeof entry.name === "string" &&
-            ["directory", "file"].includes(String(entry.kind)) &&
-            typeof entry.prepared === "boolean" &&
-            typeof entry.working === "boolean" &&
-            typeof entry.unregistered === "boolean",
-        ))) &&
-    (value.worktree.diff === null ||
-      (isRecord(value.worktree.diff) &&
-        typeof value.worktree.diff.path === "string" &&
-        typeof value.worktree.diff.preparedPatch === "string" &&
-        typeof value.worktree.diff.workingPatch === "string" &&
-        typeof value.worktree.diff.unregistered === "boolean")) &&
     (value.aiSelection === null ||
       isWorkbenchSelectionSurface(value.aiSelection)) &&
     isRecord(aiAdministration) &&
@@ -807,86 +974,7 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
           (host: unknown) => typeof host === "string" && host.length <= 253,
         ))) &&
     aiSnapshotIsValid(value.aiRequest.snapshot) &&
-    isNullableString(value.aiRequest.notice) &&
-    (value.executionActivity === null ||
-      (isRecord(value.executionActivity) &&
-        activityGraphsAreValid(value.executionActivity.graphs) &&
-        ["observed", "absent", "unknown"].includes(
-          String(value.executionActivity.state),
-        ) &&
-        typeof value.executionActivity.reason === "string" &&
-        ["observed", "unknown"].includes(
-          String(value.executionActivity.eventState),
-        ) &&
-        typeof value.executionActivity.eventReason === "string" &&
-        isNullableString(value.executionActivity.eventContinuation) &&
-        (value.executionActivity.projection === null ||
-          (isRecord(value.executionActivity.projection) &&
-            typeof value.executionActivity.projection.projectId === "string" &&
-            typeof value.executionActivity.projection.milestoneId ===
-              "string" &&
-            typeof value.executionActivity.projection.generation === "number" &&
-            typeof value.executionActivity.projection.milestoneState ===
-              "string" &&
-            isRecord(value.executionActivity.projection.objectiveCounts) &&
-            Object.values(
-              value.executionActivity.projection.objectiveCounts,
-            ).every((item) => typeof item === "number") &&
-            isRecord(value.executionActivity.projection.taskCounts) &&
-            Object.values(value.executionActivity.projection.taskCounts).every(
-              (item) => typeof item === "number",
-            ) &&
-            Array.isArray(
-              value.executionActivity.projection.objectiveTaskSummaries,
-            ) &&
-            value.executionActivity.projection.objectiveTaskSummaries.every(
-              (summary) =>
-                isRecord(summary) &&
-                typeof summary.objectiveId === "string" &&
-                typeof summary.objectiveState === "string" &&
-                isRecord(summary.taskCounts) &&
-                Object.values(summary.taskCounts).every(
-                  (item) => typeof item === "number",
-                ),
-            ) &&
-            typeof value.executionActivity.projection.workProgress ===
-              "string" &&
-            typeof value.executionActivity.projection.qualityState ===
-              "string" &&
-            typeof value.executionActivity.projection.humanDecisionRequired ===
-              "boolean" &&
-            typeof value.executionActivity.projection.recoveryRequired ===
-              "boolean" &&
-            typeof value.executionActivity.projection.nextAction ===
-              "string")) &&
-        Array.isArray(value.executionActivity.events) &&
-        value.executionActivity.events.every(
-          (event) =>
-            isRecord(event) &&
-            typeof event.eventId === "string" &&
-            typeof event.occurredAt === "string" &&
-            typeof event.objectiveId === "string" &&
-            typeof event.taskId === "string" &&
-            typeof event.attemptId === "string" &&
-            ["completed", "blocked", "cancelled", "unknown"].includes(
-              String(event.status),
-            ) &&
-            typeof event.reason === "string" &&
-            typeof event.cleanupConfirmed === "boolean" &&
-            typeof event.manualRecoveryRequired === "boolean",
-        ) &&
-        ((value.executionActivity.state === "observed" &&
-          value.executionActivity.projection !== null) ||
-          (["absent", "unknown"].includes(
-            String(value.executionActivity.state),
-          ) &&
-            value.executionActivity.projection === null)) &&
-        ((value.executionActivity.eventState === "observed" &&
-          value.executionActivity.eventReason ===
-            "execution_events_observed") ||
-          (value.executionActivity.eventState === "unknown" &&
-            value.executionActivity.events.length === 0 &&
-            value.executionActivity.eventContinuation === null))))
+    isNullableString(value.aiRequest.notice)
   );
 }
 
@@ -1091,7 +1179,7 @@ function isProjectionStringArray(value: unknown): value is readonly string[] {
  * @security 表CellをTextとしてのみ検査する。
  * @concurrency N/A: 同期純粋処理である。
  */
-export function isProjectContext(value: unknown): boolean {
+function isProjectContext(value: unknown): boolean {
   if (
     !isProjectionRecord(value) ||
     Object.keys(value).sort().join(",") !==
@@ -1374,10 +1462,7 @@ export function validateManagementResponse(
    * @concurrency N/A: 同期検査だけ。
    */
   const isManagementUserId = (v: unknown) =>
-    typeof v === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
-      v,
-    );
+    typeof v === "string" && UUID_V4.test(v);
   /**
    * ロールの表示値を検査する。
    * @responsibility 採用済み三ロールだけを受理する。
@@ -1433,7 +1518,7 @@ export function validateManagementResponse(
    * @concurrency N/A: 同期検査だけ。
    */
   const isManagementRepositoryId = (v: unknown) =>
-    typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(v);
+    typeof v === "string" && RESOURCE_ID.test(v);
   let valid = false;
   if (keys === "reason,status" && result.status === "unavailable") {
     const permitted =

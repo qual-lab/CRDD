@@ -14,11 +14,10 @@ import type {
 } from "../../src/app.ts";
 
 const fieldsByView = {
-  access: ["actionToken", "authenticated", "notice", "portfolio"],
+  access: ["actionToken", "authenticated"],
   artifact: ["repositoryId", "selectedRepositoryId", "artifact"],
   "project-detail": ["project"],
   "record-detail": [
-    "actionToken",
     "repositoryId",
     "operationRepositoryId",
     "record",
@@ -27,8 +26,7 @@ const fieldsByView = {
   main: [
     "actionToken",
     "projectData",
-    "portfolio",
-    "portfolioPage",
+    "portfolioAvailable",
     "connection",
     "topicPage",
     "topicQuery",
@@ -38,11 +36,9 @@ const fieldsByView = {
     "selectedRepositoryId",
     "recordActionsConfigured",
     "repositoryActions",
-    "worktree",
     "aiSelection",
     "aiSelectionManagement",
     "aiRequest",
-    "executionActivity",
   ],
 } as const satisfies {
   [View in ViewResponse["view"]]: readonly Exclude<

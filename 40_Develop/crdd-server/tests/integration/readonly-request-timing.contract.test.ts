@@ -49,7 +49,7 @@ test("有限時計は実HTTPとOwnerを観測し購読解除する", async () =>
       timing.setStage(stage);
       await requestInChild(
         url,
-        "/api/workbench/view?route=%2F",
+        "/api/workbench/overview",
         undefined,
         timing.client,
       );
@@ -82,7 +82,7 @@ test("有限時計は実HTTPとOwnerを観測し購読解除する", async () =>
     assert.equal(JSON.stringify(before).includes("synthetic-secret"), false);
     timing.dispose();
     timing.dispose();
-    await (await fetch(`${url}/api/workbench/view?route=%2F`)).text();
+    await (await fetch(`${url}/api/workbench/overview`)).text();
     const after = timing.snapshot();
     assert.equal(after.subscriptionsClosed, true);
     assert.equal(after.servers.length, before.servers.length);
@@ -114,7 +114,7 @@ test("観測時計は旧容量境界を超えて通知を保持し曖昧な相�
   const publish = (
     port = 12345,
     address = "127.0.0.1",
-    url = "/api/workbench/view?route=%2F",
+    url = "/api/workbench/overview",
   ) =>
     start.publish({
       request: { url, socket: { localPort: port, localAddress: address } },
@@ -167,12 +167,7 @@ test("計測付きHTTPも15秒失敗を成功へ変換しない", async () => {
     timing.bind(url);
     timing.setStage("observe");
     await assert.rejects(
-      requestInChild(
-        url,
-        "/api/workbench/view?route=%2F",
-        undefined,
-        timing.client,
-      ),
+      requestInChild(url, "/api/workbench/overview", undefined, timing.client),
       (error) => {
         const failure = projectVerificationTransportFailure(error);
         assert.equal(failure?.failureClass, "headers_unobserved");

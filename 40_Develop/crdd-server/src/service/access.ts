@@ -11,154 +11,117 @@ import { createHash, randomBytes } from "node:crypto";
 import { lstatSync } from "node:fs";
 import {
   type AccountAccessPrincipal,
-  type AccessRole,
   type AuthorizedRepository,
-  checkHostedRepositoryRegistration,
   type CurrentAccessOutcome,
-  evaluateManagementPermission,
+  checkGitHostLinkedRepositoryRegistration,
   type FilesystemStoreRoot,
-  type HostedAccessCandidate,
+  type GitHostLinkedAccessCandidate,
   type ManagementOperationOutcome,
   type ManagementReadOutcome,
-  observeHostedExecutionBinding,
-  readHostedAccessCandidates,
+  observeGitHostLinkedExecutionBinding,
+  readGitHostLinkedAccessCandidates,
   registerRepository,
   registerUser,
   renewInvitation,
-  resolveHostedAccessCollection,
-  resolveHostedAccessDirectories,
+  resolveGitHostLinkedAccessCollection,
+  resolveGitHostLinkedAccessDirectories,
   unregisterRepository,
   updateUserName,
   updateUserRole,
 } from "@qual-lab/crdd-access-management";
 import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
-import type { PortfolioProjection } from "@qual-lab/crdd-document-model";
-import type { PublicLoginProvider } from "../transport/login-providers.ts";
 import {
   getRepository,
   readOriginHttpsRemote,
-  readRepositoryLocation,
 } from "@qual-lab/crdd-version-control";
 import type { BoundGitHost, ReadGitHost } from "./git-host.ts";
+import type { PublicLoginProvider } from "./login-providers.ts";
 import type { RepositoryScope } from "./repository-scope.ts";
 
-export const managementSessionLifetimeSeconds = 5 * 60;
-export const clientSessionLifetimeSeconds = 30 * 60;
-const maximumClientSessions = 128;
-const maximumClientSessionsPerAccount = 4;
-
-/** 現在の管理権限と元セッションの期限から短命の管理セッションを発行する。 */
-export function openManagementSession(
-  role: AccessRole,
-  sessionExpiresAt: number,
-) {
-  if (
-    evaluateManagementPermission(role, {
-      operation: "openManagementSession",
-    }) !== "allowed"
-  )
-    return null;
-  return {
-    id: randomBytes(32).toString("base64url"),
-    formToken: randomBytes(32).toString("base64url"),
-    expiresAt: Math.min(
-      sessionExpiresAt,
-      Date.now() + managementSessionLifetimeSeconds * 1_000,
-    ),
-  };
-}
-
-type ClientSession = {
-  identity: Readonly<{ issuer: string; subject: string }>;
-  binding: Readonly<{ userId: string; bindingId: string }>;
-  expiresAt: number;
-  management?: NonNullable<ReturnType<typeof openManagementSession>>;
-  gitHostReferences: Map<string, string>;
-};
-
-/** 入口のCookieに依存せず、本人ごとの容量・期限と接続の置換を管理する。 */
-export function createClientSessions(
-  onRemove: (id: string, discarded?: ClientSession) => void,
-) {
-  const sessions = new Map<string, ClientSession>();
-  const remove = (id: string, reason: "ended" | "removed" = "removed") => {
-    onRemove(id, reason === "removed" ? sessions.get(id) : undefined);
-    sessions.delete(id);
-  };
-  const read = (id: string) => {
-    const session = sessions.get(id);
-    if (!session) return null;
-    if (session.expiresAt <= Date.now()) {
-      remove(id, "ended");
-      return null;
-    }
-    return { token: id, session };
-  };
-  const start = (
-    id: string,
-    identity: ClientSession["identity"],
-    { userId, bindingId }: ClientSession["binding"],
-    previous?: string,
-  ) => {
-    const now = Date.now();
-    for (const [key, session] of sessions)
-      if (session.expiresAt <= now) remove(key, "ended");
-    if (previous) remove(previous);
-    const owned = [...sessions].filter(
-      ([, session]) =>
-        session.binding.userId === userId &&
-        session.binding.bindingId === bindingId,
-    );
-    for (const [key] of owned.slice(
-      0,
-      Math.max(0, owned.length - maximumClientSessionsPerAccount + 1),
-    ))
-      remove(key, "ended");
-    if (sessions.size >= maximumClientSessions) {
-      const oldest = sessions.keys().next().value;
-      if (oldest !== undefined) remove(oldest, "ended");
-    }
-    sessions.set(id, {
-      identity,
-      binding: { userId, bindingId },
-      expiresAt: now + clientSessionLifetimeSeconds * 1_000,
-      gitHostReferences: new Map(),
-    });
-  };
-  return {
-    sessions: sessions as ReadonlyMap<string, ClientSession>,
-    read,
-    start,
-    remove,
-  };
-}
-
 /** HTTP／MCPの受付が、要求の主体と対象ホストに対応する連携を確定する。 */
-export type HostedAccessSession = Readonly<{
+export type GitHostLinkedAccessSession = Readonly<{
   principal: AccountAccessPrincipal;
   repositoryScope: RepositoryScope;
   browserSessionKey?: object;
   readGitHost: ReadGitHost;
   readHostToken: (host: string) => string | null;
+  readHostReference?: (host: string) => string | null;
   isCurrent?: () => boolean;
   observeClient?: (
     signal: AbortSignal,
   ) => Promise<"current" | "revoked" | "unavailable">;
-  openExecution?: (host: string) => HostedExecutionClientAccess | null;
+  openExecution?: (host: string) => GitHostLinkedExecutionClientAccess | null;
 }>;
 
-export type HostedExecutionClientAccess = Readonly<{
+export type GitHostLinkedExecutionClientAccess = Readonly<{
   accountId: string;
   observePermission: NonNullable<BoundGitHost["observePermission"]>;
   close?: () => void;
   revocationSignal?: AbortSignal;
 }>;
 
-function observeHostedDirectory(
+type ReadBoundHostValue<Value> = (host: string, reference: string) => Value;
+
+/** 受付ごとの確定済み連携から、共有操作の要求用接続を構成する。 @trace ARCH-000012 */
+export function createGitHostLinkedAccessSession(
+  context: Pick<
+    GitHostLinkedAccessSession,
+    | "principal"
+    | "repositoryScope"
+    | "browserSessionKey"
+    | "readGitHost"
+    | "observeClient"
+  > & {
+    isCurrent: () => boolean;
+    readReference: (host: string) => string | null | undefined;
+    readToken: ReadBoundHostValue<string | null>;
+    open?: ReadBoundHostValue<GitHostLinkedExecutionClientAccess | null>;
+  },
+): GitHostLinkedAccessSession {
+  const { readReference, readToken, open, ...session } = context;
+  const currentReference = (host: string) =>
+    session.isCurrent() ? readReference(host) : null;
+  return {
+    ...session,
+    readHostToken(host) {
+      const reference = currentReference(host);
+      return reference ? readToken(host, reference) : null;
+    },
+    ...(session.browserSessionKey !== undefined && {
+      readHostReference(host: string) {
+        const reference = currentReference(host);
+        return reference && readToken(host, reference) !== null
+          ? reference
+          : null;
+      },
+    }),
+    ...(open && {
+      openExecution(host: string) {
+        const reference = currentReference(host);
+        return reference ? open(host, reference) : null;
+      },
+    }),
+  };
+}
+
+/** 受付時のManifestと比較し、差し替えと観測不能を区別する。 */
+export function observeAuthorizedManifest(
+  target: Pick<AuthorizedRepository, "root" | "manifest">,
+  expected = JSON.stringify(target.manifest),
+): "current" | "target_changed" | "unavailable" {
+  const fresh = readRepositoryManifest(target.root);
+  if (fresh.status !== "ready") return "unavailable";
+  return JSON.stringify(fresh.manifest) === expected
+    ? "current"
+    : "target_changed";
+}
+
+function observeGitHostLinkedDirectory(
   root: string,
   host: BoundGitHost,
   expectedName: string,
   repositoryScope: RepositoryScope,
+  captureOriginConfiguration: boolean,
 ) {
   const initial = lstatSync(root, { bigint: true });
   if (!initial.isDirectory() || initial.ino === 0n) return null;
@@ -185,20 +148,72 @@ function observeHostedDirectory(
       ? remote
       : null;
   };
-  return readOrigin()
-    ? { sameDirectory, readOrigin, readConfiguredOrigin }
+  const captureOrigin = () =>
+    captureOriginConfiguration && repositoryScope(root)
+      ? readOriginHttpsRemote(location.capability, {
+          captureConfiguration: true,
+        })
+      : null;
+  let captured = captureOrigin();
+  const matchesOrigin = (address: string) =>
+    sameDirectory() && host.readRepositoryName(address) === expectedName;
+  const matched = captured
+    ? matchesOrigin(captured.address)
+    : readOrigin() !== null;
+  return matched
+    ? {
+        sameDirectory,
+        readOrigin,
+        readConfiguredOrigin,
+        recheckOrigin() {
+          if (captured?.configurationIsCurrent() === true)
+            return sameDirectory();
+          const current = captureOrigin();
+          if (!current) return readOrigin() !== null;
+          if (!matchesOrigin(current.address)) return false;
+          captured = current;
+          return true;
+        },
+      }
     : null;
 }
 
+/** 同じ要求内で使う、現在のリポジトリ認可と公開前の再照合。 @trace ARCH-000012 */
+export interface GitHostLinkedRepositoryAccess {
+  readonly repositories: readonly AuthorizedRepository[];
+  readonly signal: AbortSignal;
+  readonly hostCredentialIsCurrent: (host: string) => boolean;
+  readonly canWrite: (repositoryId: string) => boolean;
+  readonly sameDirectory: (repository: AuthorizedRepository) => boolean;
+  readonly readConfiguredOrigin: (
+    repository: AuthorizedRepository,
+  ) => string | null;
+  readonly readAuthorizedOrigin: (
+    repository: AuthorizedRepository,
+  ) => string | null;
+  readonly assertDirectory: (repository: AuthorizedRepository) => void;
+  readonly assertCurrent: (
+    repositories: readonly AuthorizedRepository[],
+    reuseOriginConfiguration?: boolean,
+  ) => void;
+}
+
+/** 現在の本人の拒否を登録の空集合と区別する。 */
+export class BrowserPrincipalRejected extends Error {}
+
 /** 外部ホスト認可を、同じ要求の実ディレクトリと公開前確認へ結ぶ。 */
-export async function resolveHostedRepositories(
+export async function resolveGitHostLinkedRepositories(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   signal: AbortSignal,
   repositoryId?: string,
   operation: "read" | "write" = "read",
-  options?: Readonly<{ allowUnrelatedRevision: true }>,
-) {
+  options?: Readonly<{
+    allowUnrelatedRevision?: true;
+    captureOriginConfiguration?: true;
+    rejectRevokedPrincipal?: true;
+  }>,
+): Promise<GitHostLinkedRepositoryAccess | null> {
   if (signal.aborted) throw new Error("hosted_repository_access_unavailable");
   if (operation !== "read" && repositoryId === undefined)
     throw new Error("hosted_repository_access_unavailable");
@@ -212,14 +227,18 @@ export async function resolveHostedRepositories(
     signal,
     AbortSignal.timeout(observationTimeMs),
   ]);
-  const before = readHostedAccessCandidates(root, session.principal);
+  const before = readGitHostLinkedAccessCandidates(root, session.principal);
   if (before.status === "unavailable" || deadline.aborted)
     throw new Error("hosted_repository_access_unavailable");
-  if (before.status === "revoked") return null;
+  if (before.status === "revoked") {
+    if (options?.rejectRevokedPrincipal) throw new BrowserPrincipalRejected();
+    return null;
+  }
   // 同期GitやAMの確認中はabort通知が遅れるため、経過時刻も確認する。
   const withinDeadline = () =>
     !deadline.aborted && performance.now() < expiresAt;
   const credentials = new Map<string, string>();
+  const observations = new Map<string, BoundGitHost["observeAccess"]>();
   const hostCredentialIsCurrent = (host: string) => {
     const token = credentials.get(host);
     return (
@@ -230,15 +249,25 @@ export async function resolveHostedRepositories(
   };
   const sessionCurrent = () =>
     withinDeadline() &&
-    session.isCurrent?.() !== false &&
+    principalIsCurrent() &&
     [...credentials.keys()].every(hostCredentialIsCurrent) &&
     withinDeadline();
+  function principalIsCurrent() {
+    const current = session.isCurrent?.() !== false;
+    if (!current && options?.rejectRevokedPrincipal)
+      throw new BrowserPrincipalRejected();
+    return current;
+  }
   const expected = targetOnly
-    ? before.candidates.find((entry) => entry.repositoryId === repositoryId)
+    ? JSON.stringify(
+        before.candidates.find((entry) => entry.repositoryId === repositoryId),
+      )
     : undefined;
   const accessCurrent = () => {
     if (!sessionCurrent()) return false;
-    const fresh = readHostedAccessCandidates(root, session.principal);
+    const fresh = readGitHostLinkedAccessCandidates(root, session.principal);
+    if (fresh.status === "revoked" && options?.rejectRevokedPrincipal)
+      throw new BrowserPrincipalRejected();
     return (
       fresh.status === "current" &&
       (targetOnly
@@ -246,18 +275,25 @@ export async function resolveHostedRepositories(
             fresh.candidates.find(
               (entry) => entry.repositoryId === repositoryId,
             ),
-          ) === JSON.stringify(expected)
+          ) === expected
         : fresh.managementRevision === before.managementRevision) &&
       sessionCurrent()
     );
   };
   let firstObservation = true;
+  let principalRejectedDuringHostRead = false;
   const beforeHostRequest = () => {
-    if (!firstObservation) return accessCurrent();
-    firstObservation = false;
-    return sessionCurrent();
+    try {
+      if (!firstObservation) return accessCurrent();
+      firstObservation = false;
+      return sessionCurrent();
+    } catch (error) {
+      if (!(error instanceof BrowserPrincipalRejected)) throw error;
+      principalRejectedDuringHostRead = true;
+      return false;
+    }
   };
-  const checked: HostedAccessCandidate[] = [];
+  const checked: GitHostLinkedAccessCandidate[] = [];
   const remoteIdentities = new Map<
     string,
     { host: BoundGitHost; name: string }
@@ -273,12 +309,18 @@ export async function resolveHostedRepositories(
     const token = recorded ?? session.readHostToken(reference.host);
     if (!token) continue;
     if (recorded === undefined) credentials.set(reference.host, token);
-    const observed = await host.observeAccess({
+    let observe = observations.get(reference.host);
+    if (!observe) {
+      observe = host.createAccessObservation?.(token) ?? host.observeAccess;
+      observations.set(reference.host, observe);
+    }
+    const observed = await observe({
       reference,
       userAccessToken: token,
       signal: deadline,
       isCurrent: beforeHostRequest,
     });
+    if (principalRejectedDuringHostRead) throw new BrowserPrincipalRejected();
     if (observed.status === "unavailable")
       throw new Error("hosted_repository_access_unavailable");
     if (
@@ -302,12 +344,12 @@ export async function resolveHostedRepositories(
       throw new Error("hosted_repository_access_unavailable");
     return null;
   }
-  const verified: Parameters<typeof resolveHostedAccessCollection>[2] = {
+  const verified: Parameters<typeof resolveGitHostLinkedAccessCollection>[2] = {
     managementRevision: before.managementRevision,
     candidates: checked,
     ...(targetOnly && { allowUnrelatedRevision: true as const }),
   };
-  const directories = resolveHostedAccessDirectories(
+  const directories = resolveGitHostLinkedAccessDirectories(
     root,
     session.principal,
     verified,
@@ -315,7 +357,7 @@ export async function resolveHostedRepositories(
   if (!directories) throw new Error("hosted_repository_access_unavailable");
   const local = new Map<
     string,
-    NonNullable<ReturnType<typeof observeHostedDirectory>>
+    NonNullable<ReturnType<typeof observeGitHostLinkedDirectory>>
   >();
   const excluded = new Set<string>();
   for (const repository of directories) {
@@ -326,11 +368,12 @@ export async function resolveHostedRepositories(
     }
     const remote = remoteIdentities.get(repository.repositoryId);
     if (!remote) throw new Error("hosted_repository_access_unavailable");
-    const observation = observeHostedDirectory(
+    const observation = observeGitHostLinkedDirectory(
       repository.root,
       remote.host,
       remote.name,
       session.repositoryScope,
+      options?.captureOriginConfiguration === true,
     );
     if (!observation) throw new Error("hosted_repository_access_unavailable");
     local.set(repository.root, observation);
@@ -341,7 +384,7 @@ export async function resolveHostedRepositories(
   if (!inScope.length) return null;
   if (!sessionCurrent())
     throw new Error("hosted_repository_access_unavailable");
-  const access = resolveHostedAccessCollection(root, session.principal, {
+  const access = resolveGitHostLinkedAccessCollection(root, session.principal, {
     ...verified,
     candidates: inScope,
   });
@@ -367,11 +410,22 @@ export async function resolveHostedRepositories(
       if (!sessionCurrent() || !local.get(repository.root)?.sameDirectory())
         throw new Error("hosted_repository_access_unavailable");
     },
-    assertCurrent(repositories: readonly AuthorizedRepository[]) {
+    assertCurrent(
+      repositories: readonly AuthorizedRepository[],
+      reuseOriginConfiguration = false,
+    ) {
       // 接続先が変わった内容は、以前の外部認可で公開しない。
-      for (const repository of repositories)
-        if (!sessionCurrent() || !local.get(repository.root)?.readOrigin())
+      for (const repository of repositories) {
+        const observation = local.get(repository.root);
+        if (
+          !sessionCurrent() ||
+          !observation ||
+          !(reuseOriginConfiguration
+            ? observation.recheckOrigin()
+            : observation.readOrigin())
+        )
           throw new Error("hosted_repository_access_unavailable");
+      }
       if (!accessCurrent())
         throw new Error("hosted_repository_access_unavailable");
     },
@@ -379,21 +433,25 @@ export async function resolveHostedRepositories(
 }
 
 /** Workspaceの既存排他へ、外部照会なしで再確認できる要求内の認可を渡す。 */
-export async function resolveHostedDevelopmentAccess(
+export async function resolveGitHostLinkedDevelopmentAccess(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   repositoryId: string,
   write: boolean,
   signal: AbortSignal,
+  options?: Readonly<{ reuseOriginConfiguration: true }>,
 ) {
   const current = () => !signal.aborted && session.isCurrent?.() !== false;
   if (!current()) return null;
-  const hosted = await resolveHostedRepositories(
+  const hosted = await resolveGitHostLinkedRepositories(
     root,
     session,
     signal,
     repositoryId,
     write ? "write" : "read",
+    options?.reuseOriginConfiguration
+      ? { captureOriginConfiguration: true }
+      : undefined,
   );
   if (!current()) return null;
   const selected = hosted?.repositories[0];
@@ -401,10 +459,10 @@ export async function resolveHostedDevelopmentAccess(
   return {
     ownerRoot: selected.root,
     bindingId: selected.bindingId,
-    hostedBinding: JSON.stringify(selected.hostedRepository),
+    gitHostLinkedBinding: JSON.stringify(selected.hostedRepository),
     projectId: selected.manifest.projectId,
     canWrite: hosted.canWrite(repositoryId),
-    observeBinding: bindHostedExecutionTarget(
+    observeBinding: bindGitHostLinkedExecutionTarget(
       root,
       session.principal,
       repositoryId,
@@ -414,15 +472,9 @@ export async function resolveHostedDevelopmentAccess(
     authorize: () => {
       try {
         hosted.assertDirectory(selected);
-        const manifest = readRepositoryManifest(selected.root);
-        if (
-          manifest.status !== "ready" ||
-          JSON.stringify(manifest.manifest) !==
-            JSON.stringify(selected.manifest)
-        )
-          return false;
+        if (observeAuthorizedManifest(selected) !== "current") return false;
         // 同期Manifest観測中の連携失効と照会期限切れも、処置・公開より先に拒否する。
-        hosted.assertCurrent([selected]);
+        hosted.assertCurrent([selected], options?.reuseOriginConfiguration);
         return true;
       } catch {
         return false;
@@ -431,24 +483,24 @@ export async function resolveHostedDevelopmentAccess(
   };
 }
 
-type HostedExecutionObservation =
+type GitHostLinkedExecutionObservation =
   | "current"
   | "revoked"
   | "target_changed"
   | "unavailable";
 
 /** 受付資格とは別に、元の本人・登録対象・ディレクトリ実体を再照合する。 */
-function bindHostedExecutionTarget(
+function bindGitHostLinkedExecutionTarget(
   root: FilesystemStoreRoot,
-  principal: HostedAccessSession["principal"],
+  principal: GitHostLinkedAccessSession["principal"],
   repositoryId: string,
   selected: AuthorizedRepository,
   sameDirectory: () => boolean,
-): () => HostedExecutionObservation {
+): () => GitHostLinkedExecutionObservation {
   const binding = JSON.stringify(selected.hostedRepository);
   return () => {
     try {
-      const eligibility = observeHostedExecutionBinding(root, principal);
+      const eligibility = observeGitHostLinkedExecutionBinding(root, principal);
       if (eligibility.status !== "current") return eligibility.status;
       const candidate = eligibility.candidates.find(
         (entry) => entry.repositoryId === repositoryId,
@@ -466,9 +518,29 @@ function bindHostedExecutionTarget(
 }
 
 /** 開始時の対象を固定し、後続の各外部照会を元の連携と実体に結び付ける。 @trace ARCH-000012 */
-export async function openHostedExecutionAccess(
+export interface GitHostLinkedExecutionAccess {
+  readonly ownerRoot: string;
+  readonly projectId: string;
+  readonly bindingId: string;
+  readonly gitHostLinkedBinding: string;
+  readonly principalId: string;
+  readonly host: string;
+  readonly observeBinding: () => GitHostLinkedExecutionObservation;
+  readonly authorizedAtAdmission: () => boolean;
+  readonly authorizeRequest: () => boolean;
+  readonly observe: () => GitHostLinkedExecutionObservation;
+  readonly observeTarget: () => boolean;
+  readonly refresh: (
+    signal: AbortSignal,
+  ) => Promise<GitHostLinkedExecutionObservation>;
+  readonly close: (() => void) | undefined;
+  readonly revocationSignal: AbortSignal | undefined;
+}
+
+/** 開始済みの実行へ、本人の対話資格とは別の監視を渡す。 @trace ARCH-000012 */
+export async function openGitHostLinkedExecutionAccess(
   root: FilesystemStoreRoot,
-  session: HostedAccessSession,
+  session: GitHostLinkedAccessSession,
   repositoryId: string,
   {
     projectId,
@@ -478,14 +550,14 @@ export async function openHostedExecutionAccess(
     permission: "read" | "write";
   }>,
   signal: AbortSignal,
-) {
+): Promise<GitHostLinkedExecutionAccess | null> {
   if (
     (permission !== "read" && permission !== "write") ||
     signal.aborted ||
     session.isCurrent?.() === false
   )
     return null;
-  const initial = await resolveHostedRepositories(
+  const initial = await resolveGitHostLinkedRepositories(
     root,
     session,
     signal,
@@ -503,11 +575,10 @@ export async function openHostedExecutionAccess(
   const address = initial.readAuthorizedOrigin(selected);
   if (!address) return null;
   const host = selected.hostedRepository;
-  if (!host) return null;
   const gitHost = session.readGitHost(host.host);
   if (!gitHost?.acceptsReference(host)) return null;
   const binding = JSON.stringify(host);
-  const manifest = JSON.stringify(selected.manifest);
+  const admittedManifest = JSON.stringify(selected.manifest);
   const authorizedAtAdmission = () =>
     session.isCurrent?.() !== false &&
     session.principal.expiresAt > Date.now() &&
@@ -515,18 +586,29 @@ export async function openHostedExecutionAccess(
   if (!authorizedAtAdmission()) return null;
   const client = session.openExecution?.(host.host);
   if (!client) return null;
-  const observeBinding = bindHostedExecutionTarget(
+  const observeBinding = bindGitHostLinkedExecutionTarget(
     root,
     session.principal,
     repositoryId,
     selected,
     () => initial.sameDirectory(selected),
   );
-  const observe = (): HostedExecutionObservation => {
+  const observe = (): GitHostLinkedExecutionObservation => {
     if (client.revocationSignal?.aborted) return "revoked";
     const current = observeBinding();
     return client.revocationSignal?.aborted ? "revoked" : current;
   };
+  const observeAdmittedOrigin = (
+    readOrigin: () => string | null,
+  ): GitHostLinkedExecutionObservation => {
+    const manifest = observeAuthorizedManifest(selected, admittedManifest);
+    if (manifest !== "current") return manifest;
+    const origin = readOrigin();
+    if (!origin) return "unavailable";
+    return origin === address ? "current" : "target_changed";
+  };
+  const readConfiguredOrigin = () => initial.readConfiguredOrigin(selected);
+  const readAuthorizedOrigin = () => initial.readAuthorizedOrigin(selected);
   const authorizeRequest = () => {
     try {
       if (
@@ -535,19 +617,14 @@ export async function openHostedExecutionAccess(
         observe() !== "current"
       )
         return false;
-      const current = readRepositoryManifest(selected.root);
-      return (
-        current.status === "ready" &&
-        JSON.stringify(current.manifest) === manifest &&
-        initial.readAuthorizedOrigin(selected) === address
-      );
+      return observeAdmittedOrigin(readAuthorizedOrigin) === "current";
     } catch {
       return false;
     }
   };
   const refresh = async (
     scope: AbortSignal,
-  ): Promise<HostedExecutionObservation> => {
+  ): Promise<GitHostLinkedExecutionObservation> => {
     try {
       if (scope.aborted) return "unavailable";
       const before = observe();
@@ -566,32 +643,35 @@ export async function openHostedExecutionAccess(
         !(permission === "read" && observed.permission === "read")
       )
         return "revoked";
-      const current = readRepositoryManifest(selected.root);
-      if (current.status !== "ready") return "unavailable";
-      if (JSON.stringify(current.manifest) !== manifest)
-        return "target_changed";
-      const origin = initial.readConfiguredOrigin(selected);
-      if (!origin) return "unavailable";
-      if (
-        address !== origin ||
-        gitHost.readRepositoryName(origin) !== observed.repositoryName
-      )
+      const target = observeAdmittedOrigin(readConfiguredOrigin);
+      if (target !== "current") return target;
+      if (gitHost.readRepositoryName(address) !== observed.repositoryName)
         return "target_changed";
       return observe();
     } catch {
       return "unavailable";
     }
   };
+  const observeTarget = () => {
+    try {
+      if (observe() !== "current") return false;
+      return observeAdmittedOrigin(readConfiguredOrigin) === "current";
+    } catch {
+      return false;
+    }
+  };
   return {
     ownerRoot: selected.root,
     projectId: selected.manifest.projectId,
     bindingId: selected.bindingId,
-    hostedBinding: binding,
+    gitHostLinkedBinding: binding,
     principalId: session.principal.userId,
     observeBinding,
     authorizedAtAdmission,
     authorizeRequest,
     observe,
+    observeTarget,
+    host: host.host,
     refresh,
     close: client.close,
     revocationSignal: client.revocationSignal,
@@ -599,7 +679,7 @@ export async function openHostedExecutionAccess(
 }
 
 /** 共有Repositoryを、現在の管理主体自身に許可されたホストの対象へ結ぶ。 */
-export async function registerHostedRepository(
+export async function registerGitHostLinkedRepository(
   root: FilesystemStoreRoot,
   principal: AccountAccessPrincipal,
   request: {
@@ -619,7 +699,11 @@ export async function registerHostedRepository(
     reason: "management_request_rejected" as const,
   };
   if (signal.aborted || !isCurrent()) return rejected;
-  const current = checkHostedRepositoryRegistration(root, principal, request);
+  const current = checkGitHostLinkedRepositoryRegistration(
+    root,
+    principal,
+    request,
+  );
   if (current === "conflict")
     return !signal.aborted && isCurrent()
       ? { status: "rejected", reason: "management_revision_conflict" }
@@ -725,31 +809,6 @@ export function issueUserInvitation(
 }
 
 /**
- * 認可済みの登録要求からexact Git Rootを確認する。
- * @responsibility Gitの配置と現在性はServer側で観測し、AMにはディレクトリと照合処理だけを渡す。
- * @trace ARCH-000013
- * @input AMが現在認可・期待改訂と照合した登録Path。
- * @returns 正規ディレクトリと同じ対象の再確認、又はnull。
- * @precondition AMの登録観測から同期的に呼ばれる。
- * @postcondition Git識別値と技術能力をAMの保存値に含めない。
- * @effect Git配置の読取りだけ。対象Repositoryを書き換えない。
- * @failure 不正・不明はnull、再確認不能はfalse。
- * @invariant 親Repositoryを代替にしない。
- * @boundary Serverの登録接続とVC。
- * @security 要求値によって観測方法を変更しない。
- * @concurrency 最後の照合は初回と同じ対象をfresh観測する。
- */
-export function observeRegistrationDirectory(directory: string) {
-  const location = readRepositoryLocation(directory);
-  if (location === null) return null;
-  const root = location.directory;
-  return {
-    directory: root,
-    isCurrent: () => readRepositoryLocation(root)?.directory === root,
-  };
-}
-
-/**
  * 管理readの対象を固定する。
  * @responsibility 本人と他ユーザー管理の種類を混同しない。
  * @trace ARCH-000013
@@ -779,7 +838,7 @@ export type ManagementResult =
       reason: "management_not_configured";
     }>;
 
-export type ManagementWriteOperation =
+type ManagementWriteOperation =
   | "updateUserName"
   | "updateUserRole"
   | "unregisterRepository";
@@ -842,8 +901,6 @@ export function executeManagementOperation(
  */
 export function createAccessViewResponse(
   actionToken: string,
-  notice: string | null,
-  portfolio: PortfolioProjection | null,
   authenticated: boolean,
   loginProviders?: readonly PublicLoginProvider[],
 ): AccessViewResponse {
@@ -853,18 +910,16 @@ export function createAccessViewResponse(
     actionToken,
     authenticated,
     ...(loginProviders && { loginProviders }),
-    notice,
-    portfolio,
   });
 }
 
 /**
- * Local CROSの接続と管理だけを表示するModel。
+ * 共有モードの接続と管理だけを表示するModel。
  * @responsibility 未認証や内容未選択を架空のRepository主画面へ変換しない。
  * @trace ARCH-000012
  * @trace ARCH-000013
- * @shape access判別子、非秘密接続状態とPortfolio。
- * @invariant 未認証時はPortfolioなし。loginProvidersは公開可能な選択肢で、認証済みかはauthenticatedで判定する。
+ * @shape access判別子、非秘密接続状態と公開ログイン選択肢。
+ * @invariant 認証済みかはauthenticatedで判定し、内容認可は一覧APIで別に判定する。
  * @boundary Workbench接続用JSONとCSR画面。
  * @security 入力済み鍵、Host Root、Verifierを保持しない。
  * @compatibility 現行client-model/v1内の追加variant。
@@ -875,6 +930,4 @@ export type AccessViewResponse = Readonly<{
   actionToken: string;
   authenticated: boolean;
   loginProviders?: readonly PublicLoginProvider[];
-  notice: string | null;
-  portfolio: PortfolioProjection | null;
 }>;

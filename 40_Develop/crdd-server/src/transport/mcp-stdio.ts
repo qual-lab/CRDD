@@ -3,34 +3,41 @@
  * @packageDocumentation
  * @trace ARCH-000012
  */
-import { type Readable, Writable, PassThrough } from "node:stream";
+import { PassThrough, type Readable, Writable } from "node:stream";
+import { UnsupportedProtocolVersionError } from "@modelcontextprotocol/server";
 import {
-  serveStdio,
   StdioServerTransport,
+  serveStdio,
 } from "@modelcontextprotocol/server/stdio";
-import { parseUnambiguousJsonDocument } from "./parse-json.ts";
 import {
-  inspectProtocolRequest,
-  inspectMcpEnvelope,
-  protocolError,
-  mcpSdkFailure,
   finishMcpSdkRequest,
-  createMcpRequestServer,
+  acceptMcpRequest,
+  inspectMcpEnvelope,
+  inspectProtocolRequest,
+  isMcpPublicRequest,
+  mcpSdkFailure,
+  protocolError,
+  readMcpProtocolVersion,
+  readRequestRecord,
+  createUnsupportedProtocolVersionResponse,
 } from "./mcp-protocol.ts";
 import {
-  objectiveRunTools,
-  type McpRequestSource,
+  type McpProtocolRequest,
   type McpResponse,
+  type McpServerFactory,
+  objectiveRunTools,
 } from "./mcp-types.ts";
+import { parseUnambiguousJsonDocument } from "./parse-json.ts";
 
-export const MCP_COORDINATOR_STDIO_CONTRACT =
-  "crdd-mcp/stdio-transport/v1" as const;
+const MCP_COORDINATOR_STDIO_CONTRACT = "crdd-mcp/stdio-transport/v1" as const;
 const MAXIMUM_STDIO_REQUEST_BYTES = 128 * 1024;
 
 type StdioFrame = Readonly<{
   raw: ReturnType<typeof parseUnambiguousJsonDocument>;
+  request: McpProtocolRequest | null;
   size: number;
   id: string | number | null;
+  protocolVersion: string | undefined;
   runsObjective: boolean;
   controlsObjective: boolean;
 }>;
@@ -53,8 +60,10 @@ function inspectStdioFrame(raw: StdioFrame["raw"], size: number): StdioFrame {
       : undefined;
   return {
     raw,
+    request,
     size,
     id: request?.id ?? null,
+    protocolVersion: readMcpProtocolVersion(params),
     runsObjective:
       tool === objectiveRunTools.start || tool === objectiveRunTools.resume,
     controlsObjective:
@@ -102,19 +111,21 @@ function writeStdioFrame(output: Writable, value: string) {
  * @concurrency 一要求だけを搬送し、取消通知だけを待機列から分離する。
  */
 async function dispatchMcpStdioRequest(
-  rawRequest: unknown,
-  handler: McpRequestSource,
+  frame: StdioFrame,
+  handler: McpServerFactory,
   signal: AbortSignal,
   observe: (result: McpResponse) => void,
   connectCancellation: (
     cancel: ((notification: unknown) => void) | null,
   ) => void,
 ): Promise<string | null> {
-  const request = inspectProtocolRequest(rawRequest);
+  const { request } = frame;
   if (!request)
     return `${JSON.stringify(protocolError(null, -32600, "Invalid Request"))}\n`;
-  if (!["server/discover", "tools/list", "tools/call"].includes(request.method))
+  if (!isMcpPublicRequest(request))
     return `${JSON.stringify(protocolError(request.id, -32601, "Method not found"))}\n`;
+  if (frame.protocolVersion === undefined)
+    return `${JSON.stringify(protocolError(request.id, -32602, "Invalid params"))}\n`;
   const input = new PassThrough();
   let settle!: (bytes: string | null) => void;
   let fail!: (error: Error) => void;
@@ -123,46 +134,67 @@ async function dispatchMcpStdioRequest(
     fail = reject;
   });
   let pending: Promise<McpResponse> | null = null;
+  let didCreateServer = false;
+  let factoryFailure: McpResponse | undefined;
+  let versionRejection: ReturnType<
+    typeof createUnsupportedProtocolVersionResponse
+  > = null;
   const output = new Writable({
     write(chunk, _encoding, callback) {
       callback();
-      settle(String(chunk));
+      const bytes = String(chunk);
+      let response = factoryFailure ?? versionRejection;
+      if (!response && !didCreateServer) {
+        const rejected = readRequestRecord(parseUnambiguousJsonDocument(bytes));
+        if (readRequestRecord(rejected?.error)?.code === -32602)
+          response = protocolError(request.id, -32602, "Invalid params");
+      }
+      settle(response ? `${JSON.stringify(response)}\n` : bytes);
     },
   });
-  let server: Awaited<ReturnType<typeof createMcpRequestServer>>;
-  try {
-    server = await createMcpRequestServer(
-      handler,
-      rawRequest,
-      signal,
-      (operation, sdkSignal) => {
-        pending = operation;
-        void operation.then(
-          (result) => {
-            observe(result);
-            if (sdkSignal.aborted) settle(null);
-          },
-          () => {
-            if (sdkSignal.aborted) settle(null);
+  const sdk = serveStdio(
+    async () => {
+      didCreateServer = true;
+      try {
+        return await handler.createServer(
+          acceptMcpRequest(request),
+          signal,
+          (operation, sdkSignal) => {
+            pending = operation;
+            void operation.then(
+              (result) => {
+                observe(result);
+                if (sdkSignal.aborted) settle(null);
+              },
+              () => {
+                if (sdkSignal.aborted) settle(null);
+              },
+            );
           },
         );
+      } catch (error) {
+        factoryFailure = mcpSdkFailure(request.id, error);
+        throw error;
+      }
+    },
+    {
+      legacy: "reject",
+      transport: new StdioServerTransport(input, output, {
+        maxBufferSize: MAXIMUM_STDIO_REQUEST_BYTES,
+      }),
+      onerror: (error) => {
+        // この診断の直後にSDKが正式な版違い応答を書く。通信の故障として扱わない。
+        if (error instanceof UnsupportedProtocolVersionError) {
+          versionRejection = createUnsupportedProtocolVersionResponse({
+            id: request.id,
+            error,
+          });
+        } else fail(new Error("mcp_stdio_sdk_failed"));
       },
-    );
-  } catch (error) {
-    input.destroy();
-    output.destroy();
-    const failure = mcpSdkFailure(request.id, error);
-    return `${JSON.stringify(failure)}\n`;
-  }
-  const sdk = serveStdio(() => server, {
-    legacy: "reject",
-    transport: new StdioServerTransport(input, output, {
-      maxBufferSize: MAXIMUM_STDIO_REQUEST_BYTES,
-    }),
-    onerror: () => fail(new Error("mcp_stdio_sdk_failed")),
-  });
+    },
+  );
   try {
-    input.write(`${JSON.stringify(rawRequest)}\n`);
+    input.write(`${JSON.stringify({ jsonrpc: "2.0", ...request })}\n`);
     connectCancellation((notification) =>
       input.write(`${JSON.stringify(notification)}\n`),
     );
@@ -181,7 +213,7 @@ async function dispatchMcpStdioRequest(
  *
  * @responsibility 入力待機量、要求順序、取消・出力完了・意味cleanup結果を所有する。
  * @trace ARCH-000012
- * @input handler: McpRequestSource、input: Readable、output: Writable。
+ * @input handler: McpServerFactory、input: Readable、output: Writable。
  * @returns Transport終了と観測した意味cleanup・回復要求の結果。
  * @precondition 指定Sourceが認証済みの専門Ownerへ接続されている。
  * @postcondition 開始済みOwnerをjoinし、自分のStream Listenerと内部SDKを回収する。
@@ -193,7 +225,7 @@ async function dispatchMcpStdioRequest(
  * @concurrency EOF・出力故障・通知取消を開始済みOwnerへ伝播し、出力callback完了後に次要求へ進む。
  */
 async function runMcpStdioWithHandler(
-  handler: McpRequestSource,
+  handler: McpServerFactory,
   input: Readable,
   output: Writable,
   signal?: AbortSignal,
@@ -258,7 +290,7 @@ async function runMcpStdioWithHandler(
   const dispatch = (active: ActiveFrame) =>
     active.frame.raw
       ? dispatchMcpStdioRequest(
-          active.frame.raw,
+          active.frame,
           handler,
           controller.signal,
           observe,
@@ -342,7 +374,7 @@ async function runMcpStdioWithHandler(
         ) &&
         (!Object.hasOwn(notification.params, "_meta") ||
           ("_meta" in notification.params &&
-            inspectMcpEnvelope(notification.params._meta))) &&
+            inspectMcpEnvelope(notification.params._meta, "cancellation"))) &&
         (!Object.hasOwn(notification.params, "reason") ||
           ("reason" in notification.params &&
             typeof notification.params.reason === "string"))
@@ -355,6 +387,13 @@ async function runMcpStdioWithHandler(
               : control?.frame.id === id
                 ? control
                 : null;
+          // 新しい版の可否をここで判定せず、通知を同じ要求の宣言と照合する。
+          if (
+            Object.hasOwn(notification.params, "_meta") &&
+            target?.frame.protocolVersion !==
+              readMcpProtocolVersion(notification.params)
+          )
+            continue;
           if (target?.cancel) target.cancel(notification);
           else if (target) target.pendingCancellation = notification;
         }
@@ -467,40 +506,10 @@ async function runMcpStdioWithHandler(
  * @concurrency 一つの入力Queueを順序保持して処理する。
  */
 export async function runMcpStdio(
-  handler: McpRequestSource,
+  handler: McpServerFactory,
   input: Readable,
   output: Writable,
   signal?: AbortSignal,
 ) {
   return runMcpStdioWithHandler(handler, input, output, signal);
-}
-
-/**
- * Mcp Coordinator Stdio 契約の公開契約を記述する。
- *
- * @responsibility Mcp Coordinator Stdio 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000012
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeMcpCoordinatorStdioContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpCoordinatorStdioContractの入力契約を満たす。
- * @postcondition describeMcpCoordinatorStdioContractの責務を完了した結果だけを返す。
- * @effect N/A: describeMcpCoordinatorStdioContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeMcpCoordinatorStdioContractは独自の失敗分岐を所有しない。
- * @invariant describeMcpCoordinatorStdioContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: describeMcpCoordinatorStdioContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeMcpCoordinatorStdioContractは共有非同期状態を持たない同期処理である。
- */
-export function describeMcpCoordinatorStdioContract() {
-  return Object.freeze({
-    contract: MCP_COORDINATOR_STDIO_CONTRACT,
-    framing: "one_bounded_json_rpc_document_per_line",
-    requestConcurrency: 2,
-    parallelDuringObjective: [
-      objectiveRunTools.state,
-      objectiveRunTools.cancel,
-    ],
-    parentLoss: "stdin_eof_cancels_and_joins_active_requests",
-    transportAuthority: "none",
-  });
 }

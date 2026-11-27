@@ -34,26 +34,28 @@ const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
 test("三Roleと現行管理操作の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
     "acceptInvitation",
-    "checkHostedRepositoryRegistration",
+    "checkGitHostLinkedRepositoryRegistration",
+    "describeManagementPermissions",
     "evaluateManagementPermission",
     "initializeAdministratorFromHost",
     "linkAccountFromHost",
-    "observeHostedExecutionBinding",
+    "observeGitHostLinkedExecutionBinding",
     "onAccessStatePublication",
     "readAccount",
     "readAdministratorFromHost",
     "readCurrentAccess",
     "readExistingHostRoot",
     "readFilesystemStoreDirectory",
+    "readGitHostLinkedAccessCandidates",
     "readHostInitializationState",
-    "readHostedAccessCandidates",
     "readManagementState",
+    "readManagementUsersForDisplay",
     "registerRepository",
     "registerUser",
     "renewInvitation",
+    "resolveGitHostLinkedAccessCollection",
+    "resolveGitHostLinkedAccessDirectories",
     "resolveHostRootInput",
-    "resolveHostedAccessCollection",
-    "resolveHostedAccessDirectories",
     "unregisterRepository",
     "updateUserName",
     "updateUserRole",
@@ -83,9 +85,9 @@ test("三Roleと現行管理操作の固定分担", () => {
     "AuthorizedRepository",
     "CurrentAccessOutcome",
     "FilesystemStoreRoot",
+    "GitHostLinkedAccessCandidate",
     "GitHostLinkedRepository",
     "HostInitializationStateResult",
-    "HostedAccessCandidate",
     "ManagementOperationOutcome",
     "ManagementPermission",
     "ManagementReadKind",
@@ -144,7 +146,7 @@ test("三Roleと現行管理操作の固定分担", () => {
  * @precondition 三Roleをactorと対象へ別々に用意する。
  * @stimulus 登録・名前の9組ずつ、Role変更の27組を評価する。
  * @observation 対象別の45結果を取得する。
- * @oracle administratorは全有効対象、managerは名前全対象と通常Role対象だけ許可、developerは拒否。
+ * @oracle administratorは全有効対象、managerはdeveloper／managerの対象だけ許可、developerは拒否。
  * @cleanup N/A: 入力値だけを使用する。
  * @boundary N/A: 保存や実対象存在の観測には接続しない。
  */

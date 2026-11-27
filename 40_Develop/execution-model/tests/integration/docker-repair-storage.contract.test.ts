@@ -2592,30 +2592,30 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
       allow("cleanupFailure", null);
       for (const [index, name] of actionNames.entries()) {
         if (index === 0 || (kind === "continuation" && index <= 4))
-          allow("actions." + name + ".intent", "saved");
+          allow(`actions.${name}.intent`, "saved");
         if (kind === "continuation" && (index === 2 || index === 3)) {
-          allow("actions." + name + ".request", "issued");
+          allow(`actions.${name}.request`, "issued");
           // 後処置start_runtimeがsavedの継続profileでは、先行retainの未確定化は不正。
           allow(
-            "actions." + name + ".result",
+            `actions.${name}.result`,
             ...(index === 2 ? ["confirmed"] : ["unknown", "confirmed"]),
           );
         }
       }
       for (const purpose of purposes) {
-        const prefix = "directories." + purpose;
+        const prefix = `directories.${purpose}`;
         const retained = kind === "continuation" && purpose === "primary";
         if (!retained) {
-          allow(prefix + ".expected", null);
-          allow(prefix + ".retained.identity", null);
+          allow(`${prefix}.expected`, null);
+          allow(`${prefix}.retained.identity`, null);
         }
-        allow(prefix + ".source.identity", null);
+        allow(`${prefix}.source.identity`, null);
         allow(
-          prefix + ".source.state",
+          `${prefix}.source.state`,
           ...(retained ? ["absent"] : ["unknown", "absent"]),
         );
         allow(
-          prefix + ".retained.state",
+          `${prefix}.retained.state`,
           ...(retained
             ? ["present"]
             : kind === "continuation"
@@ -2625,13 +2625,13 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
       }
     } else if (kind === "disposal") {
       for (const purpose of purposes)
-        allow("directories." + purpose + ".intent", "saved");
+        allow(`directories.${purpose}.intent`, "saved");
     } else {
       for (const purpose of purposes) allow(purpose, null);
     }
     const check = (value: unknown, expected: unknown = null) => {
       const actual = decode(value);
-      assert.deepEqual(actual, expected, kind + ":" + corpus.at(-1));
+      assert.deepEqual(actual, expected, `${kind}:${corpus.at(-1)}`);
       frozen(actual);
       if (actual && value && typeof value === "object")
         assert.notEqual(actual, value);
@@ -2655,7 +2655,7 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
         },
       ),
     ].entries()) {
-      corpus.push(kind + ":root:" + index);
+      corpus.push(`${kind}:root:${index}`);
       check(value);
     }
     const paths: string[][] = [[]];
@@ -2678,7 +2678,7 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
         change(record as Record<string, unknown>);
         return value;
       };
-      corpus.push(kind + ":" + at.join(".") + ":extra");
+      corpus.push(`${kind}:${at.join(".")}:extra`);
       check(
         mutate((record) => {
           record.unexpected = true;
@@ -2689,7 +2689,7 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
         original = (original as Record<string, unknown>)[key];
       for (const key of Object.keys(original as object)) {
         const field = [...at, key].join(".");
-        corpus.push(kind + ":" + field + ":missing");
+        corpus.push(`${kind}:${field}:missing`);
         check(
           mutate((record) => {
             delete record[key];
@@ -2712,7 +2712,7 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
           "absent",
           "present",
         ].entries()) {
-          corpus.push(kind + ":" + field + ":replace:" + index);
+          corpus.push(`${kind}:${field}:replace:${index}`);
           const value = mutate((record) => {
             record[key] = invalid;
           });
@@ -2724,7 +2724,7 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
           );
         }
         let reads = 0;
-        corpus.push(kind + ":" + field + ":getter");
+        corpus.push(`${kind}:${field}:getter`);
         check(
           mutate((record) => {
             Object.defineProperty(record, key, {
@@ -2737,7 +2737,7 @@ test("修復保存codecは全field母集団を独立期待値で検証する", (
           }),
         );
         assert.equal(reads, 0);
-        corpus.push(kind + ":" + field + ":proxy");
+        corpus.push(`${kind}:${field}:proxy`);
         check(
           mutate((record) => {
             record[key] = new Proxy(

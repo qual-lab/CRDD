@@ -173,6 +173,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "readTestCatalog",
     "readTopicMeetingList",
     "reenterQualityReview",
+    "testCatalogPath",
     "testLevels",
   ]);
   assert.deepEqual(exportedNames("../../src/index.ts"), [
@@ -401,6 +402,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "readTestCatalog",
     "readTopicMeetingList",
     "reenterQualityReview",
+    "testCatalogPath",
     "testLevels",
   ]);
   const metadata = JSON.parse(

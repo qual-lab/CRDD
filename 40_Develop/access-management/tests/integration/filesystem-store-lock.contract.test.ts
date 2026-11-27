@@ -116,18 +116,6 @@ test("空・不完全・旧Recordの残存は自動回復せず処理を呼ば�
   }
 });
 
-test("旧清掃義務だけが残っていても取得せず保全する", (t) => {
-  const f = fixture(t);
-  const marker = path.join(f.directory, "store.lock.recovery-obligation");
-  fs.writeFileSync(marker, "unknown-legacy-obligation", { flag: "wx" });
-  const result = withFilesystemStoreLock(f.root, "store.lock", () =>
-    assert.fail("must stop"),
-  );
-  assert.equal(result.acquired, false);
-  assert.equal(fs.existsSync(path.join(f.directory, "store.lock")), false);
-  assert.equal(fs.readFileSync(marker, "utf8"), "unknown-legacy-obligation");
-});
-
 test("解放前の世代置換を保全し、成立済み結果と解放不明を分ける", (t) => {
   const f = fixture(t);
   const target = path.join(f.directory, "store.lock");

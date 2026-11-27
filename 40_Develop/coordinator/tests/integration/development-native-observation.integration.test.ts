@@ -669,12 +669,12 @@ if (process.argv[2] !== "--probe") {
    * @trace ERB-IT-004
    * @precondition 現行Repositoryの固定Sourceが観測可能である。
    * @stimulus 実CLIを--describe-sourceで起動し、余剰Root引数も与える。
-   * @observation JSON結果、終了Code、tests直下の前後集合。
+   * @observation JSON結果、終了Code、専用作業リポジトリのtests直下の前後集合。
    * @oracle 同じScope/Hash/件数を返し、実体Hash非公開、余剰引数拒否、Directory追加0。
-   * @cleanup 読取りだけを実行し生成物を持たない。
+   * @cleanup 試験専用リポジトリだけを清掃する。CLIは生成物を持たない。
    * @boundary 実Node子ProcessのCLI入口。Docker・Providerへは到達しない。
    */
-  test("development source snapshot CLI describes the fixed source without creating a run", async () => {
+  test("development source snapshot CLI describes the fixed source without creating a run", async (t) => {
     const root = path.resolve(
       fileURLToPath(new URL("../../../../", import.meta.url)),
     );
@@ -685,7 +685,20 @@ if (process.argv[2] !== "--probe") {
       "scripts",
       "benchmark.ts",
     );
-    const tests = path.join(root, ".crdd", "tests");
+    // SourceはCLI自身に固定され、実測の出力先だけが作業ディレクトリに依存する。
+    // 他パッケージと共有するtests直下を、書込みなしの判定に使わない。
+    const fixture = createRepositoryTestDirectory(
+      "describe-development-source-",
+    );
+    t.after(() => fixture.cleanup());
+    const setup = spawnSync("git", ["init", "--quiet"], {
+      cwd: fixture.path,
+      encoding: "utf8",
+      timeout: 15_000,
+    });
+    assert.equal(setup.error, undefined);
+    assert.equal(setup.status, 0, setup.stderr);
+    const tests = path.join(fixture.path, ".crdd", "tests");
     /**
      * tests直下の存在状態を、作成せず読み取る。
      *
@@ -740,7 +753,7 @@ if (process.argv[2] !== "--probe") {
       process.execPath,
       [script, "--describe-source"],
       {
-        cwd: root,
+        cwd: fixture.path,
         encoding: "utf8",
         timeout: 15_000,
         shell: false,
@@ -762,7 +775,7 @@ if (process.argv[2] !== "--probe") {
       process.execPath,
       [script, "--describe-source", root],
       {
-        cwd: root,
+        cwd: fixture.path,
         encoding: "utf8",
         timeout: 15_000,
         shell: false,

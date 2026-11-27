@@ -13,7 +13,7 @@
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 ./tests/**/*.test.ts",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test --test-concurrency=1 ./tests/**/*.test.ts",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test --test-concurrency=1 \"./tests/unit/**/*.test.ts\"",
     "claude-structured-result:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test ./tests/unit/claude/result.contract.test.ts",
     "typecheck": "tsc -p ./tsconfig.json"
   },

@@ -129,7 +129,7 @@ const SOURCE_ROLES = {
     "lifecycle/host.ts",
   ],
   runtimeCli: ["cli/command.ts"],
-  entry: ["index.ts", "api.ts"],
+  entry: ["index.ts", "api.ts", "objective-child.ts"],
 } as const;
 const SOURCE_PREFIX = "40_Develop/coordinator/src/";
 const coreModules = SOURCE_ROLES.pure.map((file) => `${SOURCE_PREFIX}${file}`);

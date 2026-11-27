@@ -3,6 +3,54 @@
   "contractRevision": 1,
   "subsystem": "ai-adapter",
   "symbols": [
+    {
+      "symbolId": "ai-adapter.catalog.models",
+      "kind": "config",
+      "path": "src/catalog/model-catalog.json",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.claude.managed-settings",
+      "kind": "config",
+      "path": "src/claude/claude-managed-settings.json",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.claude.task-settings",
+      "kind": "config",
+      "path": "src/claude/claude-task-settings.json",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.codex.executor-result-schema",
+      "kind": "schema",
+      "path": "src/codex/codex-executor-result.json",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.codex.result-schema",
+      "kind": "schema",
+      "path": "src/codex/codex-result.json",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.codex.reviewer-result-schema",
+      "kind": "schema",
+      "path": "src/codex/codex-reviewer-result.json",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
     { "symbolId": "ai-adapter.codex.observation", "kind": "file", "path": "src/codex/observation.ts", "archIds": ["ARCH-000015"] },
     { "symbolId": "ai-adapter.verification.test-entry", "kind": "file", "path": "tests/support/ai-adapter-test.ts", "archIds": ["ARCH-000015"] },
     {

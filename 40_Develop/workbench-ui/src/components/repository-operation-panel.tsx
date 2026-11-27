@@ -18,6 +18,7 @@ import {
   readRepositorySubmission,
   readRepositoryOperationDisplay,
   type RepositoryOperationDisplay,
+  type RepositorySubmission,
 } from "../api/repository.ts";
 import { requestRepositoryMutation } from "../api/mutations.ts";
 
@@ -102,7 +103,7 @@ export function RepositoryOperationPanel({
     event.preventDefault();
     if (pending.current || !current) return;
     const form = new URLSearchParams();
-    let submission: ReturnType<typeof readRepositorySubmission>;
+    let submission: RepositorySubmission;
     try {
       for (const [key, value] of new FormData(element)) {
         if (typeof value !== "string")

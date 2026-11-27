@@ -29,7 +29,7 @@ export const WORKBENCH_LOGO_PATH = "/assets/crdd-brand-icon.jpg";
  * @security Secret、TokenおよびHost PathをFieldへ追加しない。
  * @concurrency N/A: 不変型である。
  */
-export type WorkbenchShellProps = Readonly<{
+type WorkbenchShellProps = Readonly<{
   projectId: string;
   repositoryId: string;
   repositoryRole: string;
@@ -141,7 +141,11 @@ export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
       { className: "topbar" },
       createElement(
         "a",
-        { className: "brand", href: "/", "aria-label": "CROS Workbench home" },
+        {
+          className: "brand",
+          href: "/",
+          "aria-label": "CRDD Workbench ホーム",
+        },
         createElement("img", {
           src: WORKBENCH_LOGO_PATH,
           alt: "CRDD",
@@ -152,7 +156,7 @@ export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
         createElement(
           "span",
           null,
-          createElement("strong", null, "CROS"),
+          createElement("strong", null, "CRDD"),
           createElement("small", null, "Workbench"),
         ),
       ),

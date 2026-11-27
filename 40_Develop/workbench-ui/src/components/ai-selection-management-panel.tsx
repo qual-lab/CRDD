@@ -209,8 +209,13 @@ export function AiSelectionManagementPanel({
           controller.signal,
           browserSession,
         );
-        if (!response.ok) throw new Error("ai_selection_outcome_unconfirmed");
-        known = inspectWorkbenchSelectionResult(config, await response.json());
+        if (!response.ok && response.status !== 409)
+          throw new Error("ai_selection_outcome_unconfirmed");
+        known = inspectWorkbenchSelectionResult(
+          config,
+          await response.json(),
+          response.status,
+        );
         if (!active()) return;
         setResult(known);
         setNotice(

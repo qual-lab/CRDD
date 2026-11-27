@@ -31,38 +31,57 @@ const loadedCatalog = loadTestCatalog(
 );
 const catalog = loadedCatalog as TestCatalog;
 
-/**
- * 改名後のServer配下でも試験段階の不一致を拒否する。
- *
- * @responsibility 物理Parent名の変更による段階検査の脱落を検出する。
- * @trace CQS-UT-010
- * @precondition 現行台帳に両Serverのintegration試験が存在する。
- * @stimulus 同じ実在Pathの申告段階だけをunitへ変更する。
- * @observation directory_level_mismatchを観測する。
- * @oracle 正しい台帳は受理し、両Serverの誤申告は拒否する。
- * @cleanup N/A: 入力値だけを変更しFilesystemへ書き込まない。
- * @boundary CQS-UT-010=Direct Boundary: Test Catalog→Path段階検査
- */
-test("改名後のServer配下でも試験段階の不一致を拒否する", () => {
+test("台帳の所有者、範囲、環境を宣言に照らして検査する", () => {
   assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog).failures, []);
-  for (const parent of ["crdd-server", "workbench-ui"]) {
-    const target = catalog.tests.find((entry) =>
-      entry.path.startsWith(`40_Develop/${parent}/tests/integration/`),
-    );
-    assert.ok(target, parent);
-    const invalid = {
-      ...catalog,
-      tests: catalog.tests.map((entry) =>
-        entry.path === target.path ? { ...entry, level: "unit" } : entry,
-      ),
-    };
-    assert.ok(
-      inspectTestCatalog(repositoryRoot, invalid).failures.includes(
-        `directory_level_mismatch:${target.path}`,
-      ),
-      parent,
-    );
-  }
+  const owner = catalog.owners[0];
+  const target = catalog.tests[0];
+  assert.ok(owner && target);
+  const check = (change: object) =>
+    inspectTestCatalog(repositoryRoot, { ...catalog, ...change });
+  assert.ok(
+    check({ contractRevision: 10 }).failures.includes("contract_revision"),
+  );
+  assert.ok(
+    check({ owners: [...catalog.owners, owner] }).failures.includes(
+      `duplicate_owner_id:${owner.id}`,
+    ),
+  );
+  assert.ok(
+    check({
+      owners: [
+        ...catalog.owners,
+        { ...owner, id: "nested", root: `${owner.root}/tests` },
+      ],
+    }).failures.includes("overlapping_owner_root:nested"),
+  );
+  assert.ok(
+    check({
+      owners: [
+        ...catalog.owners,
+        { ...owner, id: "outside", root: "../outside" },
+      ],
+    }).failures.includes("invalid_owner_root:outside"),
+  );
+  const changeTest = (change: object) =>
+    check({ tests: [{ ...target, ...change }, ...catalog.tests.slice(1)] });
+  assert.ok(
+    changeTest({ owner: "undeclared" }).failures.includes(
+      `unsupported_owner:${target.path}`,
+    ),
+  );
+  assert.ok(
+    changeTest({ path: "out/of/scope.py" }).failures.includes(
+      "test_outside_owner_root:out/of/scope.py",
+    ),
+  );
+  assert.ok(
+    changeTest({ environment: "undeclared" }).failures.includes(
+      `invalid_environment:${target.path}`,
+    ),
+  );
+  const unused = check({ environments: [...catalog.environments, "unused"] });
+  assert.deepEqual(unused.failures, []);
+  assert.deepEqual(unused.warnings, ["unused_environment:unused"]);
 });
 
 /**
@@ -331,100 +350,17 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
   );
 });
 
-/**
- * Windows実Process Gateと実行Profileをexactに照合するを検証する。
- *
- * @responsibility Windows実Process Gateの3 fileと実行Profileをexactに照合するの合否判定を所有する。
- * @trace CQS-UT-010
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows実Process Gateの3 fileと実行Profileをexactに照合するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
- */
-test("Windows実Process Gateと実行Profileをexactに照合する", () => {
-  const gatePaths = catalog.tests
-    .filter((entry) =>
-      entry.executionProfiles?.includes("windows_process_control"),
-    )
-    .map((entry) => entry.path);
-  assert.ok(gatePaths.length > 0);
-  for (const gatePath of gatePaths) {
-    const invalid = {
-      ...catalog,
-      tests: catalog.tests.map((entry) =>
-        entry.path === gatePath
-          ? { ...entry, executionProfiles: ["restricted_process"] }
-          : entry,
-      ),
-    };
-    assert.ok(
-      inspectTestCatalog(repositoryRoot, invalid).failures.includes(
-        `windows_process_profile_missing:${gatePath}`,
-      ),
-      gatePath,
-    );
-  }
-
-  const ordinaryEntry = catalog.tests.find(
-    (entry) =>
-      entry.owner === "coordinator" &&
-      !gatePaths.includes(entry.path) &&
-      entry.level === "integration",
-  );
-  assert.ok(ordinaryEntry);
-  const invalid = {
+test("実行プロファイルの意味を試験ソースから推定しない", () => {
+  const candidate = {
     ...catalog,
-    tests: catalog.tests.map((entry) =>
-      entry.path === ordinaryEntry.path
-        ? {
-            ...entry,
-            executionProfiles: [
-              "restricted_process",
-              "windows_process_control",
-            ],
-          }
+    executionProfiles: ["external_runner_mode"],
+    tests: catalog.tests.map(({ executionProfiles, ...entry }) =>
+      executionProfiles
+        ? { ...entry, executionProfiles: ["external_runner_mode"] }
         : entry,
     ),
   };
-  assert.ok(
-    inspectTestCatalog(repositoryRoot, invalid).failures.includes(
-      `windows_process_profile_unexpected:${ordinaryEntry.path}`,
-    ),
-  );
-});
-
-/**
- * Host Windows接頭辞を持つ条件付き実Process試験もWindows実Process Gateとして検出することを検証する。
- *
- * @responsibility 現行のHost Windows命名を旧Windows Process Gate命名と同じ実行Profile契約へ接続する。
- * @trace CQS-UT-010
- * @precondition 一時RepositoryへHost Windows接頭辞を持つ試験と対応する台帳項目を配置する。
- * @stimulus 試験台帳の決定論的検査を実行する。
- * @observation windows_process_profile_missingが返るかを観測する。
- * @oracle windows_process_controlを外した場合だけ不足として拒否する。
- * @cleanup 一時Repositoryを試験終了時に削除する。
- * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
- */
-test("Host Windows接頭辞をWindows実Process Gateとして検出する", () => {
-  const gateEntry = catalog.tests.find((entry) =>
-    entry.path.endsWith("owned-process.integration.test.ts"),
-  );
-  assert.ok(gateEntry);
-  const invalid = {
-    ...catalog,
-    tests: catalog.tests.map((entry) =>
-      entry.path === gateEntry.path
-        ? { ...entry, executionProfiles: ["restricted_process"] }
-        : entry,
-    ),
-  };
-  assert.ok(
-    inspectTestCatalog(repositoryRoot, invalid).failures.includes(
-      `windows_process_profile_missing:${gateEntry.path}`,
-    ),
-  );
+  assert.deepEqual(inspectTestCatalog(repositoryRoot, candidate).failures, []);
 });
 
 /**

@@ -29,7 +29,7 @@ Semantic Coverageは独立Packageではなく、文書モデルの意味計算�
 | document-model | `publishSemanticCoverage` | 明示した検証済みRepositoryへ既存Writerで一回保存したReceipt。失敗は既存例外契約を維持 |
 | checker | `runSemanticCoverage` | 診断・表示または明示保存の終了Code。通常`runChecker`は維持 |
 
-Checkerは`--semantic`を選んだ場合だけSemantic入口を起動し、既定の文書検査は従来どおりとする。2026-10-21から、反復可能な`--architecture <subsystem>=<Root相対文書Path>`と`--quality <Root相対文書Path>`で対象を明示する。Architecture未指定は64、Quality省略は入力0件として既存の必須Relation検査を維持する。製品固定の対象・QA集合へのfallbackは設けない。`--root`は対象Repository、`--write`は従来と同じRegistryへの明示保存を表し、Snapshot形式・保存先は変更しない。明示入力対応を全領域の品質成立や意味Coverage全体の完成へ拡張せず、結果の欠落・観測不能・不正と実行失敗を成功へ丸めない。
+Checkerは`--semantic`を選んだ場合だけ意味検査の入口を起動する。反復可能な`--architecture <subsystem>=<相対文書パス>`と`--quality <相対文書パス>`で対象を明示する。Architecture未指定は64、Quality省略は入力0件として既存の必須関係検査を維持する。製品固定の対象・QA集合への代替処理は設けない。`--root`は対象リポジトリ、保存には `--write` と `--output <リポジトリ相対のJSONパス>` の両方を要求する。固定の出力先は持たず、保存形式と保存境界は維持する。結果の欠落・観測不能・実行失敗を成功へ丸めない。
 
 移管後の試験は、Domainの意味計算・中立Issueと実Filesystem保存、Checkerの観測編成・診断変換・公開入口へ接続する。旧試験の反例を維持し、Registry・Symbol・QA接続も新Ownerへ移管する。過去Evidenceは変更しない。
 

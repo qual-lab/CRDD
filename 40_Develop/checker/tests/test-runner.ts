@@ -14,13 +14,9 @@ const testFiles = requireCheckerTestFiles(
   discoverCheckerTestFiles(checkerRoot),
 );
 
-const coverage = process.argv[2] === "--coverage";
-const options = coverage
-  ? ["--experimental-test-coverage", "--test-coverage-include=src/**/*.ts"]
-  : [];
 const testProcess = spawnSync(
   process.execPath,
-  [...options, "--test", ...testFiles],
+  ["--test", ...testFiles],
   {
     cwd: checkerRoot,
     stdio: "inherit",

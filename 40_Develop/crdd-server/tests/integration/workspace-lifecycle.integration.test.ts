@@ -254,7 +254,7 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
   const bridge = t.mock.module(workerUrl.href, {
     namedExports: { runObjectiveInChild: loaded.runObjectiveInChild },
   });
-  const { executeCoordinatorOperation } = await import(
+  const { createObjectiveRuns, executeCoordinatorOperation } = await import(
     "../../src/service/execution.ts"
   );
   const requests = ids.map((workspaceId, index) =>
@@ -275,13 +275,13 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
       workspaceId,
     } as const),
   );
+  const execution = {
+    scope: "local",
+    repositoryRoot: f.root,
+    objectiveRuns: createObjectiveRuns(),
+  } as const;
   const execute = (request: unknown, signal = new AbortController().signal) =>
-    executeCoordinatorOperation(
-      "objective",
-      request,
-      { scope: "local", repositoryRoot: f.root },
-      signal,
-    );
+    executeCoordinatorOperation("objective", request, execution, signal);
   const launchFreshServer = (request: unknown, unknownPid?: number) => {
     const server = fileURLToPath(
       new URL("../support/workspace-graph-server.ts", import.meta.url),
@@ -510,6 +510,19 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
     assert.ok(
       retained.leaseIntents.some((lease) => lease.queueId === queueB.queueId),
     );
+    const originalLease = retained.leaseIntents.find(
+      (lease) => lease.queueId === queueA.queueId,
+    );
+    assert.ok(originalLease);
+    assert.equal(
+      originalLease.recoveryId,
+      leaseAcquisitionRecoveryId(
+        f.binding,
+        f.common.projectId,
+        queueA.queueId,
+        "project-operation",
+      ),
+    );
     const originalA = requests[0];
     assert.ok(originalA);
     const cancelRecovery = new AbortController();
@@ -542,26 +555,10 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
       fs.writeFileSync(path.join(control, "cancel-after-recovery.sent"), "", {
         flag: "wx",
       });
-      const interrupted = await interruptedRecovery;
-      assert.equal(interrupted.kind, "result", JSON.stringify(interrupted));
-      assert.equal(
-        interrupted.value.reason,
-        "coordinator_objective_cancelled_before_start",
-      );
-      assert.equal(interrupted.value.manualRecoveryRequired, true);
-      assert.equal(interrupted.value.effectState, "unknown");
-      assert.ok(
-        "queueId" in interrupted.value && "recoveryIds" in interrupted.value,
-      );
-      assert.equal(interrupted.value.queueId, queueA.queueId);
-      assert.deepEqual(interrupted.value.recoveryIds, [
-        leaseAcquisitionRecoveryId(
-          f.binding,
-          f.common.projectId,
-          queueA.queueId,
-          "project-operation",
-        ),
-      ]);
+      // 受付が切れた応答には回復情報を返さず、保存済みの事実は別に照合する。
+      assert.deepEqual(await interruptedRecovery, {
+        kind: "publication_denied",
+      });
       const after = f.snapshot();
       assert.deepEqual(
         after.queueEntries.find((q) => q.queueId === queueB.queueId),
@@ -591,13 +588,23 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
         after.leaseIntents.some((lease) => lease.queueId === queueA.queueId),
         false,
       );
-      assert.equal(
-        after.leaseEvidence.filter(
-          ({ content }) =>
-            content.queueId === queueA.queueId &&
-            content.disposition === "recovered_after_owner_loss",
-        ).length,
-        1,
+      assert.deepEqual(
+        after.leaseEvidence
+          .filter(
+            ({ content }) =>
+              content.queueId === queueA.queueId &&
+              content.disposition === "recovered_after_owner_loss",
+          )
+          .map(({ content }) => content),
+        [
+          {
+            kind: originalLease.kind,
+            queueId: queueA.queueId,
+            ownerGeneration: originalLease.ownerGeneration,
+            ownerProcessId: originalLease.ownerProcessId,
+            disposition: "recovered_after_owner_loss",
+          },
+        ],
       );
       assert.deepEqual(attemptMarkers(), originalAttempts);
       assert.equal(
@@ -643,13 +650,12 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
     // 実開始通知済みの別実行をServerから取り消しても、Bの実行を止めない。
     const cancelWorkspace = randomUUID();
     registerWorkspace(cancelWorkspace, 3);
-    const cancellation = new AbortController();
     const cancelRequest = {
       ...originalB,
       workspaceId: cancelWorkspace,
       requestId: "cancel-after-start-notification",
     };
-    const cancelling = execute(cancelRequest, cancellation.signal);
+    const cancelling = execute(cancelRequest);
     jobs.push(cancelling);
     await ready(cancelWorkspace);
     const beforeCancel = f.snapshot();
@@ -663,7 +669,36 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
       findTask(beforeCancel, cancelQueue.queueId)?.startPhase,
       "running",
     );
-    cancellation.abort();
+    const { requestId, projectId, repositoryRevision } = cancelRequest;
+    const cancellationTarget = await executeCoordinatorOperation(
+      "state",
+      {
+        requestId,
+        projectId,
+        repositoryRevision,
+        queueId: cancelQueue.queueId,
+      },
+      execution,
+      new AbortController().signal,
+    );
+    assert.equal(
+      cancellationTarget.kind,
+      "result",
+      JSON.stringify(cancellationTarget),
+    );
+    assert.ok(
+      "launchId" in cancellationTarget.value &&
+        typeof cancellationTarget.value.launchId === "string",
+    );
+    assert.deepEqual(
+      await executeCoordinatorOperation(
+        "cancel",
+        { requestId, projectId, launchId: cancellationTarget.value.launchId },
+        execution,
+        new AbortController().signal,
+      ),
+      { kind: "cancellation_requested" },
+    );
     const cancelled = await cancelling;
     assert.equal(cancelled.kind, "result", JSON.stringify(cancelled));
     assert.equal(

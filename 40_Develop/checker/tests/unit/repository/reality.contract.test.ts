@@ -21,6 +21,7 @@ import {
 } from "@qual-lab/crdd-document-model";
 import { getRepository } from "@qual-lab/crdd-version-control";
 import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
+import { inspectRealityCoverage } from "../../../src/repository/reality-coverage.ts";
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
@@ -28,6 +29,41 @@ import {
   readRegisteredRealityTests,
   readRegisteredRealityTestsFromRepository,
 } from "../../../src/repository/reality.ts";
+
+test("範囲パターンはファイル名に含まれる記号をパターンとして解釈しない", () => {
+  const coverage = { implementation: ["src/*.py"], tests: [], exclude: [] };
+  const diagnostics: string[] = [];
+  inspectRealityCoverage(
+    {
+      owners: [
+        { id: "sample", root: "packages/sample", runner: "pytest", coverage },
+      ],
+      tests: [],
+    },
+    [
+      {
+        manifestPath: "packages/sample/symbol.json",
+        subsystemRoot: "packages/sample",
+        manifest: {
+          contract: "crdd/reality-symbol-manifest",
+          contractRevision: 1,
+          subsystem: "sample",
+          symbols: [],
+        },
+      },
+    ],
+    [
+      "packages/sample/src/*helper.py",
+      "packages/sample/src/nested/file.py",
+      "packages/sample/src/literal\\segment.py",
+    ],
+    ({ path }) => diagnostics.push(path),
+  );
+  assert.deepEqual(diagnostics, [
+    "packages/sample/src/*helper.py",
+    "packages/sample/src/literal\\segment.py",
+  ]);
+});
 
 /**
  * Reality Symbol Manifestの契約を検証する。
@@ -575,7 +611,7 @@ test("Implementation SymbolへQualityとverifiesの責務を混在させない",
 test("Global Symbol Graphは重複・未知Canonical ID・未解決verifiesを拒否する", () => {
   const manifest: LoadedRealitySymbolManifest = {
     manifestPath: "40_Develop/sample/symbol.json",
-    subsystemRoot: path.join(repositoryRoot, "40_Develop", "sample"),
+    subsystemRoot: "packages/sample",
     manifest: {
       contract: "crdd/reality-symbol-manifest",
       contractRevision: 1,
@@ -620,7 +656,7 @@ test("Global Symbol Graphは重複・未知Canonical ID・未解決verifiesを�
     new Map([["QA-000001", new Set(["SAMPLE-UT-001"])]]),
     new Map([
       [
-        "40_Develop/sample/tests/sample.test.ts",
+        "packages/sample/tests/sample.test.ts",
         { owner: "sample", testId: "sample:test" },
       ],
     ]),
@@ -653,7 +689,7 @@ test("Global Symbol Graphは重複・未知Canonical ID・未解決verifiesを�
 test("Global Symbol GraphはQA定義に存在しないLocal Test IDを拒否する", () => {
   const manifest: LoadedRealitySymbolManifest = {
     manifestPath: "40_Develop/sample/symbol.json",
-    subsystemRoot: path.join(repositoryRoot, "40_Develop", "sample"),
+    subsystemRoot: "packages/sample",
     manifest: {
       contract: "crdd/reality-symbol-manifest",
       contractRevision: 1,
@@ -687,7 +723,7 @@ test("Global Symbol GraphはQA定義に存在しないLocal Test IDを拒否す�
     new Map([["QA-000001", new Set(["SAMPLE-UT-001"])]]),
     new Map([
       [
-        "40_Develop/sample/tests/sample.test.ts",
+        "packages/sample/tests/sample.test.ts",
         { owner: "sample", testId: "sample:test" },
       ],
     ]),
@@ -775,7 +811,7 @@ test("共通JSON SchemaはManifestとSymbolの閉じたContractを公開する",
 test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
   const manifest: LoadedRealitySymbolManifest = {
     manifestPath: "40_Develop/sample/symbol.json",
-    subsystemRoot: path.join(repositoryRoot, "40_Develop", "sample"),
+    subsystemRoot: "packages/sample",
     manifest: {
       contract: "crdd/reality-symbol-manifest",
       contractRevision: 1,
@@ -818,7 +854,7 @@ test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
       ...commonArguments,
       new Map([
         [
-          "40_Develop/sample/src/index.ts",
+          "packages/sample/src/index.ts",
           { owner: "other", testId: "other:test" },
         ],
       ]),
@@ -844,7 +880,7 @@ test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
 test("Global Symbol GraphはDiscoveryまたはCatalog Findingがあれば部分発行しない", () => {
   const manifest: LoadedRealitySymbolManifest = {
     manifestPath: "40_Develop/sample/symbol.json",
-    subsystemRoot: path.join(repositoryRoot, "40_Develop", "sample"),
+    subsystemRoot: "packages/sample",
     manifest: {
       contract: "crdd/reality-symbol-manifest",
       contractRevision: 1,

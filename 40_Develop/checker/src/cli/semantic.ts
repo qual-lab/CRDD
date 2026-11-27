@@ -42,12 +42,31 @@ import type { CheckerResult, CheckerRunRequest } from "./types.ts";
 export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
   let repositoryRoot = request.cwd;
   let hasExplicitRoot = false;
+  let outputRelativePath: string | undefined;
   const architectures: { subsystem: string; sourceDocument: string }[] = [];
   const qualitySources: string[] = [];
   for (let i = 0; i < request.arguments.length; i += 1) {
     const arg = request.arguments[i];
     if (arg === "--write") continue;
     const value = request.arguments[i + 1];
+    if (
+      arg === "--output" &&
+      outputRelativePath === undefined &&
+      value?.endsWith(".json") &&
+      value.includes("/") &&
+      value
+        .split("/")
+        .every(
+          (segment) =>
+            /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/u.test(segment) &&
+            !segment.endsWith(".") &&
+            !/^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/iu.test(segment),
+        )
+    ) {
+      outputRelativePath = value;
+      i += 1;
+      continue;
+    }
     if (arg === "--architecture" && value && !value.startsWith("--")) {
       const separator = value.indexOf("=");
       const subsystem = value.slice(0, separator);
@@ -86,6 +105,13 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
     request.writeError("semantic_architecture_required\n");
     return { exitCode: 64 };
   }
+  if (
+    request.arguments.includes("--write") !==
+    (outputRelativePath !== undefined)
+  ) {
+    request.writeError("semantic_output_required_with_write\n");
+    return { exitCode: 64 };
+  }
   const verifiedRepository = hasExplicitRoot
     ? getRepository(repositoryRoot)
     : getRepositoryFromWorkingDirectory(request.cwd);
@@ -95,8 +121,6 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
   }
   let failureStage: "inspection" | "publication" | "output" = "inspection";
   try {
-    const outputRelativePath =
-      "07_Quality/Registry/semantic-coverage-pilot.json";
     const symbolDiscovery = observeRealitySymbolRepository(
       resolveVerifiedRepositoryRoot(verifiedRepository.capability),
     );
@@ -143,17 +167,30 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
         `${JSON.stringify({ findings: allFindings }, null, 2)}\n`,
       );
       return { exitCode: 1 };
-    } else if (request.arguments.includes("--write")) {
+    } else if (outputRelativePath !== undefined) {
       if (!coverage.graph)
         throw new Error("Semantic coverage graph is unavailable");
       failureStage = "publication";
+      const root = resolveVerifiedRepositoryRoot(verifiedRepository.capability);
+      if (root === null)
+        throw new Error("Semantic coverage root is unavailable.");
+      const outputRepository = getRepositoryFromWorkingDirectory(
+        path.join(root, path.posix.dirname(outputRelativePath)),
+      );
+      if (
+        outputRepository.status !== "completed" ||
+        resolveVerifiedRepositoryRoot(outputRepository.capability) !== root
+      )
+        throw new Error(
+          "Semantic coverage output is outside the selected repository.",
+        );
       publishSemanticCoverage(
         {
-          outputRelativePath: outputRelativePath,
+          outputRelativePath,
           semanticIrs,
           coverage: coverage.graph,
         },
-        resolveVerifiedRepositoryRoot(verifiedRepository.capability),
+        root,
       );
       failureStage = "output";
       request.writeOutput(

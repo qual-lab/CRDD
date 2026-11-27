@@ -8,9 +8,10 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createServer } from "node:http";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { PassThrough, Writable } from "node:stream";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   hostAdministratorCallbackPath,
@@ -18,7 +19,7 @@ import {
   runHostAdministratorCommand,
 } from "../../src/cli/admin.ts";
 
-test("Host管理CLIの引数拒否と非対話は保存領域と入出力を変更しない", async (t) => {
+function createHostTestDirectory(t: TestContext): string {
   const repository = path.resolve(import.meta.dirname, "../../../..");
   assert.equal(fs.realpathSync.native(repository), repository);
   assert.ok(!fs.lstatSync(path.join(repository, ".git")).isSymbolicLink());
@@ -32,6 +33,12 @@ test("Host管理CLIの引数拒否と非対話は保存領域と入出力を変�
     fs.rmSync(base, { recursive: true });
     assert.equal(fs.existsSync(base), false);
   });
+  return base;
+}
+
+test("Host管理CLIの引数拒否と非対話は保存領域と入出力を変更しない", async (t) => {
+  const base = createHostTestDirectory(t);
+  const repository = path.resolve(import.meta.dirname, "../../../..");
   const environment = {
     SystemRoot: process.env.SystemRoot,
     CROS_TRUST_DOMAIN_ID: "local-test",
@@ -169,6 +176,123 @@ async function loopback(): Promise<URL> {
   return new URL(`http://127.0.0.1:${address.port}`);
 }
 
+/** 合成本人確認から実端末出力までを確認し、未確定の操作は保存しない。 @trace ARCH-000013 */
+test("Host CLIは確認済みアカウントを端末だけに表示してから確認コードを求める", async (t) => {
+  const base = createHostTestDirectory(t);
+  const origin = await loopback();
+  const adminModule = new URL("../../src/cli/admin.ts", import.meta.url);
+  adminModule.searchParams.set("fixture", "verified-account-display");
+  const label = "terminal-fixture@example.test";
+  const subject = "terminal-fixture-subject";
+  const binding = "b".repeat(43);
+  const loginModule = `data:text/javascript,${encodeURIComponent(`
+    export async function createLogin(_provider, { callback, chooseAccount, accountLabel }) {
+      if (!chooseAccount || !accountLabel) throw new Error('expected account selection and label');
+      return {
+        async start() {
+          return { location: new URL('/synthetic-login', callback), browserBinding: ${JSON.stringify(binding)} };
+        },
+        async complete(query, supplied) {
+          return supplied === ${JSON.stringify(binding)} && query.get('code') === 'synthetic'
+            ? { identity: { issuer: 'https://accounts.google.com', subject: ${JSON.stringify(subject)} }, returnTo: '/', verifiedAccountLabel: ${JSON.stringify(label)} }
+            : null;
+        },
+      };
+    }
+  `)}`;
+  const hook = registerHooks({
+    resolve(specifier, context, next) {
+      if (
+        context.parentURL === adminModule.href &&
+        specifier === "../transport/login.ts"
+      )
+        return { url: loginModule, shortCircuit: true };
+      return next(specifier, context);
+    },
+  });
+  const command = (await import(adminModule.href).finally(() =>
+    hook.deregister(),
+  )) as typeof import("../../src/cli/admin.ts");
+  let publishReady = () => {};
+  const ready = new Promise<void>((resolve) => {
+    publishReady = resolve;
+  });
+  let publishPrompt = () => {};
+  const prompted = new Promise<void>((resolve) => {
+    publishPrompt = resolve;
+  });
+  const input = Object.assign(new PassThrough(), { isTTY: true });
+  let text = "";
+  const output = Object.assign(
+    new Writable({
+      write(chunk, _encoding, callback) {
+        text += chunk.toString();
+        if (text.includes(origin.href)) publishReady();
+        if (text.includes("8桁の確認コード")) publishPrompt();
+        callback();
+      },
+    }),
+    { isTTY: true, columns: 120 },
+  );
+  const stop = new AbortController();
+  const signal = AbortSignal.any([stop.signal, AbortSignal.timeout(6000)]);
+  const completed = command.runHostAdministratorCommand(
+    { kind: "initialize" },
+    "google",
+    Number(origin.port),
+    {
+      CROS_TRUST_DOMAIN_ID: "local-test",
+      LOCALAPPDATA: base,
+      HOME: base,
+      XDG_STATE_HOME: base,
+      CRDD_GOOGLE_CLIENT_ID: "synthetic.apps.googleusercontent.com",
+      CRDD_GOOGLE_CLIENT_SECRET: "synthetic-only",
+    },
+    input as unknown as NodeJS.ReadStream,
+    output as unknown as NodeJS.WriteStream,
+    signal,
+  );
+  try {
+    await Promise.race([
+      ready,
+      completed.then(() => assert.fail("Host CLI did not open a listener")),
+    ]);
+    const started = await fetch(origin, {
+      method: "POST",
+      headers: { origin: origin.origin },
+      redirect: "manual",
+      signal,
+    });
+    assert.equal(started.status, 303);
+    const cookie = started.headers.getSetCookie()[0]?.split(";")[0];
+    assert.ok(cookie);
+    const callback = new URL(hostAdministratorCallbackPath, origin);
+    callback.searchParams.set("code", "synthetic");
+    const confirmed = await fetch(callback, { headers: { cookie }, signal });
+    assert.equal(confirmed.status, 200);
+    const page = await confirmed.text();
+    assert.ok(!page.includes(label));
+    assert.ok(!page.includes(subject));
+    await Promise.race([
+      prompted,
+      completed.then(() =>
+        assert.fail("Host CLI did not prompt for confirmation"),
+      ),
+    ]);
+    const account = text.indexOf(`確認したアカウント: Google / ${label}`);
+    assert.ok(account >= 0 && account < text.indexOf("8桁の確認コード"), text);
+    assert.ok(!text.includes(subject));
+    input.write("not-a-code\n");
+    assert.equal(await completed, 2);
+    assert.deepEqual(fs.readdirSync(base), []);
+  } finally {
+    stop.abort();
+    await Promise.allSettled([completed]);
+    input.destroy();
+    output.destroy();
+  }
+});
+
 test("Hostは同じブラウザーでの本人確認だけを受け付け、一時Listenerを閉じる", async () => {
   const origin = await loopback();
   const callback = new URL(hostAdministratorCallbackPath, origin);
@@ -181,6 +305,7 @@ test("Hostは同じブラウザーでの本人確認だけを受け付け、一�
     issuer: "https://accounts.google.com",
     subject: "fixture-subject",
   } as const;
+  const verifiedAccountLabel = "fixture-admin@example.test";
   let listening: (url: string) => void = () => {};
   const ready = new Promise<string>((resolve) => {
     listening = resolve;
@@ -194,17 +319,19 @@ test("Hostは同じブラウザーでの本人確認だけを受け付け、一�
       },
       async complete(query, supplied) {
         return supplied === binding && query.get("code") === "synthetic"
-          ? { identity, returnTo: "/" }
+          ? { identity, returnTo: "/", verifiedAccountLabel }
           : null;
       },
     },
     listening,
     controller.signal,
+    { id: "fixture", displayName: "Fixture <Login>" },
   );
   try {
     assert.equal(await Promise.race([ready, proof]), origin.href);
     const form = await fetch(origin);
     assert.equal(form.status, 200);
+    assert.match(await form.text(), /Fixture &lt;Login&gt;で本人確認する/u);
     assert.equal(form.headers.get("cache-control"), "no-store");
     assert.equal(form.headers.get("referrer-policy"), "no-referrer");
     assert.doesNotMatch(
@@ -231,15 +358,18 @@ test("Hostは同じブラウザーでの本人確認だけを受け付け、一�
     assert.equal(started.headers.get("location"), googleAuthorization.href);
     const cookie = started.headers.getSetCookie()[0]?.split(";")[0];
     assert.ok(cookie);
+    assert.match(cookie, /^crdd-host-fixture=/u);
     const confirmed = await fetch(callback, { headers: { cookie } });
     assert.equal(confirmed.status, 200);
     const outcome = await proof;
     assert.ok(outcome);
     assert.equal(outcome.subject, identity.subject);
+    assert.equal(outcome.verifiedAccountLabel, verifiedAccountLabel);
     assert.match(outcome.confirmation, /^\d{8}$/u);
     const body = await confirmed.text();
     assert.ok(body.includes(outcome.confirmation));
     assert.ok(!body.includes(identity.subject));
+    assert.ok(!body.includes(verifiedAccountLabel));
     await assert.rejects(fetch(origin));
   } finally {
     controller.abort();
@@ -291,6 +421,7 @@ test("Hostの取消は確認候補を返さず、一時受付と進行中の本�
     },
     ready,
     controller.signal,
+    { id: "fixture", displayName: "Fixture login" },
   ).finally(() => {
     settled = true;
   });

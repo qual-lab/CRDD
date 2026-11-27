@@ -7,18 +7,18 @@
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
 import {
-  useCallback,
+  type FormEvent,
   Fragment,
   type ReactElement,
+  useCallback,
   useEffect,
-  useState,
   useRef,
-  type FormEvent,
+  useState,
 } from "react";
-import { renderWorkbenchAiRequest } from "../components/ai-request-panel.tsx";
 import { useLocation } from "react-router";
-import { WorkbenchShell } from "../components/shell.ts";
-import { WorkbenchPanel } from "../components/elements.ts";
+import { requestWorkbench } from "../api/connection.ts";
+import { requestAiRequestAction } from "../api/mutations.ts";
+import { readWorkbenchQuery } from "../api/queries.ts";
 import type {
   AiRequestSnapshot,
   MainViewResponse,
@@ -26,30 +26,29 @@ import type {
 } from "../api/response.ts";
 import { validateViewResponse } from "../api/response.ts";
 import {
-  createSelectedWorkbenchViewUrl,
   composeWorkbenchRecordDisplay,
+  createSelectedWorkbenchViewUrl,
   readCurrentAiRequest,
   readWorkbenchDisplayQuery,
 } from "../api/view.ts";
-import { readWorkbenchQuery } from "../api/queries.ts";
-import { requestAiRequestAction } from "../api/mutations.ts";
+import { RepositoryExecutionActivity } from "../components/activity-panel.tsx";
+import { renderWorkbenchAiRequest } from "../components/ai-request-panel.tsx";
+import { AiSelection } from "../components/ai-selection.tsx";
 import { AiSelectionManagementPanel } from "../components/ai-selection-management-panel.tsx";
-import { RecordOperationPanel } from "../components/record-operation-panel.tsx";
-import { RepositoryOperationPanel } from "../components/repository-operation-panel.tsx";
-import { WorkspacePanel } from "../components/workspace-panel.tsx";
-import { requestWorkbench } from "../api/connection.ts";
+import { Connection, GitHostConnections } from "../components/connection.tsx";
+import { WorkbenchPanel } from "../components/elements.ts";
+import { Portfolio } from "../components/portfolio-panel.tsx";
+import { ProjectScene } from "../components/project-context.tsx";
 import {
   renderWorkbenchProjectPlan,
   renderWorkbenchQuality,
 } from "../components/projection-panels.tsx";
-import { ProjectScene } from "../components/project-context.tsx";
-import { RecordCollection } from "../components/records.tsx";
-import { OwnerArtifacts } from "../components/records.tsx";
-import { Connection, GitHostConnections } from "../components/connection.tsx";
-import { Portfolio } from "../components/portfolio-panel.tsx";
+import { RecordOperationPanel } from "../components/record-operation-panel.tsx";
+import { OwnerArtifacts, RecordCollection } from "../components/records.tsx";
+import { RepositoryOperationPanel } from "../components/repository-operation-panel.tsx";
 import { Repository } from "../components/repository-panel.tsx";
-import { ExecutionActivity } from "../components/activity-panel.tsx";
-import { AiSelection } from "../components/ai-selection.tsx";
+import { WorkbenchShell } from "../components/shell.ts";
+import { WorkspacePanel } from "../components/workspace-panel.tsx";
 
 /**
  * Main View Modelを既存15画面のReact Treeへ変換する。
@@ -74,6 +73,7 @@ export function MainWorkbench({
   deletedRecord: RecordActionView | null;
 }): ReactElement {
   const [model, setModel] = useState(initialModel);
+  const [overviewRefresh, setOverviewRefresh] = useState(0);
   const [deletedRecord, setDeletedRecord] = useState(initialDeletedRecord);
   const displayQuery = readWorkbenchDisplayQuery(useLocation().search);
   const [aiActionNotice, setAiActionNotice] = useState("");
@@ -134,6 +134,7 @@ export function MainWorkbench({
       if (progress === undefined) {
         setDeletedRecord(null);
         setModel(next);
+        setOverviewRefresh((generation) => generation + 1);
         return;
       }
       if (next.aiRequest.snapshot === null)
@@ -267,9 +268,7 @@ export function MainWorkbench({
       repositoryId={context.repositoryId}
       repositoryRole={context.repositoryRole}
       connectionLabel={
-        model.connection.state === "repository"
-          ? "Repository mode"
-          : "CROS connected"
+        model.connection.state === "repository" ? "単体リポジトリ" : "共有接続"
       }
       topicsLabel={capabilityLabel(
         topics.collection.state,
@@ -287,7 +286,11 @@ export function MainWorkbench({
       content={
         <Fragment>
           {model.connection.state !== "repository" && <GitHostConnections />}
-          <Portfolio model={model} query={displayQuery.portfolio} />
+          <Portfolio
+            refreshGeneration={overviewRefresh}
+            model={model}
+            query={displayQuery.portfolio}
+          />
           {context.scenes.map((scene) => (
             <ProjectScene key={scene.key} scene={scene} />
           ))}
@@ -297,7 +300,6 @@ export function MainWorkbench({
             <RecordOperationPanel
               key={`${model.selectedRepositoryId}:${model.actionToken}`}
               repositoryId={model.selectedRepositoryId ?? context.repositoryId}
-              actionToken={model.actionToken}
               refresh={(signal) => refreshReadModel(signal)}
             >
               <RecordCollection
@@ -337,7 +339,18 @@ export function MainWorkbench({
             model.projectData.ownerArtifacts,
           )}
           <OwnerArtifacts model={model} query={displayQuery.document} />
-          <ExecutionActivity model={model} />
+          <RepositoryExecutionActivity
+            key={`${context.projectId}:${context.repositoryId}`}
+            projectId={context.projectId}
+            repositoryId={context.repositoryId}
+            browserSession={browserSession}
+            cursor={displayQuery.activityCursor}
+            refresh={JSON.stringify([
+              overviewRefresh,
+              model.aiRequest.snapshot?.requestId,
+              model.aiRequest.snapshot?.status,
+            ])}
+          />
           {model.workspaceAccess === "unavailable" ? null : (
             <WorkspacePanel
               key={`workspace:${model.selectedRepositoryId}:${model.actionToken}:${model.workspaceAccess}`}
@@ -374,17 +387,17 @@ export function MainWorkbench({
               browserSession={model.workspaceAccess !== undefined}
               refresh={refreshReadModel}
             >
-              <Repository model={model} />
+              <Repository model={model} refresh={overviewRefresh} />
             </RepositoryOperationPanel>
           ) : (
-            <Repository model={model} />
+            <Repository model={model} refresh={overviewRefresh} />
           )}
           {model.connection.state === "repository" ? (
             <Connection />
           ) : (
             <WorkbenchPanel
               id="connection"
-              eyebrow="Local CROS"
+              eyebrow="共有接続"
               title="接続"
               status="Connected"
             >

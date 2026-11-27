@@ -5,6 +5,7 @@
  * @boundary 確認済みの要求、既存の実行・採用排他、Worktreeの操作。
  */
 
+import { GIT_OBJECT_ID, RESOURCE_ID, UUID } from "./identity.ts";
 import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import { randomUUID } from "node:crypto";
 import fs, { existsSync, lstatSync } from "node:fs";
@@ -173,7 +174,7 @@ export function resolveLocalWorkspaceAccess(
  * @security 本文・資格を複製しない。
  * @concurrency 取得した一Snapshotだけを投影する。
  */
-function workspaceView(record: WorkspaceRecord) {
+function workspaceView(record: WorkspaceRecord): WorkspaceView {
   const c = record.candidate;
   return {
     workspaceId: record.workspaceId,
@@ -224,7 +225,45 @@ function workspaceView(record: WorkspaceRecord) {
  * @security 内部一時物とRootを含まない。
  * @compatibility 投影の変更時に両Surfaceを確認する。
  */
-export type WorkspaceView = ReturnType<typeof workspaceView>;
+export interface WorkspaceView
+  extends Pick<
+    WorkspaceRecord,
+    | "workspaceId"
+    | "name"
+    | "generation"
+    | "baseCommit"
+    | "head"
+    | "phase"
+    | "holdUntil"
+    | "primaryFailure"
+  > {
+  readonly candidate: WorkspaceCandidateView | null;
+}
+
+type WorkspaceCandidate = NonNullable<WorkspaceRecord["candidate"]>;
+
+interface WorkspaceCandidateView
+  extends Pick<
+    WorkspaceCandidate,
+    | "phase"
+    | "candidateCommit"
+    | "mergeCommit"
+    | "target"
+    | "disposition"
+    | "primaryFailure"
+    | "cleanupFailure"
+  > {
+  readonly operationId: WorkspaceCandidate["request"]["operationId"];
+  readonly name: WorkspaceCandidate["request"]["candidateName"];
+  readonly workspaceName: WorkspaceCandidate["request"]["workspaceName"];
+  readonly baseCommit: WorkspaceCandidate["request"]["baseCommit"];
+  readonly selection: WorkspaceCandidate["request"]["selection"];
+  readonly relatedChangeIds: WorkspaceCandidate["request"]["relatedChangeIds"];
+  readonly lastResult: Pick<
+    NonNullable<WorkspaceCandidate["lastResult"]>,
+    "status" | "reason" | "effectIssued" | "cleanupConfirmed"
+  > | null;
+}
 
 /**
  * 公開する文字列をJSON化前に既存の秘密判定へ渡す。
@@ -581,8 +620,7 @@ export type WorkspaceCommand =
  * @concurrency N/A: 状態なし。
  */
 const isStableId = (value: unknown): value is string =>
-  typeof value === "string" &&
-  /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value);
+  typeof value === "string" && RESOURCE_ID.test(value);
 
 /**
  * WorkspaceのUUID形式を検査する。
@@ -600,8 +638,7 @@ const isStableId = (value: unknown): value is string =>
  * @concurrency N/A: 状態なし。
  */
 const isWorkspaceId = (value: unknown): value is string =>
-  typeof value === "string" &&
-  /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(value);
+  typeof value === "string" && UUID.test(value);
 
 /**
  * 対応するGit Object IDの字句形式を検査する。
@@ -619,7 +656,7 @@ const isWorkspaceId = (value: unknown): value is string =>
  * @concurrency N/A: 状態なし。
  */
 const isGitObjectId = (value: unknown): value is string =>
-  typeof value === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value);
+  typeof value === "string" && GIT_OBJECT_ID.test(value);
 
 /** コマンドの表示名を検査する。保存値の成立はEMのWriterが別に確認する。 */
 const validDisplayName = (value: unknown): value is string | null =>
@@ -1484,8 +1521,7 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
 
 /** 検証したWorkspace UUIDから上位所有の配置とBranchを導く。Git操作は行わない。 */
 export function workspaceWorktreeTarget(workspaceId: string): WorktreeTarget {
-  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(workspaceId))
-    throw new Error("worktree_id_invalid");
+  if (!UUID.test(workspaceId)) throw new Error("worktree_id_invalid");
   return {
     relativePath: `.crdd/workspaces/${workspaceId}/worktree`,
     branch: `crdd/workspace/${workspaceId}`,

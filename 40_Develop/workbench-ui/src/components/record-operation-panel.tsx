@@ -19,6 +19,7 @@ import {
   createTopicMeetingActionBody,
   createRecordRequest,
   inspectRecordResponse,
+  type RecordSubmission,
 } from "../api/record.ts";
 import type { RecordActionView } from "../api/response.ts";
 
@@ -40,12 +41,10 @@ import type { RecordActionView } from "../api/response.ts";
  */
 export function RecordOperationPanel({
   repositoryId,
-  actionToken,
   children,
   refresh,
 }: {
   repositoryId: string;
-  actionToken: string;
   children: ReactNode;
   refresh: (
     signal: AbortSignal,
@@ -62,7 +61,7 @@ export function RecordOperationPanel({
   const focus = useRef<HTMLParagraphElement | null>(null);
   const mounted = useRef(false);
   useEffect(() => {
-    mounted.current = repositoryId !== "" && actionToken !== "";
+    mounted.current = repositoryId !== "";
     setBusy(false);
     setCurrent(true);
     setNotice(null);
@@ -73,7 +72,7 @@ export function RecordOperationPanel({
       controller.current?.abort();
       pending.current = false;
     };
-  }, [repositoryId, actionToken]);
+  }, [repositoryId]);
   useEffect(() => {
     if (!busy && notice !== null) focus.current?.focus();
   }, [busy, notice]);
@@ -105,13 +104,9 @@ export function RecordOperationPanel({
     event.preventDefault();
     if (pending.current || !current) return;
     let form: URLSearchParams;
-    let request: ReturnType<typeof createRecordRequest>;
+    let request: RecordSubmission;
     try {
-      form = createTopicMeetingActionBody(
-        new FormData(element),
-        repositoryId,
-        actionToken,
-      );
+      form = createTopicMeetingActionBody(new FormData(element), repositoryId);
       request = createRecordRequest(form);
     } catch {
       setNotice("入力と選択対象を確認してください。送信していません。");

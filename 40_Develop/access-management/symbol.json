@@ -4,6 +4,14 @@
   "subsystem": "access-management",
   "symbols": [
     {
+      "symbolId": "access-management.authorization.principal",
+      "kind": "file",
+      "path": "src/authorization/principal.ts",
+      "archIds": [
+        "ARCH-000013"
+      ]
+    },
+    {
       "symbolId": "access-management.account-link",
       "kind": "file",
       "path": "src/user/account-link.ts",
@@ -182,7 +190,8 @@
         "RFD-IT-017",
         "RFD-IT-018",
         "RFD-IT-019",
-        "RFD-IT-021"
+        "RFD-IT-021",
+        "RFD-IT-024"
       ],
       "verifies": [
         "access-management.public-api",
@@ -245,59 +254,6 @@
       "verifies": [
         "access-management.public-api",
         "access-management.management-permission"
-      ]
-    },
-    {
-      "symbolId": "access-management.initialization-state-evaluation",
-      "kind": "file",
-      "path": "src/initialization/state.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.test.unit.initialization-state-evaluation",
-      "kind": "test-suite",
-      "path": "tests/unit/initialization/state.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-UT-023"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "access-management.initialization-state-evaluation"
-      ]
-    },
-    {
-      "symbolId": "access-management.test.integration.initialization-storage",
-      "kind": "test-suite",
-      "path": "tests/integration/initialization/storage.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-013",
-        "RFD-IT-017",
-        "RFD-IT-018",
-        "RFD-IT-024",
-        "RFD-IT-025"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "access-management.state-file-store",
-        "access-management.state-parse",
-        "access-management.initialization-host-state",
-        "access-management.initialization-host-execution",
-        "access-management.profile-management",
-        "access-management.current-access",
-        "access-management.repository-access",
-        "access-management.management-read-state",
-        "access-management.user-role-management",
-        "access-management.repository-registration",
-        "access-management.permission-validation",
-        "access-management.repository-binding"
       ]
     },
 

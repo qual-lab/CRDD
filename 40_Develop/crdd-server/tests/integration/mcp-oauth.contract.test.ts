@@ -6,8 +6,15 @@
  */
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
+import { request as requestHttp } from "node:http";
 import test from "node:test";
+import {
+  Client,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client";
+import { fromJsonSchema, McpServer } from "@modelcontextprotocol/server";
 import * as oidc from "openid-client";
+import { createGitHostLinks } from "../../src/service/git-host.ts";
 import { createApiServer } from "../../src/transport/api-http.ts";
 import {
   clientLoginPaths,
@@ -19,25 +26,228 @@ import {
   createMcpOAuthEndpoint,
   createMcpOAuthInteraction,
   createMcpOAuthProvider,
-  createMcpOAuthState,
+  createMcpOAuthStore,
   createMcpResourceMetadata,
-  createMcpTokenVerifier,
+  createMcpIntrospection,
+  createMcpTokenObserver,
+  isMcpBrowserReturnPath,
   mcpScope,
+  verifyMcpBearer,
 } from "../../src/transport/mcp-oauth.ts";
-import {
-  createMcpServerFactory,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
-} from "../../src/transport/mcp-server.ts";
+import { createMcpServerFactory } from "../../src/transport/mcp-server.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-protocol.ts";
 import { readMcpAccountSubject } from "../../src/transport/mcp-types.ts";
 
+test("SDKのBearer受付は拒否を分類し、認証済み主体だけをToolへ渡す", async (t) => {
+  const transport = createApiServer();
+  const { server } = transport;
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  t.after(() => transport.close());
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const resource = new URL(`http://127.0.0.1:${address.port}/mcp`);
+  const { metadata } = createMcpResourceMetadata(
+    resource,
+    new URL(resource.origin),
+  );
+  let inspected = 0;
+  const observed: unknown[] = [];
+  const handler = createMcpHttpRequestHandler(
+    {
+      admit: () => true,
+      factory: {
+        async createServer(_request, _signal, _observe, auth) {
+          assert.ok(auth);
+          const sdk = new McpServer({ name: "fixture", version: "1.0.0" });
+          sdk.registerTool(
+            "fixture.subject",
+            {
+              inputSchema: fromJsonSchema({
+                type: "object",
+                additionalProperties: false,
+              }),
+            },
+            (_input, context) => {
+              observed.push(context.http?.authInfo?.extra?.subject);
+              return { content: [{ type: "text" as const, text: "accepted" }] };
+            },
+          );
+          return sdk.server;
+        },
+      },
+      authenticate: (header, signal) =>
+        verifyMcpBearer(
+          header,
+          resource,
+          async (token) => {
+            inspected++;
+            return {
+              token,
+              clientId: "fixture",
+              resource:
+                token === "wrong-target"
+                  ? new URL("/mcp/other", resource)
+                  : resource,
+              scopes: token === "wrong-scope" ? [] : [mcpScope],
+              expiresAt:
+                Math.floor(Date.now() / 1000) + (token === "expired" ? -1 : 60),
+              extra: { subject: token },
+            };
+          },
+          signal,
+          metadata.href,
+        ),
+    },
+    { resourceMetadataUrl: metadata, requiredScopes: [mcpScope] },
+  );
+  server.on("request", transport.handleRequest(handler.handle));
+  const headers = {
+    accept: "application/json, text/event-stream",
+    "content-type": "application/json",
+    "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
+    "mcp-method": "tools/call",
+    "mcp-name": "fixture.subject",
+  };
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: {
+      name: "fixture.subject",
+      arguments: {},
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion":
+          MCP_COORDINATOR_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+    },
+  });
+  const call = (authorization?: string) =>
+    fetch(resource, {
+      method: "POST",
+      headers: { ...headers, ...(authorization && { authorization }) },
+      body,
+    });
+  for (const [authorization, status, error] of [
+    [undefined, 401, "invalid_token"],
+    ["Bearer bad extra", 401, "invalid_token"],
+    ["Bearer expired", 401, "invalid_token"],
+    ["Bearer wrong-target", 401, "invalid_token"],
+    ["Bearer wrong-scope", 403, "insufficient_scope"],
+  ] as const) {
+    const rejected = await call(authorization);
+    assert.equal(rejected.status, status);
+    const challenge = rejected.headers.get("www-authenticate") ?? "";
+    assert.ok(challenge.includes(`error="${error}"`));
+    assert.ok(challenge.includes(`resource_metadata="${metadata.href}"`));
+    assert.equal((await rejected.json()).error, error);
+  }
+  const duplicate = await new Promise<{
+    status: number | undefined;
+    challenge: string | undefined;
+  }>((resolve, reject) => {
+    const request = requestHttp(
+      resource,
+      {
+        method: "POST",
+        headers: [
+          ...Object.entries(headers).flat(),
+          "Host",
+          resource.host,
+          "Authorization",
+          "Bearer first",
+          "Authorization",
+          "Bearer second",
+        ],
+      },
+      (response) => {
+        response.resume();
+        response.once("end", () =>
+          resolve({
+            status: response.statusCode,
+            challenge: response.headers["www-authenticate"],
+          }),
+        );
+      },
+    );
+    request.once("error", reject);
+    request.end(body);
+  });
+  assert.equal(duplicate.status, 401);
+  assert.ok(duplicate.challenge);
+  assert.ok(duplicate.challenge.includes('error="invalid_token"'));
+  assert.ok(
+    duplicate.challenge.includes(`resource_metadata="${metadata.href}"`),
+  );
+  assert.equal(inspected, 3);
+  assert.deepEqual(observed, []);
+  const replies = await Promise.all([
+    call("Bearer subject-a"),
+    call("Bearer subject-b"),
+  ]);
+  for (const reply of replies) {
+    assert.equal(reply.status, 200);
+    assert.deepEqual((await reply.json()).result.content, [
+      { type: "text", text: "accepted" },
+    ]);
+  }
+  assert.deepEqual(observed.sort(), ["subject-a", "subject-b"]);
+  assert.equal(inspected, 5);
+  for (const [method, expectedStatus, expectedAllow, authorized] of [
+    ["PUT", 405, "POST", true],
+    ["TRACE", 405, "POST", true],
+    ["POST", 401, undefined, false],
+    ["POST", 415, undefined, true],
+  ] as const) {
+    const status = await new Promise<number | undefined>((resolve, reject) => {
+      const request = requestHttp(
+        resource,
+        {
+          method,
+          headers: {
+            ...headers,
+            ...(authorized && { authorization: "Bearer subject-a" }),
+            "content-type": "text/plain",
+            "content-length": "32",
+          },
+        },
+        (response) => {
+          try {
+            assert.equal(response.headers.allow, expectedAllow);
+            response.resume();
+            response.once("end", () => {
+              resolve(response.statusCode);
+              request.destroy();
+            });
+          } catch (error) {
+            request.destroy();
+            reject(error);
+          }
+        },
+      );
+      request.once("error", reject);
+      request.setTimeout(2_000, () =>
+        request.destroy(new Error("SDK waited for an unusable body")),
+      );
+      request.flushHeaders();
+    });
+    assert.equal(status, expectedStatus);
+  }
+  assert.deepEqual(observed.sort(), ["subject-a", "subject-b"]);
+  assert.equal(inspected, 6);
+});
+
 test("OAuth状態はプロセスをまたがず、再利用と期限切れを拒否する", async (t) => {
-  const state = createMcpOAuthState();
+  const state = createMcpOAuthStore();
   const code = state("AuthorizationCode");
   const token = state("AccessToken");
   await code.upsert("same-id", { grantId: "grant" }, 90);
   await token.upsert("same-id", { grantId: "grant" }, 300);
   assert.equal(
-    await createMcpOAuthState()("AuthorizationCode").find("same-id"),
+    await createMcpOAuthStore()("AuthorizationCode").find("same-id"),
     undefined,
   );
   await code.consume("same-id");
@@ -54,7 +264,7 @@ test("OAuth状態はプロセスをまたがず、再利用と期限切れを拒
 });
 
 test("MCP発行側は重複を拒否し、容量上限で既存の認可状態を追い出さない", async () => {
-  const state = createMcpOAuthState();
+  const state = createMcpOAuthStore();
   const replay = state("ReplayDetection");
   await replay.upsert("same-id", {}, 90);
   await assert.rejects(replay.upsert("same-id", {}, 90), /mcp_oauth_replay/u);
@@ -74,7 +284,7 @@ test("MCP発行側は重複を拒否し、容量上限で既存の認可状態�
 });
 
 test("認可途中の枠を使い切っても、発行済み状態と次の正規受付を保つ", async () => {
-  const state = createMcpOAuthState();
+  const state = createMcpOAuthStore();
   const pending = state("Interaction");
   const session = state("Session");
   const code = state("AuthorizationCode");
@@ -121,8 +331,58 @@ test("認可途中の枠を使い切っても、発行済み状態と次の正�
   assert.equal(await pending.find("identified"), undefined);
 });
 
+test("発行記録は同じ利用者だけで上限を適用し、別の利用者と同意を保持する", async () => {
+  const state = createMcpOAuthStore();
+  const first = "00000000-0000-4000-8000-000000000011";
+  const other = "00000000-0000-4000-8000-000000000012";
+  const binding = "00000000-0000-4000-8000-000000000013";
+  const subject = `${first}:${binding}`;
+  const secondSubject = `${other}:${binding}`;
+  const grant = state("Grant");
+  const code = state("AuthorizationCode");
+  const token = state("AccessToken");
+  await grant.upsert("first", { accountId: subject }, 60);
+  await grant.upsert("other", { accountId: secondSubject }, 60);
+  await token.upsert(
+    "other-token",
+    { grantId: "other", accountId: secondSubject },
+    60,
+  );
+  await code.upsert("old-code", { grantId: "first" }, 60);
+  await code.consume("old-code");
+  await token.upsert("old-token", { grantId: "first", accountId: subject }, 60);
+  for (let index = 0; index < 100; index++)
+    await token.upsert(
+      `token-${index}`,
+      { grantId: "first", accountId: subject },
+      60,
+    );
+  assert.equal(await code.find("old-code"), undefined);
+  await assert.rejects(code.consume("old-code"), /already_consumed/u);
+  assert.equal(state.hasCurrentToken("old-token", subject), false);
+  assert.equal(state.hasCurrentToken("token-99", subject), true);
+  assert.equal(state.hasCurrentToken("other-token", secondSubject), true);
+  assert.ok(await grant.find("first"));
+  await assert.rejects(
+    token.upsert("other-token", { grantId: "other", accountId: subject }, 60),
+    /state_owner_invalid/u,
+  );
+  for (let index = 0; index < 31; index++)
+    await grant.upsert(`grant-${index}`, { accountId: subject }, 60);
+  await assert.rejects(
+    grant.upsert("too-many", { accountId: subject }, 60),
+    /state_owner_capacity/u,
+  );
+  await code.upsert(
+    "other-code",
+    { grantId: "other", accountId: secondSubject },
+    60,
+  );
+  assert.ok(await code.find("other-code"));
+});
+
 test("入替済み・期限切れの途中セッションは同じ要求から保存し直せない", async (t) => {
-  const state = createMcpOAuthState();
+  const state = createMcpOAuthStore();
   const session = state("Session");
   const interaction = state("Interaction");
   await state.runRequest(async () => {
@@ -166,7 +426,7 @@ test("入替済み・期限切れの途中セッションは同じ要求から�
 });
 
 test("ログアウトは本人の認可状態と処理中の古い書込みだけを無効にする", async () => {
-  const state = createMcpOAuthState();
+  const state = createMcpOAuthStore();
   const first = "00000000-0000-4000-8000-000000000011";
   const other = "00000000-0000-4000-8000-000000000012";
   const binding = "00000000-0000-4000-8000-000000000013";
@@ -231,7 +491,7 @@ test("ログアウトは本人の認可状態と処理中の古い書込みだ�
 });
 
 test("入口の照合は有効なトークンと同意を要求する", async (t) => {
-  const state = createMcpOAuthState();
+  const state = createMcpOAuthStore();
   const user = "00000000-0000-4000-8000-000000000011";
   const binding = "00000000-0000-4000-8000-000000000013";
   const subject = `${user}:${binding}`;
@@ -287,6 +547,60 @@ test("入口の照合は有効なトークンと同意を要求する", async (t
   );
 });
 
+test("MCP同意は同じGitアカウントの更新を引き継ぎ、別アカウントへは移らない", async (t) => {
+  const state = createMcpOAuthStore();
+  const host = "github.com";
+  const links = createGitHostLinks(() =>
+    state.collectGrantHostReferences(host),
+  );
+  t.after(links.close);
+  const owner = {
+    userId: "00000000-0000-4000-8000-000000000011",
+    bindingId: "00000000-0000-4000-8000-000000000013",
+  };
+  const subject = `${owner.userId}:${owner.bindingId}`;
+  const now = Date.now();
+  const link = {
+    accountId: "29",
+    accessToken: "first",
+    expiresAt: now + 60_000,
+  };
+  const first = links.save(owner, link);
+  assert.ok(first);
+  await state("Grant").upsert("consent", { accountId: subject }, 60);
+  assert.ok(state.bindGrantHosts("consent", subject, new Map([[host, first]])));
+  await state("AccessToken").upsert(
+    "mcp-token",
+    { accountId: subject, grantId: "consent" },
+    30,
+  );
+  assert.deepEqual(state.collectGrantHostReferences(host), new Set([first]));
+  assert.deepEqual(
+    state.collectGrantHostReferences("other.example"),
+    new Set(),
+  );
+  const running = links.open(first, owner);
+  assert.ok(running);
+  t.after(running.close);
+  assert.equal(links.save(owner, { ...link, accessToken: "updated" }), first);
+  const other = links.save(owner, {
+    ...link,
+    accountId: "30",
+    accessToken: "other",
+  });
+  assert.ok(other);
+  assert.notEqual(other, first);
+  const bound = state.readGrantHostReference("mcp-token", subject, host);
+  assert.equal(bound, first);
+  assert.equal(links.read(bound, owner), "updated");
+  links.disconnect(first, owner);
+  assert.equal(links.read(bound, owner), null);
+  assert.equal(running.revocationSignal.aborted, true);
+  assert.notEqual(links.save(owner, { ...link, accessToken: "new" }), bound);
+  t.mock.method(Date, "now", () => now + 60_001);
+  assert.deepEqual(state.collectGrantHostReferences(host), new Set());
+});
+
 test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウトで再利用できなくなる", async (t) => {
   const transport = createApiServer();
   const { server } = transport;
@@ -316,6 +630,29 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
     scopes_supported: [mcpScope],
     bearer_methods_supported: ["header"],
   });
+  const shared = new URL("https://mcp.example.test/mcp");
+  const sharedIssuer = new URL("https://login.example.test/");
+  const publicMetadata = createMcpResourceMetadata(shared, sharedIssuer);
+  assert.equal(
+    publicMetadata.metadata.href,
+    "https://mcp.example.test/.well-known/oauth-protected-resource/mcp",
+  );
+  assert.deepEqual(publicMetadata.document, {
+    ...metadata.document,
+    resource: shared.href,
+    authorization_servers: [sharedIssuer.href],
+  });
+  for (const invalid of [
+    new URL("http://mcp.example.test/mcp"),
+    new URL("http://localhost/mcp"),
+    new URL("https://mcp.example.test/not-mcp"),
+    new URL("https://mcp.example.test/mcp#invalid"),
+  ]) {
+    assert.throws(
+      () => createMcpResourceMetadata(invalid, sharedIssuer),
+      /mcp_oauth_configuration_invalid/u,
+    );
+  }
   const providerOptions = {
     issuer,
     resource,
@@ -328,7 +665,7 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
     },
     cookieKeys: ["fixture-only-cookie-signing-secret".repeat(2)],
   };
-  const oauthState = createMcpOAuthState();
+  const oauthState = createMcpOAuthStore();
   const provider = createMcpOAuthProvider(providerOptions, oauthState);
   const account = {
     userId: "00000000-0000-4000-8000-000000000021",
@@ -374,6 +711,9 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
     undefined,
     undefined,
     oauthState.invalidateUser,
+    undefined,
+    undefined,
+    isMcpBrowserReturnPath,
   );
   const gitHostReference = "00000000-0000-4000-8000-000000000023";
   const otherHostReference = "00000000-0000-4000-8000-000000000024";
@@ -394,17 +734,32 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
     ),
     oauthState,
   );
-  let verifier: Awaited<ReturnType<typeof createMcpTokenVerifier>> | undefined;
+  let introspect:
+    | Awaited<ReturnType<typeof createMcpIntrospection>>
+    | undefined;
   const mcp = createMcpHttpRequestHandler(
-    async (token, signal) => {
-      if (!signal || !verifier) return null;
-      const result = await verifier(token, signal);
-      return result.status === "completed" &&
-        readMcpAccountSubject(result.subject)?.userId === account.userId
-        ? createMcpServerFactory({})
-        : null;
+    {
+      admit: (auth) => {
+        const subject = auth.extra?.subject;
+        return (
+          typeof subject === "string" &&
+          readMcpAccountSubject(subject)?.userId === account.userId
+        );
+      },
+      factory: createMcpServerFactory({}),
+      authenticate: (header, signal) =>
+        verifyMcpBearer(
+          header,
+          resource,
+          (token, current) => {
+            assert.ok(introspect);
+            return introspect(token, current);
+          },
+          signal,
+          endpoint.metadata.href,
+        ),
     },
-    { resourceMetadataUrl: endpoint.metadata },
+    { resourceMetadataUrl: endpoint.metadata, requiredScopes: [mcpScope] },
   );
   const handleOAuth = transport.handleRequest(endpoint.handle);
   let activeOAuth = handleOAuth;
@@ -448,9 +803,10 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
     });
   const challenge = await callMcp();
   assert.equal(challenge.status, 401);
-  assert.equal(
-    challenge.headers.get("www-authenticate"),
-    `Bearer resource_metadata="${endpoint.metadata.href}"`,
+  assert.ok(
+    challenge.headers
+      .get("www-authenticate")
+      ?.includes(`resource_metadata="${endpoint.metadata.href}"`),
   );
   const advertised = await fetch(endpoint.metadata);
   assert.equal(advertised.status, 200);
@@ -475,12 +831,19 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
     oidc.None(),
     { execute: [oidc.allowInsecureRequests] },
   );
-  verifier = await createMcpTokenVerifier({
+  introspect = await createMcpIntrospection({
     issuer,
     resource,
     clientId: verifierAccount.id,
     clientSecret: verifierAccount.secret,
   });
+  const verifier = createMcpTokenObserver(resource, introspect);
+  const unissuedToken = "unissued-oauth-token-fixture";
+  const unauthorized = await callMcp(unissuedToken);
+  assert.equal(unauthorized.status, 401);
+  const rejected = await unauthorized.text();
+  assert.equal(rejected.includes(unissuedToken), false);
+  assert.equal(Object.hasOwn(JSON.parse(rejected), "result"), false);
   const signal = new AbortController().signal;
   const pkce = oidc.randomPKCECodeVerifier();
   const state = oidc.randomState();
@@ -509,6 +872,15 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
   );
   assert.equal(starts, 0);
   const cookies = new Map<string, string>();
+  const storeCookies = (response: Response) => {
+    for (const header of response.headers.getSetCookie()) {
+      const pair = header.split(";", 1)[0];
+      if (!pair) continue;
+      const name = pair.split("=")[0] ?? "";
+      if (/(?:^|;\s*)max-age=0(?:;|$)/iu.test(header)) cookies.delete(name);
+      else cookies.set(name, pair);
+    }
+  };
   let consent = 0;
   let challengedChangedLinks = false;
   const visit = async (start: URL, decision: "allow" | "deny") => {
@@ -598,10 +970,7 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
           body,
         });
       }
-      for (const header of response.headers.getSetCookie()) {
-        const pair = header.split(";")[0];
-        if (pair) cookies.set(pair.split("=")[0] ?? "", pair);
-      }
+      storeCookies(response);
       const location = response.headers.get("location");
       assert.ok(location, `expected redirect, got ${response.status}`);
       next = new URL(location, issuer);
@@ -644,6 +1013,62 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
   const discovered = await callMcp(tokens.access_token);
   assert.equal(discovered.status, 200);
   assert.ok(Array.isArray((await discovered.json()).result.tools));
+  const sdk = new Client(
+    { name: "crdd-oauth-fixture", version: "1" },
+    { versionNegotiation: { mode: { pin: MCP_COORDINATOR_PROTOCOL_VERSION } } },
+  );
+  try {
+    await sdk.connect(
+      new StreamableHTTPClientTransport(resource, {
+        authProvider: { token: async () => tokens.access_token },
+      }),
+    );
+    assert.deepEqual((await sdk.listTools()).tools, []);
+  } finally {
+    await sdk.close();
+  }
+  const liveClaims = {
+    active: true,
+    iss: issuer.href,
+    aud: resource.href,
+    token_type: "Bearer",
+    scope: mcpScope,
+    exp: Math.floor(Date.now() / 1_000) + 60,
+    sub: `${account.userId}:${account.bindingId}`,
+    client_id: "mcp-fixture",
+  };
+  for (const [claims, expectedStatus] of [
+    [{ ...liveClaims, iss: "https://wrong.example.test/" }, 401],
+    [{ ...liveClaims, aud: [resource.href, resource.href] }, 401],
+    [{ ...liveClaims, aud: `${resource.href}/` }, 401],
+    [{ ...liveClaims, aud: `${resource.href}/other` }, 401],
+    [{ ...liveClaims, scope: "other:access" }, 403],
+  ] as const) {
+    activeOAuth = (request, response) => {
+      if (request.url !== "/oauth/introspect") {
+        handleOAuth(request, response);
+        return;
+      }
+      request.resume();
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(claims));
+    };
+    try {
+      const refused = await callMcp(tokens.access_token);
+      assert.equal(refused.status, expectedStatus);
+      assert.ok(
+        refused.headers
+          .get("www-authenticate")
+          ?.includes(`resource_metadata="${endpoint.metadata.href}"`),
+      );
+      assert.equal(
+        (await refused.json()).error,
+        expectedStatus === 403 ? "insufficient_scope" : "invalid_token",
+      );
+    } finally {
+      activeOAuth = handleOAuth;
+    }
+  }
   const freshProvider = createMcpOAuthProvider(providerOptions);
   activeOAuth = transport.handleRequest(
     createMcpOAuthEndpoint(
@@ -715,9 +1140,10 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
     null,
   );
   assert.equal(revoked.status, 401);
-  assert.equal(
-    revoked.headers.get("www-authenticate"),
-    `Bearer resource_metadata="${endpoint.metadata.href}", error="invalid_token"`,
+  const revokedChallenge = revoked.headers.get("www-authenticate") ?? "";
+  assert.match(revokedChallenge, /error="invalid_token"/u);
+  assert.ok(
+    revokedChallenge.includes(`resource_metadata="${endpoint.metadata.href}"`),
   );
   const denied = await visit(
     oidc.buildAuthorizationUrl(configuration, {
@@ -776,10 +1202,7 @@ test("MCP専用のOAuthコードを交換し、失効とWorkbenchのログアウ
   const interactionUrl = new URL(interaction, issuer);
   assert.equal(interactionUrl.origin, issuer.origin);
   assert.match(interactionUrl.pathname, /^\/api\/session\/mcp\//u);
-  for (const value of afterLogout.headers.getSetCookie()) {
-    const pair = value.split(";")[0];
-    if (pair) cookies.set(pair.split("=")[0] ?? "", pair);
-  }
+  storeCookies(afterLogout);
   const loginPage = await fetch(interactionUrl, {
     redirect: "manual",
     headers: { cookie: [...cookies.values()].join("; ") },

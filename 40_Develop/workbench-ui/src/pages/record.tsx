@@ -12,12 +12,9 @@ import type {
   RecordDetailResponse,
   RecordActionView,
 } from "../api/response.ts";
-import { validateViewResponse } from "../api/response.ts";
-import { createSelectedWorkbenchViewUrl } from "../api/view.ts";
+import { readViewResponse } from "../api/view.ts";
 import { RecordOperationPanel } from "../components/record-operation-panel.tsx";
-import { requestWorkbench } from "../api/connection.ts";
 import { RecordActions } from "../components/records.tsx";
-import { readWorkbenchQuery } from "../api/queries.ts";
 import type { ReplaceDeletedRecord } from "../api/record.ts";
 
 /**
@@ -70,6 +67,8 @@ export function RecordDetail({
     if (deleted) {
       target.pathname = "/";
       target.searchParams.delete("id");
+      if (model.repositoryId === null)
+        target.searchParams.delete("repositoryId");
       target.hash = model.record.kind === "topic" ? "topics" : "meetings";
       if (
         signal.aborted ||
@@ -80,15 +79,8 @@ export function RecordDetail({
       await replaceDeletedRecord(target, model.repositoryId, result);
       return;
     }
-    const next = await readWorkbenchQuery("view", signal, async (signal) => {
-      const response = await requestWorkbench(
-        createSelectedWorkbenchViewUrl(target, model.repositoryId),
-        { signal, cache: "no-store" },
-        true,
-      );
-      if (!response.ok) throw new Error("workbench_view_unavailable");
-      return validateViewResponse(await response.json());
-    });
+    target.searchParams.set("repositoryId", model.operationRepositoryId);
+    const next = await readViewResponse(target, signal);
     if (
       signal.aborted ||
       window.location.href !== originalUrl ||
@@ -192,7 +184,6 @@ export function RecordDetail({
       </section>
       {model.recordActionsConfigured ? (
         <RecordActions
-          actionToken={model.actionToken}
           repositoryId={model.operationRepositoryId}
           document={model.record}
         />
@@ -202,7 +193,6 @@ export function RecordDetail({
             この接続の内容保存は未接続です。現在は閲覧のみです。
           </p>
           <RecordActions
-            actionToken={model.actionToken}
             repositoryId={model.operationRepositoryId}
             document={model.record}
           />
@@ -220,9 +210,8 @@ export function RecordDetail({
       </a>
       {model.recordActionsConfigured ? (
         <RecordOperationPanel
-          key={`${model.operationRepositoryId}:${model.actionToken}`}
+          key={model.operationRepositoryId}
           repositoryId={model.operationRepositoryId}
-          actionToken={model.actionToken}
           refresh={refreshRecord}
         >
           {content}

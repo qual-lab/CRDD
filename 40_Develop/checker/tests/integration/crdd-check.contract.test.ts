@@ -929,8 +929,8 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
   assert.ok(windowsIndex > portableIndex, "Windows tests must follow Portable");
 });
 
-/** 製品所有の集計と横断試験の実行入口を区別する。 @trace AUH-IT-003 */
-test("製品のカバレッジ入口に横断試験を混ぜない", () => {
+/** 単体カバレッジと計測しない結合以降の実行入口を区別する。 @trace AUH-IT-003 */
+test("製品のカバレッジ入口は単体試験だけを実行する", () => {
   const develop = path.join(repositoryRoot, "40_Develop");
   const packageNames = fs
     .readdirSync(develop, { withFileTypes: true })
@@ -945,16 +945,33 @@ test("製品のカバレッジ入口に横断試験を混ぜない", () => {
     assert.ok(scripts, name);
     const coverage = scripts["test:coverage"];
     assert.equal(typeof coverage, "string", name);
-    assert.doesNotMatch(
-      String(coverage),
-      /tests\/(?:system|integration\/diagnostic)/u,
-      name,
-    );
+    const unitTests = fs.globSync("tests/unit/**/*.test.ts", {
+      cwd: path.join(develop, name),
+    });
+    if (unitTests.length === 0) {
+      assert.equal(
+        coverage,
+        `node -e "throw Error('Unit coverage unavailable: no unit tests registered')"`,
+        name,
+      );
+    } else {
+      assert.match(String(coverage), /--experimental-test-coverage\b/u, name);
+      assert.match(String(coverage), /tests\/unit\/\*\*\/\*\.test\.ts/u, name);
+    }
+    for (const script of Object.values(scripts)) {
+      if (
+        typeof script !== "string" ||
+        !script.includes("--experimental-test-coverage")
+      )
+        continue;
+      assert.doesNotMatch(script, /tests\/(?:integration|system)\//u, name);
+      assert.match(script, /tests\/unit\//u, name);
+    }
     if (name === "workbench-ui") {
       assert.doesNotMatch(String(scripts["test:run"]), /tests\/system/u);
       assert.match(
-        String(scripts["test:credential-browser"]),
-        /tests\/system\/credential-administration-browser/u,
+        String(scripts["test:shared-access-browser"]),
+        /tests\/system\/shared-access-browser/u,
       );
       assert.match(
         String(scripts["test:visual"]),
@@ -8102,12 +8119,16 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
       path.join(root, relativePath),
       fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
     );
-  for (const fileName of [
-    "test-catalog.json",
-    "coordinator-execution-traceability.json",
-    "coordinator-task-design-traceability.json",
-  ])
-    write(path.join(root, "07_Quality", "Registry", fileName), "{}\n");
+  write(
+    path.join(root, "07_Quality", "Registry", "test-catalog.json"),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/07_Quality/Registry/test-catalog.json",
+      ),
+      "utf8",
+    ),
+  );
   const mappingPath = path.join(
     root,
     "07_Quality",

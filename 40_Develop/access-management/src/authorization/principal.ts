@@ -4,12 +4,12 @@
  * @boundary 外部トークンを検証するのは受付側。ここでは保存Lock内で紐付けと期限を照合する。
  */
 import type { AccessActor, AccountAccessPrincipal } from "./types.ts";
-import { ATTEMPT_UUID } from "../storage/store.ts";
+import { UUID_V4 } from "../storage/parse.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { resolveAccountBinding } from "../user/account-link.ts";
 
 /** 不正入力と期限切れは状態・対象の観測前に除く。 @trace ARCH-000013 */
-export function acceptsAccessPrincipal(
+export function isUnexpiredAccountPrincipal(
   principal: AccountAccessPrincipal,
 ): boolean {
   return (
@@ -17,9 +17,9 @@ export function acceptsAccessPrincipal(
     typeof principal === "object" &&
     principal.kind === "account" &&
     typeof principal.userId === "string" &&
-    ATTEMPT_UUID.test(principal.userId) &&
+    UUID_V4.test(principal.userId) &&
     typeof principal.bindingId === "string" &&
-    ATTEMPT_UUID.test(principal.bindingId) &&
+    UUID_V4.test(principal.bindingId) &&
     Number.isSafeInteger(principal.expiresAt) &&
     principal.expiresAt > Date.now()
   );
@@ -30,7 +30,7 @@ export function resolveAccessPrincipal(
   principal: AccountAccessPrincipal,
   state: AccessManagementState,
 ): AccessActor | null {
-  return acceptsAccessPrincipal(principal)
+  return isUnexpiredAccountPrincipal(principal)
     ? resolveAccountBinding(state, principal)
     : null;
 }

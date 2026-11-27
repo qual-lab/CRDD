@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CRDD 試験台帳（改訂11）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "contractRevision",
+    "levels",
+    "regressionIsSelection",
+    "resourceIntensiveLevels",
+    "owners",
+    "environments",
+    "executionProfiles",
+    "sharedRuntimePaths",
+    "integrationBlocks",
+    "integrationCorridors",
+    "consumerBindings",
+    "tests"
+  ],
+  "properties": {
+    "contract": {
+      "const": "crdd/test-catalog"
+    },
+    "contractRevision": {
+      "const": 11
+    },
+    "levels": {
+      "const": [
+        "unit",
+        "integration",
+        "system",
+        "acceptance",
+        "performance",
+        "longevity"
+      ]
+    },
+    "regressionIsSelection": {
+      "const": true
+    },
+    "resourceIntensiveLevels": {
+      "const": [
+        "performance",
+        "longevity"
+      ]
+    },
+    "owners": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/owner"
+      }
+    },
+    "environments": {
+      "$ref": "#/$defs/declaredStrings"
+    },
+    "executionProfiles": {
+      "$ref": "#/$defs/declaredStrings"
+    },
+    "sharedRuntimePaths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "integrationBlocks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/integrationBlock"
+      }
+    },
+    "integrationCorridors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/integrationCorridor"
+      }
+    },
+    "consumerBindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/consumerBinding"
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/test"
+      }
+    }
+  },
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*[\\\\:\\x00-\\x1f\\x7f])(?!.*(?:^|/)\\.{1,2}(?:/|$))[^/]+(?:/[^/]+)*$"
+    },
+    "glob": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/path"
+        },
+        {
+          "pattern": "^(?!.*[\\[\\]{}!])(?:\\*\\*|(?:(?!\\*\\*)[^/])+)(?:/(?:\\*\\*|(?:(?!\\*\\*)[^/])+))*$"
+        }
+      ]
+    },
+    "declaredStrings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:[^\\r\\n]*\\S)?$"
+      }
+    },
+    "nonEmptyUniqueStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "ownerId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "root",
+        "runner"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ownerId"
+        },
+        "root": {
+          "$ref": "#/$defs/path"
+        },
+        "runner": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:[^\\r\\n]*\\S)?$"
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "implementation",
+            "tests",
+            "exclude"
+          ],
+          "properties": {
+            "implementation": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/glob"
+              }
+            },
+            "tests": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/glob"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/glob"
+              }
+            }
+          }
+        }
+      }
+    },
+    "integrationBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner",
+        "architectureAnchor",
+        "responsibilities",
+        "externalBoundaries",
+        "lifecycleProfile",
+        "testIds",
+        "postconditions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "#/$defs/ownerId"
+        },
+        "architectureAnchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "responsibilities": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        },
+        "externalBoundaries": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        },
+        "lifecycleProfile": {
+          "enum": [
+            "pure_component",
+            "read_only_boundary",
+            "transport_session",
+            "durable_operation",
+            "external_effect_operation"
+          ]
+        },
+        "testIds": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        },
+        "postconditions": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        }
+      }
+    },
+    "integrationCorridor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "architectureAnchor",
+        "blockPath",
+        "testIds",
+        "postconditions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architectureAnchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blockPath": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "maxItems": 3
+        },
+        "testIds": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        },
+        "postconditions": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        }
+      }
+    },
+    "consumerBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producerOwner",
+        "producerPaths",
+        "consumerOwner",
+        "consumerStatic",
+        "testIds"
+      ],
+      "properties": {
+        "producerOwner": {
+          "$ref": "#/$defs/ownerId"
+        },
+        "producerPaths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/path"
+          }
+        },
+        "consumerOwner": {
+          "$ref": "#/$defs/ownerId"
+        },
+        "consumerStatic": {
+          "const": true
+        },
+        "testIds": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        }
+      }
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner",
+        "path",
+        "level",
+        "kind",
+        "semanticTags",
+        "environment",
+        "externalProviderEffect",
+        "humanInput",
+        "postconditions",
+        "mandatoryByDefault"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "#/$defs/ownerId"
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "level": {
+          "enum": [
+            "unit",
+            "integration",
+            "system",
+            "acceptance",
+            "performance",
+            "longevity"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "unit",
+            "contract",
+            "integration"
+          ]
+        },
+        "semanticTags": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executionProfiles": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        },
+        "externalProviderEffect": {
+          "type": "boolean"
+        },
+        "humanInput": {
+          "type": "boolean"
+        },
+        "postconditions": {
+          "$ref": "#/$defs/nonEmptyUniqueStrings"
+        },
+        "mandatoryByDefault": {
+          "type": "boolean"
+        }
+      },
+      "if": {
+        "properties": {
+          "level": {
+            "enum": [
+              "performance",
+              "longevity"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "mandatoryByDefault": {
+            "const": false
+          }
+        }
+      }
+    }
+  }
+}
