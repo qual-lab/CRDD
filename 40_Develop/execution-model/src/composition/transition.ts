@@ -4513,6 +4513,19 @@ export function prepareUnifiedTaskSections(
   rootHash: string,
   factsValue: unknown = [],
 ): Buffer | null {
+  return (
+    prepareUnifiedTaskCandidate(current, viewValue, rootHash, factsValue)
+      ?.bytes ?? null
+  );
+}
+
+/** 同じ候補の検査済み値と正規本文を一緒に物理Writerへ渡す。 @trace ARCH-000008 */
+export function prepareUnifiedTaskCandidate(
+  current: DecodedExecutionState,
+  viewValue: unknown,
+  rootHash: string,
+  factsValue: unknown,
+): TaskHistorySnapshot | null {
   try {
     const view: unknown = JSON.parse(encodeStateValue(viewValue));
     const facts: unknown = JSON.parse(encodeStateValue(factsValue));
@@ -4558,7 +4571,7 @@ export function prepareUnifiedTaskSections(
       validateDecodedUnifiedTransition(current, decoded) &&
       encodeStateValue(projectTaskSnapshot(decoded, rootHash)) ===
         encodeStateValue(view)
-      ? bytes
+      ? { bytes, decoded }
       : null;
   } catch {
     return null;

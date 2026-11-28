@@ -34,6 +34,7 @@ import * as selection from "../../src/lifecycle/selection.ts";
 import * as kernel from "../../src/lifecycle/host.ts";
 import * as objectiveValidation from "../../src/lifecycle/validation.ts";
 import * as environment from "../../src/lifecycle/environment.ts";
+import * as workspace from "../../src/lifecycle/workspace.ts";
 import * as executionModel from "@qual-lab/crdd-execution-model";
 import {
   snapshotPlainArray,
@@ -110,6 +111,7 @@ type TestObjective = {
   finalizeRecoveryWrite?: (
     ...args: Parameters<typeof saveProjectExecutionState>
   ) => unknown;
+  confirmWorkspaceTarget?: typeof workspace.confirmPreparedWorkspaceTarget;
   observeLeaseOwner: (
     owner: Parameters<typeof kernel.observeObjectiveLeaseOwner>[0],
   ) => unknown;
@@ -220,6 +222,7 @@ export async function runTestCoordinatorObjective(
     resolveTaskRecoveryCorrelations,
     observeRecoveryTransition,
     finalizeRecoveryWrite,
+    confirmWorkspaceTarget,
     resolveTaskSelections,
     createTaskExecutions,
     observeLeaseOwner,
@@ -247,11 +250,23 @@ export async function runTestCoordinatorObjective(
   let objectiveValidationReplacement: ReturnType<typeof mock.module> | null =
     null;
   let executionModelReplacement: ReturnType<typeof mock.module> | null = null;
+  let workspaceReplacement: ReturnType<typeof mock.module> | null = null;
+  const workspaceUrl = new URL(
+    `../../src/lifecycle/workspace.ts?objective-fixture=${randomUUID()}`,
+    import.meta.url,
+  ).href;
   const executionModelUrl = new URL(
     `?objective-fixture=${randomUUID()}`,
     import.meta.resolve("@qual-lab/crdd-execution-model"),
   ).href;
   try {
+    if (confirmWorkspaceTarget)
+      workspaceReplacement = mock.module(workspaceUrl, {
+        namedExports: {
+          ...workspace,
+          confirmPreparedWorkspaceTarget: confirmWorkspaceTarget,
+        },
+      });
     if (finalizeRecoveryWrite) {
       executionModelReplacement = mock.module(executionModelUrl, {
         namedExports: {
@@ -428,6 +443,9 @@ export async function runTestCoordinatorObjective(
         ["./validation.ts", objectiveValidationUrl],
         ["./host.ts", ownerUrl],
         ["./environment.ts", environmentUrl],
+        ...(confirmWorkspaceTarget
+          ? [["./workspace.ts", workspaceUrl] as const]
+          : []),
         ...(finalizeRecoveryWrite
           ? [["@qual-lab/crdd-execution-model", executionModelUrl] as const]
           : []),
@@ -435,18 +453,22 @@ export async function runTestCoordinatorObjective(
     );
   } finally {
     try {
-      executionModelReplacement?.restore();
+      workspaceReplacement?.restore();
     } finally {
       try {
-        environmentReplacement?.restore();
+        executionModelReplacement?.restore();
       } finally {
         try {
-          ownerReplacement?.restore();
+          environmentReplacement?.restore();
         } finally {
           try {
-            objectiveValidationReplacement?.restore();
+            ownerReplacement?.restore();
           } finally {
-            replacement.restore();
+            try {
+              objectiveValidationReplacement?.restore();
+            } finally {
+              replacement.restore();
+            }
           }
         }
       }

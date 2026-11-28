@@ -19,6 +19,16 @@ export const TASK_STATES = Object.freeze([
   "superseded",
 ] as const);
 
+/** 未委譲停止に保存できる理由。生例外やパスは受け取らない。 */
+export const TASK_DEFERRAL_REASONS = Object.freeze([
+  "coordinator_workspace_not_ready",
+  "coordinator_workspace_state_unavailable",
+  "coordinator_workspace_git_unavailable",
+  "coordinator_workspace_preparation_failed",
+  "coordinator_snapshot_lock_contended",
+] as const);
+type TaskDeferralReason = (typeof TASK_DEFERRAL_REASONS)[number];
+
 /**
  * stateで使用するProject Task Definitionの値契約を定義する。
  *
@@ -112,6 +122,17 @@ export type TaskExecutionUpdate = Readonly<
       failedTaskId: string;
       replacements: readonly ProjectTaskDefinition[];
       maximumReplans: number;
+    }
+  | {
+      kind: "task_defer_before_effect";
+      projectId: string;
+      taskId: string;
+      attemptId: string;
+      operationId: string;
+      authorityBindingId: string;
+      queueGeneration: number;
+      ownerGeneration: string;
+      reason: TaskDeferralReason;
     }
   | {
       kind: "task_settle_before_effect";
@@ -371,6 +392,7 @@ export type ProjectQueueState =
   | "leased"
   | "running"
   | "waiting_foreground"
+  | "preparation_blocked"
   | "integration_pending"
   | "replan_required"
   | "human_decision_required"

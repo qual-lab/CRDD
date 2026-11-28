@@ -14,6 +14,7 @@ import { isDeepStrictEqual, types } from "node:util";
 import {
   beginWorkspaceOperation,
   type RepositoryWorktreeResult,
+  type readObjectiveAdmission,
   readWorkspaceState,
   saveIntegrationRecord,
   updateWorkspaceMetadata,
@@ -71,6 +72,14 @@ export function observeWorkspaceExecutionTarget(
   ownerRepositoryRoot: string,
   projectId: string,
   workspaceId: string | null | undefined,
+  admission?: Readonly<{
+    workspace: NonNullable<
+      Extract<
+        ReturnType<typeof readObjectiveAdmission>,
+        { status: "completed" }
+      >["value"]
+    >["workspace"];
+  }>,
 ) {
   const observed = (value: PreparedWorkspaceTarget | null) => ({
     status: "completed" as const,
@@ -81,27 +90,49 @@ export function observeWorkspaceExecutionTarget(
   });
   if (!isWorkspaceId(workspaceId)) return observed(null);
   try {
-    const snapshot = readWorkspaceState(
-      { directory: ownerRepositoryRoot },
-      deriveCoordinatorRepositoryBindingId(ownerRepositoryRoot),
-    );
-    if (snapshot.status !== "completed") return snapshot;
+    let record = admission?.workspace;
     if (
-      !snapshot.value?.queueEntries.some(
-        (queue) =>
-          queue.projectId === projectId && queue.workspaceId === workspaceId,
-      )
+      record &&
+      (record.repositoryRoot !== ownerRepositoryRoot ||
+        record.projectId !== projectId ||
+        record.workspaceId !== workspaceId)
     )
       return observed(null);
-    const record = snapshot.value.workspaces.find(
-      (entry) => entry.workspaceId === workspaceId,
-    );
+    if (!admission) {
+      const snapshot = readWorkspaceState(
+        { directory: ownerRepositoryRoot },
+        deriveCoordinatorRepositoryBindingId(ownerRepositoryRoot),
+      );
+      if (snapshot.status !== "completed") return snapshot;
+      if (
+        !snapshot.value?.queueEntries.some(
+          (queue) =>
+            queue.projectId === projectId && queue.workspaceId === workspaceId,
+        )
+      )
+        return observed(null);
+      const entry = snapshot.value.workspaces.find(
+        (item) => item.workspaceId === workspaceId,
+      );
+      record = entry
+        ? {
+            repositoryRoot: ownerRepositoryRoot,
+            projectId,
+            workspaceId,
+            phase: entry.phase,
+            holdUntil: entry.holdUntil,
+            relativePath: entry.lastResult?.relativePath,
+            branch: entry.lastResult?.branch,
+            baseCommit: entry.baseCommit,
+          }
+        : null;
+    }
     if (record?.phase !== "ready" || record.holdUntil !== null)
       return observed(null);
     const worktree = Object.freeze(workspaceWorktreeTarget(workspaceId));
     if (
-      record.lastResult?.relativePath !== worktree.relativePath ||
-      record.lastResult?.branch !== worktree.branch
+      record.relativePath !== worktree.relativePath ||
+      record.branch !== worktree.branch
     )
       return observed(null);
     return observed(

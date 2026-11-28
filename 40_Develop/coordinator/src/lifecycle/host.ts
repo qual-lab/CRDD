@@ -168,7 +168,7 @@ export function isCleanStateContention(result: StateContentionResult) {
  * @returns 実Leaseの借用と、同じ実体の現在観測。未借用時は観測しない。
  * @security 保存済みOwnerや別の更新で借用したLeaseを使用しない。
  */
-function writerLeaseAccess(readLease: () => CoordinatorLease) {
+export function writerLeaseAccess(readLease: () => CoordinatorLease) {
   let active: ReturnType<typeof borrowCoordinatorActiveLease>;
   return {
     borrowActiveLease: () => {
@@ -794,6 +794,7 @@ export function acquireCoordinatorSnapshotLease(
   kind: LeaseKind,
   recoveryGeneration: number | undefined,
   wait: Readonly<{ signal: AbortSignal; revalidate?: () => Promise<boolean> }>,
+  admission?: Readonly<{ queueGeneration: number; stateGeneration: number }>,
 ): Promise<CoordinatorLeaseResult<CoordinatorLease>>;
 export function acquireCoordinatorSnapshotLease(
   storageDirectory: string,
@@ -811,6 +812,7 @@ export function acquireCoordinatorSnapshotLease(
   kind: LeaseKind,
   recoveryGeneration?: number,
   wait?: Readonly<{ signal: AbortSignal; revalidate?: () => Promise<boolean> }>,
+  admission?: Readonly<{ queueGeneration: number; stateGeneration: number }>,
 ):
   | CoordinatorLeaseResult<CoordinatorLease>
   | Promise<CoordinatorLeaseResult<CoordinatorLease>> {
@@ -859,6 +861,7 @@ export function acquireCoordinatorSnapshotLease(
           },
         },
         recoveryGeneration,
+        admission,
       ],
     });
   const acquirePhysical = (

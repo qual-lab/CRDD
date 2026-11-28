@@ -25,6 +25,12 @@ import type {
   SingleTaskRecord,
   TaskExecutionSelections,
 } from "./types.ts";
+import { TASK_DEFERRAL_REASONS } from "./types.ts";
+
+/** 停止理由を保存・公開できる固定値に限定する。 @trace ARCH-000004 */
+export function validTaskDeferralReason(value: unknown) {
+  return TASK_DEFERRAL_REASONS.some((reason) => reason === value);
+}
 
 /**
  * Coordinator 状態が有効か判定する。
@@ -310,6 +316,10 @@ export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
     nullableId(value.ownerGeneration) &&
     nullableId(value.resumeCondition) &&
     nullableTaskReference(value.resultReference) &&
+    (value.state !== "preparation_blocked" ||
+      (!Object.hasOwn(value, "singleTask") &&
+        validTaskDeferralReason(value.resumeCondition) &&
+        value.resultReference === null)) &&
     (value.workspaceId === null ||
       (typeof value.workspaceId === "string" &&
         /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
@@ -479,6 +489,7 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
 }
 
 export const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
+  "preparation_blocked",
   "queued",
   "leased",
   "running",

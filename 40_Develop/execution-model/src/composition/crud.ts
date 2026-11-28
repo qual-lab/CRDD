@@ -50,6 +50,7 @@ import {
   captureStateVersionEvidence,
   publishRecoveryState,
   publishStateOwned,
+  publishPreparedTaskStateOwned,
   writeStateSnapshot,
   assertAreaUnchanged,
   assertDirectory,
@@ -200,7 +201,7 @@ export function initializeExecutionStore(
  * @postcondition Snapshot改訂とState世代を別々に検証し、解放確認後に成功する。
  * @effect 統合state.jsonと固定pendingだけを更新する。
  * @failure 入力不正、不存在、世代競合、pendingまたは保存不明で停止する。
- * @invariant 対象Taskの終端・履歴・Operation相関を保持し、Queue・受付結合・Lease等の対象外区画を変更しない。
+ * @invariant 未委譲停止だけは元Taskと現在Owner付きQueueを同版で更新し、他の区画を変更しない。
  * @boundary 管理Taskの有限要求から既存の統合保存への境界。
  * @security 旧形式Fallback、初期化、Authority発行と旧記録削除を行わない。
  * @concurrency 読取り・比較・保存まで一つの短期Ownerを保持し外部待機しない。
@@ -216,9 +217,15 @@ export function writeSnapshotState(
     requestHash: string;
     projectId: string;
     milestoneId: string;
+    leaseAccess?: Parameters<
+      typeof import("../task/crud.ts").prepareQueueOperationUpdate
+    >[6];
   }>,
 ): StoreResult<ProjectExecutionState> &
-  Readonly<{ taskUpdateTaskIds?: readonly string[] }> {
+  Readonly<{
+    taskUpdateTaskIds?: readonly string[];
+    deferredQueue?: ProjectQueueEntry;
+  }> {
   let taskUpdate: typeof request;
   try {
     if (
@@ -253,9 +260,11 @@ export function writeSnapshotState(
   const lock = acquired.value;
   let outcome: StoreResult<ProjectExecutionState>;
   let taskUpdateTaskIds: readonly string[] | null = null;
+  let deferredQueue: ProjectQueueEntry | undefined;
   let boundaryError: ExecutionStorageBlockedError | null = null;
   try {
-    const observed = readSnapshotOwned(lock, binding, true);
+    const source = readStorageSnapshotOwned(lock, true);
+    const observed = readSnapshotOwned(lock, binding, true, source);
     if (observed.status !== "completed") outcome = blocked(observed.reason);
     else if (observed.value === null)
       outcome = blocked("coordinator_snapshot_absent");
@@ -273,7 +282,44 @@ export function writeSnapshotState(
             item.projectId === taskUpdate.projectId &&
             (item.queueId === undefined || item.queueId === intake?.queueId),
         );
-        if (!previous)
+        const deferral =
+          taskUpdate.kind === "task_defer_before_effect" ? taskUpdate : null;
+        const runningQueue =
+          deferral && intake
+            ? current.queueEntries.find(
+                (queue) =>
+                  queue.queueId === intake.queueId &&
+                  !queue.singleTask &&
+                  queue.state === "running" &&
+                  queue.generation === deferral.queueGeneration &&
+                  queue.ownerGeneration === deferral.ownerGeneration &&
+                  current.leaseIntents.some(
+                    (intent) =>
+                      intent.queueId === queue.queueId &&
+                      intent.projectId === queue.projectId &&
+                      intent.ownerGeneration === deferral.ownerGeneration &&
+                      intent.kind === "project-operation" &&
+                      intent.phase === "lock_owned",
+                  ),
+              )
+            : undefined;
+        const leaseAccess =
+          deferral && runningQueue ? intake?.leaseAccess : undefined;
+        const activeLease = leaseAccess?.borrowActiveLease();
+        if (
+          deferral &&
+          (!runningQueue ||
+            previous?.queueId !== runningQueue.queueId ||
+            activeLease?.kind !== "project-operation" ||
+            activeLease.repositoryRoot !== lock.repositoryRoot ||
+            activeLease.repositoryBindingId !== binding ||
+            activeLease.projectId !== runningQueue.projectId ||
+            activeLease.queueId !== runningQueue.queueId ||
+            activeLease.ownerGeneration !== deferral.ownerGeneration ||
+            leaseAccess?.isActiveLeaseObserved() !== true)
+        )
+          outcome = blocked("coordinator_queue_owner_mismatch", true);
+        else if (!previous)
           outcome = blocked("coordinator_state_generation_conflict");
         else {
           const prepared = prepareTaskExecutionUpdate(
@@ -311,6 +357,16 @@ export function writeSnapshotState(
             } else if (previous.generation !== expectedGeneration)
               outcome = blocked("coordinator_state_generation_conflict");
             else {
+              const parked =
+                runningQueue && deferral
+                  ? {
+                      ...runningQueue,
+                      state: "preparation_blocked" as const,
+                      generation: runningQueue.generation + 1,
+                      resumeCondition: deferral.reason,
+                      resultReference: null,
+                    }
+                  : undefined;
               const saved = writeSnapshotOwned(
                 lock,
                 binding,
@@ -320,14 +376,22 @@ export function writeSnapshotState(
                   projects: current.projects.map((item) =>
                     item === previous ? state : item,
                   ),
+                  queueEntries: parked
+                    ? current.queueEntries.map((entry) =>
+                        entry === runningQueue ? parked : entry,
+                      )
+                    : current.queueEntries,
                 }),
                 current.snapshotRevision,
                 facts,
+                undefined,
+                source,
               );
               outcome =
                 saved.status === "completed"
                   ? completed("coordinator_state_durable", state)
                   : saved;
+              if (saved.status === "completed") deferredQueue = parked;
             }
           }
         }
@@ -349,6 +413,7 @@ export function writeSnapshotState(
     ? Object.freeze({
         ...outcome,
         taskUpdateTaskIds: Object.freeze([...taskUpdateTaskIds]),
+        ...(deferredQueue ? { deferredQueue } : {}),
       })
     : outcome;
 }
@@ -418,6 +483,7 @@ export function writeSnapshotOwned(
   expectedRevision: number,
   resultFacts: unknown = [],
   prepareDirectory?: () => boolean,
+  source?: ReturnType<typeof readStorageSnapshotOwned>,
 ): StoreResult<Snapshot> {
   try {
     if (
@@ -434,7 +500,7 @@ export function writeSnapshotOwned(
       payload.snapshotRevision !== expectedRevision + 1
     )
       return blocked("coordinator_snapshot_input_invalid");
-    const observed = readStorageSnapshotOwned(lock, true);
+    const observed = source ?? readStorageSnapshotOwned(lock, true);
     let current: Snapshot | null = null;
     if (observed.status === "completed" && observed.value) {
       current = projectTaskSnapshot(observed.value, lock.repositoryRootHash);
@@ -529,30 +595,35 @@ export function withSnapshotOperation<T>(
   let result: StoreResult<T>;
   let boundaryError: ExecutionStorageBlockedError | null = null;
   let initialized: StoreResult<null> | undefined;
-  if (typeof mode === "object") {
-    try {
-      initialized = initializeExecutionSnapshotOwned(
-        owner,
-        binding,
-        mode.prepareDirectory,
-      );
-    } catch (error) {
-      if (error instanceof ExecutionStorageBlockedError) boundaryError = error;
-      initialized = blocked(
-        "coordinator_snapshot_initialization_unconfirmed",
-        true,
-      );
-    }
-  }
   try {
+    const readMode = mode === "history" ? "history" : false;
+    let source = readStorageSnapshotOwned(owner, readMode);
+    if (typeof mode === "object") {
+      try {
+        initialized = initializeExecutionSnapshotOwned(
+          owner,
+          binding,
+          mode.prepareDirectory,
+          source,
+        );
+        if (
+          initialized.status === "completed" &&
+          source.value?.snapshot.repositoryBindingId !== binding
+        )
+          source = readStorageSnapshotOwned(owner, readMode);
+      } catch (error) {
+        if (error instanceof ExecutionStorageBlockedError)
+          boundaryError = error;
+        initialized = blocked(
+          "coordinator_snapshot_initialization_unconfirmed",
+          true,
+        );
+      }
+    }
     const observed =
       initialized?.status === "blocked"
         ? initialized
-        : readSnapshotOwned(
-            owner,
-            binding,
-            mode === "history" ? "history" : false,
-          );
+        : readSnapshotOwned(owner, binding, readMode, source);
     if (observed.status !== "completed") result = observed;
     else if (observed.value === null)
       result = blocked("coordinator_snapshot_absent");
@@ -570,6 +641,10 @@ export function withSnapshotOperation<T>(
             snapshotRevision: observed.value.snapshotRevision + 1,
           }),
           observed.value.snapshotRevision,
+          [],
+          undefined,
+          // 履歴読取りは途中履歴を許す。通常保存の保全停止の分類を省略しない。
+          mode === "history" ? undefined : source,
         );
         result =
           saved.status === "completed"
@@ -823,6 +898,29 @@ function writeStorageTaskSnapshotOwned(
       ? null
       : readStorageSnapshotOwned(owner, true);
     const currentTask = verifiedBefore ?? observed?.value;
+    if (
+      verifiedBefore &&
+      verifiedBefore.snapshot.revision === expectedRevision
+    ) {
+      const result = publishPreparedTaskStateOwned(
+        issued,
+        verifiedBefore,
+        view,
+        facts,
+      );
+      filesystemEffectIssued = result.filesystemEffectIssued;
+      if (!result.snapshotConfirmed || !isLiveStorageOwner(owner))
+        return rejected(result.reason);
+      return Object.freeze({
+        status: "completed" as const,
+        reason: result.reason,
+        filesystemEffectIssued,
+        snapshotConfirmed: true,
+        ownerHeld: true as const,
+        lockReleased: false,
+        value: view,
+      });
+    }
     let before: Buffer | null = null,
       initialBoundary: string | null = null;
     let bytes: Buffer | null = null;
@@ -1347,8 +1445,9 @@ function initializeExecutionSnapshotOwned(
   owner: StorageOwner,
   binding: string,
   prepareDirectory?: () => boolean,
+  source?: ReturnType<typeof readStorageSnapshotOwned>,
 ): StoreResult<null> {
-  const observed = readStorageSnapshotOwned(owner);
+  const observed = source ?? readStorageSnapshotOwned(owner);
   if (
     observed.status !== "completed" &&
     observed.reason !== "coordinator_state_uninitialized"

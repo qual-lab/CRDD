@@ -185,6 +185,12 @@ export type LeaseAcquisitionRequest = Readonly<
           markIntentSaveRequested: (recoveryId: string) => void;
         }>,
         recoveryGeneration?: number | undefined,
+        admission?:
+          | Readonly<{
+              queueGeneration: number;
+              stateGeneration: number;
+            }>
+          | undefined,
       ];
     }
   | {

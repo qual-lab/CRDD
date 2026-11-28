@@ -23,6 +23,8 @@ import {
   type SingleTaskRecord,
   type TaskExecutionSelections,
   createQueue,
+  prepareFirstTask,
+  prepareNextTask,
   initializeExecutionStore,
   isPrincipalId,
   leaseAcquisitionRecoveryId,
@@ -32,6 +34,8 @@ import {
   readWorkspaceState,
   saveProjectExecutionState,
   selectNextQueueEntry,
+  selectAndClaimQueue,
+  readObjectiveAdmission,
   updateQueue,
   type ProjectQueueEntry,
   type ProjectExecutionState,
@@ -149,6 +153,7 @@ import {
   poisonExecutionProcessAfterCleanupUnknown,
   settleCoordinatorSnapshotQueueLeaseRelease,
   updateCoordinatorQueue,
+  writerLeaseAccess,
   updateCoordinatorSingleTask,
   observeLeaseOwner,
   reconcileCoordinatorSnapshotLeaseOwnerLoss,
@@ -1312,7 +1317,9 @@ export async function runCoordinatorOperation(
       ? "coordinator_cancelled_before_task_effect"
       : "coordinator_authenticated_principal_not_verified";
   const observed =
-    operation.kind === "scheduled" && operation.leaseWait
+    operation.kind === "scheduled" &&
+    operation.leaseWait &&
+    !operation.admission
       ? await waitForPreparation(() =>
           readExecutionState(
             operation.persistence.repository,
@@ -1331,6 +1338,7 @@ export async function runCoordinatorOperation(
           operation.persistence,
           operation.input,
           observed ?? undefined,
+          operation.admission,
         )
       : null;
   if (prepared && !("kind" in prepared)) return prepared;
@@ -1349,10 +1357,20 @@ export async function runCoordinatorOperation(
   ] as const;
   const leaseResult =
     operation.kind === "scheduled" && operation.leaseWait
-      ? await acquireCoordinatorSnapshotLease(...leaseInput, undefined, {
-          signal: operation.input.cancellationSignal,
-          ...operation.leaseWait,
-        })
+      ? await acquireCoordinatorSnapshotLease(
+          ...leaseInput,
+          undefined,
+          {
+            signal: operation.input.cancellationSignal,
+            ...operation.leaseWait,
+          },
+          operation.admission && prepared && "kind" in prepared
+            ? {
+                queueGeneration: prepared.queue.generation,
+                stateGeneration: prepared.state.generation,
+              }
+            : undefined,
+        )
       : acquireCoordinatorSnapshotLease(...leaseInput);
   if (operation.kind === "single") {
     await executeSingleOperation(operation, leaseResult);
@@ -1554,6 +1572,7 @@ export async function runCoordinatorOperation(
           | "task_start"
           | "task_handoff"
           | "task_started"
+          | "task_defer_before_effect"
           | "task_settle"
           | "task_settle_before_effect";
       }
@@ -1568,7 +1587,12 @@ export async function runCoordinatorOperation(
         persistence.repositoryBindingId,
         request,
         expectedGeneration,
-        persistence.intake,
+        request.kind === "task_defer_before_effect" && persistence.intake
+          ? {
+              ...persistence.intake,
+              leaseAccess: writerLeaseAccess(() => lease),
+            }
+          : persistence.intake,
       );
       if (!preparing && isCleanStateContention(saved))
         waitedAfterDelegation = true;
@@ -1586,6 +1610,15 @@ export async function runCoordinatorOperation(
       };
     if (written.status !== "completed")
       return { status: "blocked" as const, reason: written.reason };
+    if (request.kind === "task_defer_before_effect") {
+      state = written.value;
+      if (!written.deferredQueue)
+        return {
+          status: "blocked" as const,
+          reason: "coordinator_queue_settlement_unconfirmed",
+        };
+      queue = written.deferredQueue;
+    }
     const settling =
       request.kind === "task_settle" ||
       request.kind === "task_settle_before_effect";
@@ -1600,7 +1633,11 @@ export async function runCoordinatorOperation(
         reason: "coordinator_state_observation_unknown",
       };
     if (settling) state = written.value;
-    return { status: "completed" as const, candidates };
+    return {
+      status: "completed" as const,
+      candidates,
+      deferredQueue: written.deferredQueue,
+    };
   };
 
   if (
@@ -1624,54 +1661,64 @@ export async function runCoordinatorOperation(
     );
 
   // 先行選択は仮判定。同じ実行ScopeのLease取得後に対象Queueを再選択する。
-  const selectedAfterLease = await waitForPreparation(() =>
-    selectNextQueueEntry(
-      persistence.repository,
-      persistence.repositoryBindingId,
-      input.queueId,
-    ),
-  );
-  if (!selectedAfterLease)
-    return completeQueue(
-      blockExecution(input, preparationRefusal(input.cancellationSignal), {
-        state,
-      }),
-      null,
+  if (!operation.admission) {
+    const selectedAfterLease = await waitForPreparation(() =>
+      selectNextQueueEntry(
+        persistence.repository,
+        persistence.repositoryBindingId,
+        input.queueId,
+      ),
     );
-  if (selectedAfterLease.status !== "completed")
-    return completeQueue(
-      blockExecution(input, selectedAfterLease.reason, {
-        state,
-        cleanupConfirmed: !selectedAfterLease.manualRecoveryRequired,
-        manualRecoveryRequired: selectedAfterLease.manualRecoveryRequired,
-        effectState: selectedAfterLease.manualRecoveryRequired
-          ? "unknown"
-          : "no_effect",
-      }),
-      null,
-    );
-  if (
-    !selectedAfterLease.value ||
-    selectedAfterLease.value.queueId !== input.queueId
-  )
-    return completeQueue(
-      blockExecution(input, "coordinator_queue_claim_priority_changed", {
-        state,
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        effectState: "no_effect",
-      }),
-      null,
-    );
+    if (!selectedAfterLease)
+      return completeQueue(
+        blockExecution(input, preparationRefusal(input.cancellationSignal), {
+          state,
+        }),
+        null,
+      );
+    if (selectedAfterLease.status !== "completed")
+      return completeQueue(
+        blockExecution(input, selectedAfterLease.reason, {
+          state,
+          cleanupConfirmed: !selectedAfterLease.manualRecoveryRequired,
+          manualRecoveryRequired: selectedAfterLease.manualRecoveryRequired,
+          effectState: selectedAfterLease.manualRecoveryRequired
+            ? "unknown"
+            : "no_effect",
+        }),
+        null,
+      );
+    if (
+      !selectedAfterLease.value ||
+      selectedAfterLease.value.queueId !== input.queueId
+    )
+      return completeQueue(
+        blockExecution(input, "coordinator_queue_claim_priority_changed", {
+          state,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          effectState: "no_effect",
+        }),
+        null,
+      );
+  }
 
   const selectedGeneration = queue.generation;
   const leaseQueue = await waitForPreparation(() =>
-    updateCoordinatorQueue(persistence, input.queueId, selectedGeneration, {
-      state: "leased",
-      lease,
-      resumeCondition: null,
-      resultReference: null,
-    }),
+    operation.admission
+      ? selectAndClaimQueue(
+          persistence.repository,
+          persistence.repositoryBindingId,
+          input.queueId,
+          selectedGeneration,
+          writerLeaseAccess(() => lease),
+        )
+      : updateCoordinatorQueue(persistence, input.queueId, selectedGeneration, {
+          state: "leased",
+          lease,
+          resumeCondition: null,
+          resultReference: null,
+        }),
   );
   if (!leaseQueue)
     return completeQueue(
@@ -1704,6 +1751,13 @@ export async function runCoordinatorOperation(
       }),
       null,
     );
+  if (!leaseQueue.value)
+    return completeQueue(
+      blockExecution(input, "coordinator_queue_claim_priority_changed", {
+        state,
+      }),
+      null,
+    );
   queue = leaseQueue.value;
   const cancelBeforeTask = (
     completedTaskIds: readonly string[],
@@ -1728,20 +1782,22 @@ export async function runCoordinatorOperation(
       { completedTaskIds },
     );
   if (input.cancellationSignal.aborted) return cancelBeforeTask([]);
-  const leasedGeneration = queue.generation;
-  const runningQueue = await waitForPreparation(() =>
-    updateCoordinatorQueue(persistence, input.queueId, leasedGeneration, {
-      state: "running",
-      lease,
-      resumeCondition: null,
-      resultReference: null,
-    }),
-  );
-  if (!runningQueue)
-    return cancelBeforeTask([], preparationRefusal(input.cancellationSignal));
-  if (runningQueue.status !== "completed")
-    return finalizeOwnedFailure(runningQueue.reason, { state });
-  queue = runningQueue.value;
+  if (!operation.admission || startCandidates.taskIds.length === 0) {
+    const leasedGeneration = queue.generation;
+    const runningQueue = await waitForPreparation(() =>
+      updateCoordinatorQueue(persistence, input.queueId, leasedGeneration, {
+        state: "running",
+        lease,
+        resumeCondition: null,
+        resultReference: null,
+      }),
+    );
+    if (!runningQueue)
+      return cancelBeforeTask([], preparationRefusal(input.cancellationSignal));
+    if (runningQueue.status !== "completed")
+      return finalizeOwnedFailure(runningQueue.reason, { state });
+    queue = runningQueue.value;
+  }
 
   const completedTaskIds: string[] = [];
   let processRestartRequired = false;
@@ -1784,30 +1840,78 @@ export async function runCoordinatorOperation(
       attemptId,
       execution.authorityBindingId,
     ]);
-    for (const phase of [
-      {
-        kind: "task_start",
-        authorityBindingId: execution.authorityBindingId,
-      },
-      {
-        kind: "task_handoff",
-        operationId,
-      },
-    ] as const) {
-      const progress = await saveTaskProgress({
-        ...phase,
-        projectId: state.projectId,
+    let handoffObservation: Parameters<
+      typeof confirmPreparedWorkspaceTarget
+    >[4];
+    const laterTaskIntake =
+      queue.state === "running" && completedTaskIds.length > 0
+        ? persistence.intake
+        : undefined;
+    if (queue.state === "leased" || laterTaskIntake) {
+      const preparation = {
+        queueId: input.queueId,
+        queueGeneration: queue.generation,
+        stateGeneration: state.generation,
         taskId,
         attemptId,
+        operationId,
+        authorityBindingId: execution.authorityBindingId,
+      };
+      const preparedTask = await waitForPreparation(() => {
+        const args = [
+          persistence.repository,
+          persistence.repositoryBindingId,
+          preparation,
+          writerLeaseAccess(() => lease),
+        ] as const;
+        return laterTaskIntake
+          ? prepareNextTask(...args, {
+              operation: laterTaskIntake.operation,
+              queueId: laterTaskIntake.queueId,
+              requestHash: laterTaskIntake.requestHash,
+              projectId: laterTaskIntake.projectId,
+              milestoneId: laterTaskIntake.milestoneId,
+            })
+          : prepareFirstTask(...args);
       });
-      if (progress.status === "interrupted" && phase.kind === "task_start")
-        return cancelBeforeTask(completedTaskIds, progress.reason);
-      if (progress.status !== "completed")
-        return finalizeOwnedFailure(progress.reason, {
+      if (preparedTask === null)
+        return cancelBeforeTask(
+          completedTaskIds,
+          preparationRefusal(input.cancellationSignal),
+        );
+      if (preparedTask.status !== "completed")
+        return finalizeOwnedFailure(preparedTask.reason, {
           state,
           completedTaskIds,
         });
-    }
+      queue = preparedTask.value.queue;
+      state = preparedTask.value.state;
+      handoffObservation = preparedTask.value;
+    } else
+      for (const phase of [
+        {
+          kind: "task_start",
+          authorityBindingId: execution.authorityBindingId,
+        },
+        {
+          kind: "task_handoff",
+          operationId,
+        },
+      ] as const) {
+        const progress = await saveTaskProgress({
+          ...phase,
+          projectId: state.projectId,
+          taskId,
+          attemptId,
+        });
+        if (progress.status === "interrupted" && phase.kind === "task_start")
+          return cancelBeforeTask(completedTaskIds, progress.reason);
+        if (progress.status !== "completed")
+          return finalizeOwnedFailure(progress.reason, {
+            state,
+            completedTaskIds,
+          });
+      }
     let effectStarted = false;
     let delegated = false;
     // 共通の試行本体が初回通知だけを搬送し、この保存と元completionを待つ。
@@ -1825,6 +1929,12 @@ export async function runCoordinatorOperation(
     };
     let stoppedBeforeDelegation: "cancelled" | "blocked" | null = null;
     let preparationStopReason: string | undefined;
+    let deferReason:
+      | Extract<
+          Parameters<typeof saveProjectExecutionState>[2],
+          { kind: "task_defer_before_effect" }
+        >["reason"]
+      | undefined;
     let targetObservationFailure: string | undefined;
     let outcome: unknown = null;
     try {
@@ -1837,6 +1947,7 @@ export async function runCoordinatorOperation(
             persistence.repositoryBindingId,
             input.queueId,
             operation.workspaceTarget,
+            ...(handoffObservation ? ([handoffObservation] as const) : []),
           ),
         );
         if (
@@ -1849,16 +1960,33 @@ export async function runCoordinatorOperation(
           stoppedBeforeDelegation = "cancelled";
           preparationStopReason = preparationRefusal(input.cancellationSignal);
         } else if (isCleanStateContention(target)) {
-          stoppedBeforeDelegation = "cancelled";
-          preparationStopReason = target.reason;
-        } else if (
-          target.status !== "completed" ||
-          target.value.workspaceId !== (queue.workspaceId ?? null)
-        ) {
+          deferReason = "coordinator_snapshot_lock_contended";
+        } else if (target.status !== "completed") {
+          switch (target.reason) {
+            case "coordinator_workspace_target_changed":
+            case "coordinator_workspace_queue_closed":
+              stoppedBeforeDelegation = "blocked";
+              break;
+            case "coordinator_workspace_not_ready":
+            case "coordinator_workspace_git_unavailable":
+              deferReason = target.reason;
+              break;
+            default:
+              deferReason = "coordinator_workspace_state_unavailable";
+          }
+        } else if (target.value.workspaceId !== (queue.workspaceId ?? null)) {
           stoppedBeforeDelegation = "blocked";
         } else {
           delegated = true;
-          if (recording) beginObjectiveExecutionRecording(recording);
+          if (recording && !recording.attempted) {
+            const continuing = state.tasks.some(
+              (task) => task.state === "completed",
+            );
+            beginObjectiveExecutionRecording(
+              recording,
+              continuing ? attemptId : undefined,
+            );
+          }
           outcome = await runCoordinatorSingleTaskAttempt({
             attemptId,
             operationId,
@@ -1886,7 +2014,12 @@ export async function runCoordinatorOperation(
         }
       }
     } catch {
-      // 委譲後なら不明、委譲前の例外なら結果欠測として下で扱う。
+      // 委譲済みなら元の回復経路。委譲前の例外から対象変更は推定しない。
+      if (!delegated) {
+        if (input.cancellationSignal.aborted)
+          stoppedBeforeDelegation = "cancelled";
+        else deferReason = "coordinator_workspace_preparation_failed";
+      }
     }
     if (targetObservationFailure)
       // Queueの元世代を残す。解放証拠または元Intentから既存owner-loss再入場が確定する。
@@ -1912,6 +2045,37 @@ export async function runCoordinatorOperation(
     const capturedOutcome = delegated
       ? snapshotSingleTaskResult(outcome)
       : null;
+    if (deferReason !== undefined) {
+      const deferred = await saveTaskProgress({
+        kind: "task_defer_before_effect",
+        projectId: state.projectId,
+        taskId,
+        attemptId,
+        operationId,
+        authorityBindingId: execution.authorityBindingId,
+        queueGeneration: queue.generation,
+        ownerGeneration: lease.ownerGeneration,
+        reason: deferReason,
+      });
+      if (deferred.status !== "completed" || !deferred.deferredQueue)
+        return finalizeOwnedFailure(
+          deferred.status === "completed"
+            ? "coordinator_queue_settlement_unconfirmed"
+            : deferred.reason,
+          { state, completedTaskIds, processRestartRequired },
+        );
+      return completeQueue(
+        blockExecution(input, deferReason, {
+          state,
+          completedTaskIds,
+          processRestartRequired,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          effectState: completedTaskIds.length ? "settled" : "no_effect",
+        }),
+        deferred.deferredQueue,
+      );
+    }
     const acceptedOutcome =
       capturedOutcome !== null &&
       capturedOutcome.attemptId === attemptId &&
@@ -2191,7 +2355,15 @@ type SingleTaskOperation = Readonly<{
 
 /** Graphの受付済み要求と既存保存・記録の結合。 @trace ARCH-000004 */
 type ScheduledOperation = CoordinatorExecutionDependencies &
-  Readonly<{ kind: "scheduled"; input: ExecutionInput }>;
+  Readonly<{
+    kind: "scheduled";
+    input: ExecutionInput;
+    admission?: Readonly<{
+      state: ProjectExecutionState;
+      queue: ProjectQueueEntry;
+      candidates: TaskStartCandidates;
+    }>;
+  }>;
 
 /**
  * Graphの受付時観測を、実Lease取得前の同じ順序で確定する。
@@ -2205,20 +2377,27 @@ function prepareScheduledOperation(
   persistence: CoordinatorStateContext,
   input: ExecutionInput,
   alreadyObserved?: ReturnType<typeof readExecutionState>,
+  admission?: ScheduledOperation["admission"],
 ) {
   if (!(input.cancellationSignal instanceof AbortSignal))
     return blockExecution(input, "coordinator_execution_input_invalid");
-  const observed =
-    alreadyObserved ??
-    readExecutionState(persistence.repository, persistence.repositoryBindingId);
-  if (isCleanStateContention(observed))
+  const observed = admission
+    ? null
+    : (alreadyObserved ??
+      readExecutionState(
+        persistence.repository,
+        persistence.repositoryBindingId,
+      ));
+  if (observed && isCleanStateContention(observed))
     return blockExecution(input, observed.reason);
-  const view = observed.status === "completed" ? observed.value : null;
-  const state = view?.projects.find((entry) => entry.queueId === input.queueId);
-  const queue = view?.queueEntries.find(
-    (entry) => entry.queueId === input.queueId,
-  );
-  if (!view || !state || !queue)
+  const view = observed?.status === "completed" ? observed.value : null;
+  const state =
+    admission?.state ??
+    view?.projects.find((entry) => entry.queueId === input.queueId);
+  const queue =
+    admission?.queue ??
+    view?.queueEntries.find((entry) => entry.queueId === input.queueId);
+  if ((!view && !admission) || !state || !queue)
     return blockExecution(input, "coordinator_execution_observation_unknown", {
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
@@ -2226,7 +2405,7 @@ function prepareScheduledOperation(
     });
   const startCandidates = captureTaskStartCandidates(
     state,
-    view.taskStartCandidates,
+    admission ? [admission.candidates] : view?.taskStartCandidates,
   );
   if (!startCandidates)
     return blockExecution(input, "coordinator_state_observation_unknown", {
@@ -2788,9 +2967,13 @@ async function executeSingleOperation(
 /** 最初の委譲直前にだけGroup記録を試し、任意記録の失敗で実行を止めない。 */
 function beginObjectiveExecutionRecording(
   recording: ObjectiveExecutionRecording,
+  continuedAt?: string,
 ): void {
   if (recording.attempted) return;
   recording.attempted = true;
+  const groupId = continuedAt
+    ? createCoordinatorStableId("group", [recording.groupId, continuedAt])
+    : recording.groupId;
   try {
     const repository = getRepository(recording.repositoryRoot);
     const store =
@@ -2799,7 +2982,7 @@ function beginObjectiveExecutionRecording(
         : null;
     if (store) {
       const recorded = createGroup(store, {
-        groupId: recording.groupId,
+        groupId,
         application: "CRDD",
         operation: "objective_execution",
         startedAt: new Date().toISOString(),
@@ -2809,11 +2992,10 @@ function beginObjectiveExecutionRecording(
         },
       });
       reportExecutionRecording(recorded);
-      if (recorded.status === "completed")
-        recording.group = { store, groupId: recording.groupId };
-    } else reportExecutionRecordingUnavailable(recording.groupId);
+      if (recorded.status === "completed") recording.group = { store, groupId };
+    } else reportExecutionRecordingUnavailable(groupId);
   } catch (error) {
-    reportExecutionRecordingUnavailable(recording.groupId, error);
+    reportExecutionRecordingUnavailable(groupId, error);
   }
 }
 
@@ -3822,7 +4004,9 @@ function readObjectiveReplay(
   const terminal = queue.state === "completed" || queue.state === "cancelled";
   const releasePending =
     queue.ownerGeneration != null &&
-    (terminal || queue.state === "integration_pending");
+    (terminal ||
+      queue.state === "integration_pending" ||
+      queue.state === "preparation_blocked");
   if (
     !reuseObserved &&
     request.operation === "resume" &&
@@ -3906,7 +4090,10 @@ function projectObjectiveReplay(
         : queue.state === "completed" || state?.milestone.state === "accepted"
           ? "completed"
           : "blocked",
-    reason: "coordinator_objective_request_reused",
+    reason:
+      queue.state === "preparation_blocked"
+        ? (queue.resumeCondition ?? "coordinator_workspace_preparation_failed")
+        : "coordinator_objective_request_reused",
     queueId: queue.queueId,
     projection:
       recoveryRequired && obligations.length === 0
@@ -4245,7 +4432,11 @@ function blockObjectiveRecoveryItem(
 }
 
 /** 解放だけを確定し、実行・採用へ進まない保存状態。 @trace ARCH-000004 */
-type ObjectiveReleaseState = "completed" | "cancelled" | "integration_pending";
+type ObjectiveReleaseState =
+  | "completed"
+  | "cancelled"
+  | "integration_pending"
+  | "preparation_blocked";
 
 /**
  * 捕捉済みObjectiveを既存の保存・実行Lifecycleへ接続する。
@@ -4268,6 +4459,7 @@ async function executeCoordinatorObjective(
   request: CoordinatorObjectiveRequest,
   cancellationSignal: AbortSignal,
   expectedTerminalState?: ObjectiveReleaseState,
+  alreadyAdmitted?: ObjectiveAdmissionRead,
 ) {
   if (request.adoptResult)
     return blocked(request, "coordinator_explicit_workspace_adoption_required");
@@ -4338,13 +4530,42 @@ async function executeCoordinatorObjective(
       return blocked(request, existing.reason);
     }
   }
-  const observedAcquisitionOwner = await prepare(() =>
-    inspectCoordinatorSnapshotLeaseAcquisitionOwner(
-      persistence.repository.directory,
-      persistence.repositoryBindingId,
-      queueId,
-    ),
-  );
+  const combinedAdmission =
+    alreadyAdmitted ??
+    (request.operation === "start" && wait !== undefined
+      ? await prepare(() =>
+          readObjectiveAdmission(
+            persistence.repository,
+            persistence.repositoryBindingId,
+            request.projectId,
+            queueId,
+          ),
+        )
+      : undefined);
+  const admissionAbsent = {
+    status: "blocked" as const,
+    reason: "coordinator_snapshot_absent",
+    value: null,
+    manualRecoveryRequired: false,
+    recoveryId: null,
+  };
+  const observedAcquisitionOwner =
+    combinedAdmission !== undefined
+      ? combinedAdmission?.status === "completed"
+        ? combinedAdmission.value?.acquisition.status === "completed"
+          ? {
+              ...combinedAdmission.value.acquisition,
+              value: combinedAdmission.value.acquisition.value.value,
+            }
+          : (combinedAdmission.value?.acquisition ?? admissionAbsent)
+        : combinedAdmission
+      : await prepare(() =>
+          inspectCoordinatorSnapshotLeaseAcquisitionOwner(
+            persistence.repository.directory,
+            persistence.repositoryBindingId,
+            queueId,
+          ),
+        );
   if (observedAcquisitionOwner === null) return interrupted();
   if (
     observedAcquisitionOwner.status !== "completed" &&
@@ -4376,14 +4597,25 @@ async function executeCoordinatorObjective(
       recoveryIds: Object.freeze([]),
       effectState: "unknown" as const,
     });
-  const observedProject = await prepare(() =>
-    readProjectExecutionState(
-      persistence.repository,
-      persistence.repositoryBindingId,
-      request.projectId,
-      queueId,
-    ),
-  );
+  const observedProject =
+    combinedAdmission?.status === "completed"
+      ? combinedAdmission.value?.project.status === "completed"
+        ? {
+            ...combinedAdmission.value.project,
+            value: combinedAdmission.value.project.value.value,
+            taskStartCandidates: combinedAdmission.value.taskStartCandidates,
+          }
+        : (combinedAdmission.value?.project ?? admissionAbsent)
+      : combinedAdmission !== undefined
+        ? combinedAdmission
+        : await prepare(() =>
+            readProjectExecutionState(
+              persistence.repository,
+              persistence.repositoryBindingId,
+              request.projectId,
+              queueId,
+            ),
+          );
   if (observedProject === null) return interrupted();
   if (
     observedProject.status !== "completed" &&
@@ -4476,23 +4708,42 @@ async function executeCoordinatorObjective(
     repositoryRevision: request.repositoryRevision,
     scopeHash,
   };
-  const queued = await prepare(() =>
-    request.operation === "resume"
-      ? readQueueEntry(
-          persistence.repository,
-          persistence.repositoryBindingId,
-          queueId,
+  const admitted =
+    request.operation === "start" && wait !== undefined && initialization
+      ? await prepare(() =>
+          createQueue(
+            persistence.repository,
+            persistence.repositoryBindingId,
+            { kind: "scheduled", input: [queueInput, initialization] },
+            persistence.prepareStorage,
+            "select",
+          ),
         )
-      : createQueue(
-          persistence.repository,
-          persistence.repositoryBindingId,
-          {
-            kind: "scheduled",
-            input: initialization ? [queueInput, initialization] : [queueInput],
-          },
-          persistence.prepareStorage,
-        ),
-  );
+      : undefined;
+  const queued =
+    admitted !== undefined
+      ? admitted?.status === "completed"
+        ? { ...admitted, value: admitted.value.queue }
+        : admitted
+      : await prepare(() =>
+          request.operation === "resume"
+            ? readQueueEntry(
+                persistence.repository,
+                persistence.repositoryBindingId,
+                queueId,
+              )
+            : createQueue(
+                persistence.repository,
+                persistence.repositoryBindingId,
+                {
+                  kind: "scheduled",
+                  input: initialization
+                    ? [queueInput, initialization]
+                    : [queueInput],
+                },
+                persistence.prepareStorage,
+              ),
+        );
   if (queued === null) return interrupted();
   if (queued.status !== "completed")
     return blockWithoutProject(
@@ -4541,14 +4792,21 @@ async function executeCoordinatorObjective(
     );
   }
   if (initialization) {
-    const observed = await prepare(() =>
-      readProjectExecutionState(
-        persistence.repository,
-        persistence.repositoryBindingId,
-        request.projectId,
-        queueId,
-      ),
-    );
+    const observed =
+      admitted?.status === "completed"
+        ? {
+            ...admitted,
+            value: admitted.value.project,
+            taskStartCandidates: admitted.value.taskStartCandidates,
+          }
+        : await prepare(() =>
+            readProjectExecutionState(
+              persistence.repository,
+              persistence.repositoryBindingId,
+              request.projectId,
+              queueId,
+            ),
+          );
     if (observed === null) return interrupted();
     if (observed.status !== "completed" || observed.value === null)
       return blockWithoutProject(
@@ -5352,6 +5610,35 @@ async function executeCoordinatorObjective(
       });
     }
   }
+  if (expectedTerminalState === "preparation_blocked")
+    return projectObjectiveReplay(
+      request,
+      queue,
+      state.value,
+      state.taskStartCandidates,
+    );
+  if (queue.state === "preparation_blocked" && request.operation === "resume") {
+    const generation = queue.generation;
+    const reopened = await prepare(() =>
+      updateCoordinatorQueue(persistence, queueId, generation, {
+        state: "queued",
+        lease: null,
+        resumeCondition: null,
+        resultReference: null,
+      }),
+    );
+    if (reopened === null) return interrupted();
+    if (reopened.status !== "completed")
+      return blocked(request, reopened.reason, {
+        knownState: state.value,
+        queueId,
+        cleanupConfirmed: !reopened.manualRecoveryRequired,
+        manualRecoveryRequired: reopened.manualRecoveryRequired,
+        effectState: reopened.manualRecoveryRequired ? "unknown" : "no_effect",
+        recoveryIds: reopened.recoveryId ? [reopened.recoveryId] : [],
+      });
+    queue = reopened.value;
+  }
   if (queue.state === "queued" || queue.state === "waiting_foreground") {
     const currentState = state.value;
     if (!currentState)
@@ -5362,13 +5649,20 @@ async function executeCoordinatorObjective(
         manualRecoveryRequired: true,
         effectState: "unknown",
       });
-    const selected = await prepare(() =>
-      selectNextQueueEntry(
-        persistence.repository,
-        persistence.repositoryBindingId,
-        queueId,
-      ),
-    );
+    const selected =
+      admitted?.status === "completed"
+        ? {
+            status: "completed" as const,
+            reason: admitted.reason,
+            value: admitted.value.selected ? queue : null,
+          }
+        : await prepare(() =>
+            selectNextQueueEntry(
+              persistence.repository,
+              persistence.repositoryBindingId,
+              queueId,
+            ),
+          );
     if (selected === null) return interrupted();
     if (isCleanStateContention(selected))
       return blocked(request, selected.reason);
@@ -5476,6 +5770,15 @@ async function executeCoordinatorObjective(
     ...dependencies.execution,
     kind: "scheduled",
     persistence,
+    ...(admitted?.status === "completed" && state.taskStartCandidates
+      ? {
+          admission: {
+            state: executableState,
+            queue,
+            candidates: state.taskStartCandidates,
+          },
+        }
+      : {}),
     input: {
       projectId: request.projectId,
       milestoneId: request.milestoneId,
@@ -5614,6 +5917,13 @@ export function createCoordinatorObjectiveResult(
   });
 }
 
+type ObjectiveAdmissionRead = ReturnType<typeof readObjectiveAdmission>;
+type ObjectiveWorkspaceAdmission = Readonly<{
+  workspace: NonNullable<
+    Extract<ObjectiveAdmissionRead, { status: "completed" }>["value"]
+  >["workspace"];
+}>;
+
 type ObjectiveAccess = Readonly<{
   directory: string;
   principalId: string;
@@ -5622,6 +5932,9 @@ type ObjectiveAccess = Readonly<{
     Readonly<{
       value: PreparedWorkspaceTarget | null;
     }>;
+  projectWorkspaceTarget?: (
+    admission: ObjectiveWorkspaceAdmission,
+  ) => ReturnType<NonNullable<ObjectiveAccess["prepareWorkspaceTarget"]>>;
   revalidate?: () => Promise<boolean>;
   beforeTask?: () => Promise<boolean>;
 }>;
@@ -5636,6 +5949,7 @@ type ObserveObjectiveWorkspace = (
   directory: string,
   projectId: string,
   workspaceId: string,
+  admission?: ObjectiveWorkspaceAdmission,
 ) => ReturnType<NonNullable<ObjectiveAccess["prepareWorkspaceTarget"]>>;
 
 let objectiveChildServing = false;
@@ -5707,6 +6021,15 @@ export function serveObjectiveChild(
                   workspaceId && {
                     prepareWorkspaceTarget: () =>
                       observer(directory, target.projectId, workspaceId),
+                    projectWorkspaceTarget: (
+                      admission: ObjectiveWorkspaceAdmission,
+                    ) =>
+                      observer(
+                        directory,
+                        target.projectId,
+                        workspaceId,
+                        admission,
+                      ),
                   }),
                 revalidate: async () =>
                   (await ask("confirmed", { kind: "confirm" }))?.allowed ===
@@ -5828,6 +6151,7 @@ function runObjectiveAfterCapture(
     let directory: string;
     let suppliedWorkspace = workspaceTarget;
     let prepareWorkspaceTarget: ObjectiveAccess["prepareWorkspaceTarget"];
+    let projectWorkspaceTarget: ObjectiveAccess["projectWorkspaceTarget"];
     let revalidate: ObjectiveAccess["revalidate"];
     let beforeTask: ObjectiveAccess["beforeTask"];
     if (typeof directoryOrAccess === "function") {
@@ -5843,6 +6167,7 @@ function runObjectiveAfterCapture(
       principalId = access?.principalId;
       suppliedWorkspace = access?.workspaceTarget;
       prepareWorkspaceTarget = access?.prepareWorkspaceTarget;
+      projectWorkspaceTarget = access?.projectWorkspaceTarget;
       revalidate = access?.revalidate;
       beforeTask = access?.beforeTask;
     } else {
@@ -5893,11 +6218,33 @@ function runObjectiveAfterCapture(
       principalId,
     );
     const storage = resolveExecutionStorageDirectory(repositoryRoot);
+    const admission =
+      request.operation === "start" &&
+      request.workspaceId &&
+      revalidate &&
+      projectWorkspaceTarget
+        ? await waitForStateContention(
+            cancellationSignal,
+            () =>
+              readObjectiveAdmission(
+                storage,
+                repositoryBindingId,
+                request.projectId,
+                intake.queueId,
+                request.workspaceId,
+              ),
+            revalidate,
+          )
+        : undefined;
     const read = () => readExecutionState(storage, repositoryBindingId);
     const observed =
-      typeof directoryOrAccess === "string" || revalidate
-        ? await waitForStateContention(cancellationSignal, read, revalidate)
-        : read();
+      admission !== undefined
+        ? admission?.status === "completed"
+          ? { ...admission, value: admission.value?.replay ?? null }
+          : admission
+        : typeof directoryOrAccess === "string" || revalidate
+          ? await waitForStateContention(cancellationSignal, read, revalidate)
+          : read();
     if (observed === null) {
       if (cancellationSignal.aborted)
         return blocked(request, "coordinator_objective_cancelled_before_start");
@@ -5934,7 +6281,8 @@ function runObjectiveAfterCapture(
     const expectedTerminalState =
       queueForRelease?.state === "completed" ||
       queueForRelease?.state === "cancelled" ||
-      queueForRelease?.state === "integration_pending"
+      queueForRelease?.state === "integration_pending" ||
+      queueForRelease?.state === "preparation_blocked"
         ? queueForRelease.state
         : undefined;
     if (
@@ -5942,11 +6290,16 @@ function runObjectiveAfterCapture(
       request.workspaceId &&
       prepareWorkspaceTarget
     ) {
-      const target = await waitForStateContention(
-        cancellationSignal,
-        prepareWorkspaceTarget,
-        revalidate,
-      );
+      const target =
+        admission?.status === "completed" && projectWorkspaceTarget
+          ? projectWorkspaceTarget({
+              workspace: admission.value?.workspace ?? null,
+            })
+          : await waitForStateContention(
+              cancellationSignal,
+              prepareWorkspaceTarget,
+              revalidate,
+            );
       if (target === null)
         return blocked(
           request,
@@ -6042,6 +6395,7 @@ function runObjectiveAfterCapture(
       cancellationSignal,
       observed,
       expectedTerminalState,
+      admission ?? undefined,
     );
     if (
       execution.contract === COORDINATOR_PUBLIC_RUNTIME_CONTRACT ||
@@ -6188,6 +6542,7 @@ async function executeAcceptedCoordinatorObjective(
   cancellationSignal: AbortSignal,
   alreadyObserved?: ReturnType<typeof readExecutionState>,
   expectedTerminalState?: ObjectiveReleaseState,
+  admission?: ObjectiveAdmissionRead,
 ) {
   if (
     !(cancellationSignal instanceof AbortSignal) ||
@@ -6253,6 +6608,7 @@ async function executeAcceptedCoordinatorObjective(
     request,
     cancellationSignal,
     expectedTerminalState,
+    admission,
   );
   if (
     expectedTerminalState !== undefined ||

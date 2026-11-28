@@ -77,6 +77,7 @@ export {
 export {
   acquireLease,
   readLease,
+  readObjectiveAdmission,
   recoverLease,
   releaseLease,
 } from "./lease/crud.ts";
@@ -101,11 +102,14 @@ export {
 export {
   createQueue,
   createTask,
+  prepareFirstTask,
+  prepareNextTask,
   deleteTask,
   queryQueue,
   queryTasks,
   readQueueEntry,
   selectNextQueueEntry,
+  selectAndClaimQueue,
   updateQueue,
   updateTask,
 } from "./task/crud.ts";

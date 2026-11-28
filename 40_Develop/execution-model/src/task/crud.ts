@@ -14,6 +14,7 @@ import {
   saveExecutionDefinition,
   withSnapshotOperation,
 } from "../composition/crud.ts";
+import { snapshotRequestMatches } from "../composition/transition.ts";
 import {
   encodeStateValue,
   leaseIdentity,
@@ -38,6 +39,12 @@ import {
 } from "../composition/types.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
+import { prepareHandoffStorage } from "../storage/store.ts";
+import {
+  observeTaskStartCandidates,
+  prepareTaskHandoff,
+  prepareTaskStart,
+} from "./transition.ts";
 import type {
   ProjectQueueEntry,
   ProjectQueueState,
@@ -47,6 +54,7 @@ import type {
   QueueUpdateRequest,
   SingleTaskRecord,
 } from "./types.ts";
+import type { WorkspaceRecord } from "../workspace/types.ts";
 import {
   inspectSingleTaskRecord,
   inspectTaskExecutionSelections,
@@ -120,6 +128,292 @@ export function selectNextQueueEntry(
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
     prepareQueueSelection(current, queueId),
+  );
+}
+
+type QueueLeaseObservation = Parameters<typeof prepareQueueOperationUpdate>[6];
+
+/** 取得済みLeaseで優先順位を再判定し、勝ったQueueのみ同じ保存で所有する。 @trace ARCH-000004 */
+export function selectAndClaimQueue(
+  directory: StorageRootInput,
+  binding: string,
+  queueId: string,
+  generation: number,
+  lease: QueueLeaseObservation,
+) {
+  return withSnapshotOperation<ProjectQueueEntry | null>(
+    directory,
+    binding,
+    (current, owner) => {
+      const selection = prepareQueueSelection(current, queueId);
+      if (selection.status !== "completed") return selection;
+      if (selection.value.value?.queueId !== queueId)
+        return completedQueueCandidate(selection.reason, {
+          next: selection.value.next,
+          value: null,
+        });
+      return prepareQueueOperationUpdate(
+        selection.value.next ?? current,
+        owner.repositoryRoot,
+        binding,
+        queueId,
+        generation,
+        {
+          state: "leased",
+          resumeCondition: null,
+          resultReference: null,
+          leasePresent: true,
+          leaseIsNull: false,
+        },
+        lease,
+      );
+    },
+  );
+}
+
+type TaskHandoffPreparation = Readonly<{
+  queue: ProjectQueueEntry;
+  state: ProjectExecutionState;
+  workspaceTarget: Readonly<{
+    repositoryRoot: string;
+    binding: string;
+    observeStorage: ReturnType<typeof prepareHandoffStorage>;
+    workspace: Readonly<{
+      workspaceId: string;
+      phase: WorkspaceRecord["phase"];
+      holdUntil: string | null;
+      candidatePhase: NonNullable<WorkspaceRecord["candidate"]>["phase"] | null;
+      baseCommit: string;
+      relativePath: string | null | undefined;
+      branch: string | null | undefined;
+    }> | null;
+  }>;
+}>;
+
+type TaskHandoffInput = Readonly<{
+  queueId: string;
+  queueGeneration: number;
+  stateGeneration: number;
+  taskId: string;
+  attemptId: string;
+  authorityBindingId: string;
+  operationId: string;
+}>;
+
+/** 実開始通知より前のQueue稼働化・最初のTaskの予約・引渡しを同版で確定する。 @trace ARCH-000004 */
+export function prepareFirstTask(
+  directory: StorageRootInput,
+  binding: string,
+  rawInput: TaskHandoffInput,
+  lease: QueueLeaseObservation,
+) {
+  return prepareTaskHandoffState(directory, binding, rawInput, lease);
+}
+
+/** 実行中のQueueの所有を保ったまま、後続Taskの予約と引渡しを同版で確定する。 @trace ARCH-000004 */
+export function prepareNextTask(
+  directory: StorageRootInput,
+  binding: string,
+  rawInput: TaskHandoffInput,
+  lease: QueueLeaseObservation,
+  rawIntake: Parameters<typeof snapshotRequestMatches>[1],
+) {
+  const intake = snapshotStateRecord(
+    rawIntake,
+    new Set([
+      "operation",
+      "queueId",
+      "requestHash",
+      "projectId",
+      "milestoneId",
+    ]),
+  );
+  if (
+    !intake ||
+    (intake.operation !== "start" && intake.operation !== "resume") ||
+    typeof intake.queueId !== "string" ||
+    typeof intake.requestHash !== "string" ||
+    typeof intake.projectId !== "string" ||
+    typeof intake.milestoneId !== "string"
+  )
+    return blocked<TaskHandoffPreparation>(
+      "coordinator_queue_identity_conflict",
+    );
+  return prepareTaskHandoffState(directory, binding, rawInput, lease, {
+    operation: intake.operation,
+    queueId: intake.queueId,
+    requestHash: intake.requestHash,
+    projectId: intake.projectId,
+    milestoneId: intake.milestoneId,
+  });
+}
+
+function prepareTaskHandoffState(
+  directory: StorageRootInput,
+  binding: string,
+  rawInput: TaskHandoffInput,
+  lease: QueueLeaseObservation,
+  intake?: Parameters<typeof snapshotRequestMatches>[1],
+) {
+  const input = snapshotStateRecord(
+    rawInput,
+    new Set([
+      "queueId",
+      "queueGeneration",
+      "stateGeneration",
+      "taskId",
+      "attemptId",
+      "authorityBindingId",
+      "operationId",
+    ]),
+  );
+  if (!input)
+    return blocked<TaskHandoffPreparation>(
+      "coordinator_snapshot_input_invalid",
+    );
+  const {
+    queueId,
+    queueGeneration,
+    stateGeneration,
+    taskId,
+    attemptId,
+    authorityBindingId,
+    operationId,
+  } = input;
+  if (
+    !validId(queueId) ||
+    !validId(taskId) ||
+    !validId(attemptId) ||
+    !validId(authorityBindingId) ||
+    !validId(operationId) ||
+    typeof queueGeneration !== "number" ||
+    !Number.isSafeInteger(queueGeneration) ||
+    queueGeneration < 1 ||
+    typeof stateGeneration !== "number" ||
+    !Number.isSafeInteger(stateGeneration) ||
+    stateGeneration < 1
+  )
+    return blocked<TaskHandoffPreparation>(
+      "coordinator_snapshot_input_invalid",
+    );
+  return withSnapshotOperation<TaskHandoffPreparation>(
+    directory,
+    binding,
+    (current, owner) => {
+      const project = current.projects.find((item) => item.queueId === queueId);
+      const previous = current.queueEntries.find(
+        (item) => item.queueId === queueId,
+      );
+      if (
+        !project ||
+        !previous ||
+        previous.state !== (intake ? "running" : "leased")
+      )
+        return blocked("coordinator_queue_owner_mismatch");
+      let queue = previous;
+      let queueEntries = current.queueEntries;
+      if (intake) {
+        if (
+          intake.queueId !== queueId ||
+          intake.projectId !== project.projectId ||
+          !snapshotRequestMatches(current, intake)
+        )
+          return blocked("coordinator_queue_identity_conflict");
+        if (previous.generation !== queueGeneration)
+          return blocked("coordinator_queue_generation_conflict");
+        if (project.generation !== stateGeneration)
+          return blocked("coordinator_state_generation_conflict");
+        if (
+          previous.singleTask ||
+          previous.historySettled ||
+          !previous.ownerGeneration
+        )
+          return blocked("coordinator_queue_owner_mismatch");
+        const active = lease.borrowActiveLease();
+        if (
+          !queueOperationLeaseMatches(
+            active,
+            previous,
+            owner.repositoryRoot,
+            binding,
+          ) ||
+          active.ownerGeneration !== previous.ownerGeneration ||
+          lease.isActiveLeaseObserved() !== true
+        )
+          return blocked("coordinator_queue_owner_mismatch");
+      } else {
+        const running = prepareQueueOperationUpdate(
+          current,
+          owner.repositoryRoot,
+          binding,
+          queueId,
+          queueGeneration,
+          {
+            state: "running",
+            resumeCondition: null,
+            resultReference: null,
+            leasePresent: true,
+            leaseIsNull: false,
+          },
+          lease,
+        );
+        if (running.status !== "completed") return running;
+        queue = running.value.value;
+        queueEntries = running.value.next?.queueEntries ?? queueEntries;
+      }
+      const reservation = prepareTaskStart(
+        project,
+        stateGeneration,
+        taskId,
+        attemptId,
+        authorityBindingId,
+      );
+      if (reservation.status !== "completed")
+        return blocked(reservation.reason);
+      const handoff = prepareTaskHandoff(
+        reservation.state,
+        reservation.state.generation,
+        taskId,
+        attemptId,
+        operationId,
+      );
+      if (handoff.status !== "completed") return blocked(handoff.reason);
+      const state = { ...handoff.state, generation: project.generation + 1 };
+      // 同じScopeの管理変更は実行Leaseと競合する。保存確定後だけこの版を搬送する。
+      const workspace = current.workspaces.find(
+        (item) => item.workspaceId === queue.workspaceId,
+      );
+      const repositoryRoot = owner.repositoryRoot;
+      return completedQueueCandidate(handoff.reason, {
+        next: {
+          ...current,
+          queueEntries,
+          projects: current.projects.map((item) =>
+            item === project ? state : item,
+          ),
+        },
+        value: {
+          queue,
+          state,
+          workspaceTarget: Object.freeze({
+            repositoryRoot,
+            binding,
+            observeStorage: prepareHandoffStorage(owner),
+            workspace: workspace
+              ? Object.freeze({
+                  workspaceId: workspace.workspaceId,
+                  phase: workspace.phase,
+                  holdUntil: workspace.holdUntil,
+                  candidatePhase: workspace.candidate?.phase ?? null,
+                  baseCommit: workspace.baseCommit,
+                  relativePath: workspace.lastResult?.relativePath,
+                  branch: workspace.lastResult?.branch,
+                })
+              : null,
+          }),
+        },
+      });
+    },
   );
 }
 
@@ -452,6 +746,20 @@ export function updateQueue(
  * @security 任意Snapshot更新を受けない。
  * @concurrency 元のwithSnapshotOperation保持区間を維持する。
  */
+type ScheduledQueueAdmission = Readonly<{
+  queue: ProjectQueueEntry;
+  project: ProjectExecutionState | null;
+  taskStartCandidates: ReturnType<typeof observeTaskStartCandidates> | null;
+  selected: boolean;
+}>;
+
+export function createQueue(
+  workingDirectory: StorageRootInput,
+  binding: string,
+  request: Extract<QueueCreateRequest, { kind: "scheduled" }>,
+  prepareDirectory: (() => boolean) | undefined,
+  mode: "select",
+): StoreResult<ScheduledQueueAdmission>;
 export function createQueue(
   workingDirectory: StorageRootInput,
   binding: string,
@@ -478,6 +786,7 @@ export function createQueue(
   binding: string,
   request: QueueCreateRequest,
   prepareDirectory?: () => boolean,
+  mode?: "select",
 ) {
   const captured = snapshotStateRecord(
     request,
@@ -542,6 +851,58 @@ export function createQueue(
         }
       }
 
+      if (mode === "select") {
+        return withSnapshotOperation<ScheduledQueueAdmission>(
+          workingDirectory,
+          binding,
+          (current) => {
+            const created = prepareQueueEntryCreation(
+              current,
+              input[0],
+              initialState,
+            );
+            if (created.status !== "completed") return created;
+            const next = created.value.next;
+            const selection = next
+              ? prepareQueueSelection(next, input[0].queueId)
+              : null;
+            const selected =
+              selection?.value.value?.queueId === input[0].queueId;
+            const projected = selection?.value.next ?? next;
+            // 初回は作成と選定の中間世代を公開しない。
+            const queue =
+              projected?.queueEntries.find(
+                (entry) => entry.queueId === input[0].queueId,
+              ) ?? created.value.value;
+            const initialQueue = next
+              ? { ...queue, generation: created.value.value.generation }
+              : queue;
+            const project =
+              (projected ?? current).projects.find(
+                (entry) =>
+                  entry.queueId === queue.queueId &&
+                  entry.projectId === queue.projectId,
+              ) ?? null;
+            return completedQueueCandidate(created.reason, {
+              next: projected && {
+                ...projected,
+                queueEntries: projected.queueEntries.map((entry) =>
+                  entry === queue ? initialQueue : entry,
+                ),
+              },
+              value: {
+                queue: initialQueue,
+                project,
+                taskStartCandidates: project
+                  ? observeTaskStartCandidates(project)
+                  : null,
+                selected,
+              },
+            });
+          },
+          initialState === undefined ? false : { prepareDirectory },
+        );
+      }
       return withSnapshotOperation<
         Extract<
           ReturnType<typeof prepareQueueEntryCreation>,
@@ -590,6 +951,7 @@ const QUEUE_TRANSITIONS = Object.freeze({
     "cancelled",
   ]),
   waiting_foreground: Object.freeze(["queued", "cancelled"]),
+  preparation_blocked: Object.freeze(["queued"]),
   integration_pending: Object.freeze([
     "completed",
     "replan_required",
@@ -905,6 +1267,15 @@ export function prepareQueueOperationUpdate(
   )
     return blockedQueueCandidate("coordinator_queue_blocker_active");
   if (
+    previous.state === "preparation_blocked" &&
+    (previous.ownerGeneration !== null ||
+      !next.leaseIsNull ||
+      next.resumeCondition !== null ||
+      next.resultReference !== null ||
+      current.leaseIntents.some((intent) => intent.queueId === queueId))
+  )
+    return blockedQueueCandidate("coordinator_queue_preparation_reset_invalid");
+  if (
     previous.state === "recovery_required" &&
     next.state === "recovery_required" &&
     !(
@@ -940,11 +1311,12 @@ export function prepareQueueOperationUpdate(
     return blockedQueueCandidate("coordinator_queue_lease_invalid");
   if (
     isRequired &&
-    (activeLease?.kind !== "project-operation" ||
-      activeLease.repositoryRoot !== repositoryRoot ||
-      activeLease.repositoryBindingId !== binding ||
-      activeLease.projectId !== previous.projectId ||
-      activeLease.queueId !== queueId ||
+    (!queueOperationLeaseMatches(
+      activeLease,
+      previous,
+      repositoryRoot,
+      binding,
+    ) ||
       observations.isActiveLeaseObserved() !== true)
   )
     return blockedQueueCandidate("coordinator_queue_lease_invalid");
@@ -973,6 +1345,21 @@ export function prepareQueueOperationUpdate(
     },
     value,
   });
+}
+
+function queueOperationLeaseMatches(
+  lease: ReturnType<QueueLeaseObservation["borrowActiveLease"]>,
+  queue: ProjectQueueEntry,
+  repositoryRoot: string,
+  binding: string,
+): lease is NonNullable<typeof lease> {
+  return (
+    lease?.kind === "project-operation" &&
+    lease.repositoryRoot === repositoryRoot &&
+    lease.repositoryBindingId === binding &&
+    lease.projectId === queue.projectId &&
+    lease.queueId === queue.queueId
+  );
 }
 
 /**

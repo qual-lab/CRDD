@@ -1,7 +1,11 @@
 /** 自己生成Workspaceの子Processで、選定とProvider委譲だけを差し替える。 @trace PRL-IT-012 */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { registerHooks, stripTypeScriptTypes } from "node:module";
+import {
+  registerHooks,
+  stripTypeScriptTypes,
+  syncBuiltinESMExports,
+} from "node:module";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
@@ -13,6 +17,26 @@ import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-
 const directory = process.env.CRDD_GRAPH_FIXTURE_DIRECTORY;
 assert.ok(directory && process.send);
 const control = directory;
+const stateLock = path.join(
+  control,
+  "..",
+  "lock",
+  "execution-model.state.lock",
+);
+const open = fs.openSync;
+let acquisitions = 0;
+let firstResult: { acquisitions: number; time: number } | undefined;
+fs.openSync = (...args: Parameters<typeof open>) => {
+  const fd = open(...args);
+  if (
+    typeof args[0] === "string" &&
+    path.normalize(args[0]) === stateLock &&
+    args[1] === "wx+"
+  )
+    acquisitions++;
+  return fd;
+};
+syncBuiltinESMExports();
 
 // 回復が耐久確定した直後だけ、次の短期Readerを実ファイルの競合に当てる。
 const recoveryArm = path.join(control, "cancel-after-recovery.arm");
@@ -128,12 +152,28 @@ export async function taskAttempt(
   const pauseBeforeStart = fs.existsSync(
     path.join(control, `${workspace.workspaceId}.before-start`),
   );
+  const laterTask = input.executionMetadata?.taskId === "task-b";
+  if (laterTask) {
+    assert.ok(firstResult);
+    fs.writeFileSync(
+      path.join(
+        control,
+        `${workspace.workspaceId}.${process.pid}.next-task.json`,
+      ),
+      JSON.stringify({
+        acquisitions: acquisitions - firstResult.acquisitions,
+        elapsedMs: performance.now() - firstResult.time,
+      }),
+      { flag: "wx" },
+    );
+  }
   if (!pauseBeforeStart) await input.observeStarted?.();
-  fs.writeFileSync(
-    path.join(control, `${workspace.workspaceId}.${process.pid}.ready`),
-    workspace.executionTree,
-    { flag: "wx" },
-  );
+  if (!laterTask)
+    fs.writeFileSync(
+      path.join(control, `${workspace.workspaceId}.${process.pid}.ready`),
+      workspace.executionTree,
+      { flag: "wx" },
+    );
   for (let i = 0; i < 1200; i++) {
     if (input.cancellationSignal.aborted) {
       return {
@@ -166,6 +206,7 @@ export async function taskAttempt(
       assert.ok(entry.isFile() && !entry.isSymbolicLink() && entry.nlink === 1);
       assert.equal(fs.realpathSync.native(file), file);
       fs.writeFileSync(file, `${workspace.workspaceId}\n`);
+      if (!laterTask) firstResult = { acquisitions, time: performance.now() };
       return {
         contract: "crdd-coordinator/single-task-adapter",
         attemptId: input.attemptId,

@@ -42,6 +42,7 @@ import {
   beginWorkspaceOperation,
   createQueue,
   leaseAcquisitionRecoveryId,
+  readObjectiveAdmission,
   readState,
   readWorkspaceState,
   retireStateRecords,
@@ -54,6 +55,7 @@ import { resolveExecutionStorageDirectory } from "../../../coordinator/src/lifec
 import {
   executeWorkspace,
   manageWorkspace,
+  observeWorkspaceExecutionTarget,
   prepareWorkspaceExecutionTarget,
   type WorkspaceManagementRequest,
   type WorkspaceView,
@@ -257,8 +259,8 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
   const { createObjectiveRuns, executeCoordinatorOperation } = await import(
     "../../src/service/execution.ts"
   );
-  const requests = ids.map((workspaceId, index) =>
-    withCallerPlan({
+  const requests = ids.map((workspaceId, index) => {
+    const request = withCallerPlan({
       operation: "start",
       requestId: `request-parallel-${index}`,
       projectId: f.common.projectId,
@@ -273,8 +275,15 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
       originLane: "interactive",
       adoptResult: false,
       workspaceId,
-    } as const),
-  );
+    } as const);
+    if (index === 0) return request;
+    const first = request.plan.tasks[0];
+    assert.ok(first);
+    return withCallerPlan(request, {
+      ...request.plan,
+      tasks: [first, { ...first, id: "task-b", dependencies: [first.id] }],
+    });
+  });
   const execution = {
     scope: "local",
     repositoryRoot: f.root,
@@ -650,11 +659,11 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
     // 実開始通知済みの別実行をServerから取り消しても、Bの実行を止めない。
     const cancelWorkspace = randomUUID();
     registerWorkspace(cancelWorkspace, 3);
-    const cancelRequest = {
+    const cancelRequest = withCallerPlan({
       ...originalB,
       workspaceId: cancelWorkspace,
       requestId: "cancel-after-start-notification",
-    };
+    });
     const cancelling = execute(cancelRequest);
     jobs.push(cancelling);
     await ready(cancelWorkspace);
@@ -823,10 +832,22 @@ test("Serverの別Workspace実行は同時に進み、片側の異常終了で�
     });
     const completion = await jobs[1];
     assertAdoptionRequired(completion, queueB.queueId);
+    const fromFirstResult = JSON.parse(
+      fs.readFileSync(
+        path.join(control, `${ids[1]}.${b.pid}.next-task.json`),
+        "utf8",
+      ),
+    ) as { acquisitions: number; elapsedMs: number };
+    assert.ok([2, 3].includes(fromFirstResult.acquisitions));
+    t.diagnostic(
+      `前Task結果から後続Task引渡し: ${JSON.stringify(fromFirstResult)}`,
+    );
     const final = f.snapshot();
-    assert.equal(
-      final.projects.find((p) => p.queueId === queueB.queueId)?.tasks[0]?.state,
-      "completed",
+    assert.deepEqual(
+      final.projects
+        .find((p) => p.queueId === queueB.queueId)
+        ?.tasks.map(({ state }) => state),
+      ["completed", "completed"],
     );
     assert.equal(
       final.projects.find((p) => p.queueId === queueA.queueId)?.tasks[0]?.state,
@@ -3446,6 +3467,49 @@ test("専用WorkspaceのHEADが進み未コミット変更があっても実行�
   );
   assert.ok(prepared);
   assert.equal(Object.hasOwn(prepared, "head"), false);
+  const admission = readObjectiveAdmission(
+    { directory: f.root },
+    f.binding,
+    f.common.projectId,
+    f.common.queueId,
+    f.common.workspaceId,
+  );
+  assert.equal(admission.status, "completed", admission.reason);
+  const workspace = admission.value?.workspace;
+  assert.ok(workspace);
+  const collision = readObjectiveAdmission(
+    { directory: f.root },
+    f.binding,
+    "other-project",
+    f.common.queueId,
+    f.common.workspaceId,
+  );
+  assert.equal(collision.status, "completed", collision.reason);
+  assert.equal(
+    collision.value?.replay.queueEntries[0]?.queueId,
+    f.common.queueId,
+  );
+  assert.deepEqual(collision.value?.replay.projects, []);
+  assert.equal(collision.value?.acquisition.status, "blocked");
+  assert.equal(collision.value?.workspace, null);
+  const projectTarget = (record: typeof workspace | null) =>
+    observeWorkspaceExecutionTarget(
+      f.root,
+      f.common.projectId,
+      f.common.workspaceId,
+      { workspace: record },
+    ).value;
+  assert.deepEqual(projectTarget(workspace), prepared);
+  assert.equal(projectTarget(null), null);
+  assert.equal(
+    projectTarget({ ...workspace, projectId: "other-project" }),
+    null,
+  );
+  assert.equal(projectTarget({ ...workspace, branch: "wrong-branch" }), null);
+  assert.equal(
+    projectTarget({ ...workspace, holdUntil: new Date(0).toISOString() }),
+    null,
+  );
   fs.writeFileSync(path.join(f.tree, "source.txt"), "task commit\n");
   git(f.tree, ["add", "--", "source.txt"]);
   git(f.tree, ["commit", "-m", "fixture task"]);
@@ -3518,7 +3582,7 @@ test("専用WorkspaceのHEADが進み未コミット変更があっても実行�
       prepared,
     );
     assert.equal(locked.status, "blocked");
-    assert.equal(locked.reason, "coordinator_workspace_target_changed");
+    assert.equal(locked.reason, "coordinator_workspace_not_ready");
   } finally {
     git(f.root, ["worktree", "unlock", f.tree]);
   }

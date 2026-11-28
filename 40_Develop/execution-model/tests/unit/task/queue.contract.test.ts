@@ -30,9 +30,64 @@ import {
   snapshotStateRecord,
 } from "../../../src/composition/validation.ts";
 import {
+  prepareFirstTask,
   prepareQueueEntryCreation,
   projectQueueEntry,
 } from "../../../src/task/crud.ts";
+
+/** @trace PRL-UT-007 最初の引渡しの結合値を短期排他より前に捕捉する。 */
+test("最初のTask準備はGetter・Proxyと不正世代を観測前に拒否する", () => {
+  const input = {
+    queueId: "queue-a",
+    queueGeneration: 2,
+    stateGeneration: 1,
+    taskId: "task-a",
+    attemptId: "attempt-a",
+    operationId: "operation-a",
+    authorityBindingId: "authority-a",
+  };
+  let effects = 0;
+  const access = {
+    borrowActiveLease: () => {
+      effects++;
+      return undefined;
+    },
+    isActiveLeaseObserved: () => {
+      effects++;
+      return false;
+    },
+  };
+  for (const raw of [
+    { ...input, stateGeneration: 0 },
+    {
+      ...input,
+      get queueId() {
+        effects++;
+        return "other-queue";
+      },
+    },
+    new Proxy(input, {
+      ownKeys() {
+        effects++;
+        return [];
+      },
+    }),
+  ]) {
+    const result = prepareFirstTask(
+      {
+        get directory() {
+          effects++;
+          return "invalid";
+        },
+      },
+      "binding-a",
+      raw,
+      access,
+    );
+    assert.equal(result.reason, "coordinator_snapshot_input_invalid");
+  }
+  assert.equal(effects, 0);
+});
 
 /**
  * 新しい初回Stateの捕捉は既存の閉じた値符号化を使用する。

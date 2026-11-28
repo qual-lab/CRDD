@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -22,10 +23,12 @@ import {
   createQueue,
   initializeExecutionStore,
   leaseAcquisitionRecoveryId,
+  prepareNextTask,
   type ProjectExecutionState,
   readExecutionState,
   readProjectExecutionState,
   readQueueEntry,
+  readQueueState,
   saveProjectExecutionState,
 } from "@qual-lab/crdd-execution-model";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
@@ -36,6 +39,7 @@ import {
   resolveExecutionStorageDirectory,
   waitForStateContention,
 } from "../../src/lifecycle/host.ts";
+import { confirmPreparedWorkspaceTarget } from "../../src/lifecycle/workspace.ts";
 import {
   deriveCoordinatorRepositoryBindingId,
   objectiveQueueId,
@@ -566,6 +570,373 @@ function request(overrides: Record<string, unknown> = {}) {
     ...overrides,
   });
 }
+
+/** @trace PRL-IT-005 委譲前観測不能は元計画を維持し、明示再開だけで同じQueueを使う。 */
+test("Workspace観測不能では計画を維持し、明示再開だけで同じTaskを実行する", async (t) => {
+  for (const mode of [
+    0,
+    1,
+    "pending",
+    "replaced",
+    "later-pending",
+    "later-replaced",
+    "later-completed",
+  ] as const)
+    await t.test(`引渡しの反証: ${mode}`, async (subtest) => {
+      const completedBeforeStop =
+        mode === 1 || String(mode).startsWith("later-") ? 1 : 0;
+      const workingDirectory = root(subtest, false);
+      const storage = resolveExecutionStorageDirectory(workingDirectory);
+      const binding = "binding-a";
+      const initial = request({ maximumReplans: 0 });
+      const firstTask = initial.plan.tasks[0];
+      assert.ok(firstTask);
+      const original = completedBeforeStop
+        ? withCallerPlan(initial, {
+            ...initial.plan,
+            tasks: [
+              firstTask,
+              { ...firstTask, id: "task-b", dependencies: [firstTask.id] },
+            ],
+          })
+        : initial;
+      let observations = 0;
+      const fromHandoffSave: boolean[] = [];
+      let effects = 0;
+      let selectionReads = 0;
+      let stateLocks = 0;
+      let afterFirstStart = 0;
+      const stateLock = path.join(
+        workingDirectory,
+        ".crdd",
+        "lock",
+        "execution-model.state.lock",
+      );
+      if (mode === "later-completed") {
+        const open = fs.openSync;
+        const probe = subtest.mock.method(
+          fs,
+          "openSync",
+          (...args: Parameters<typeof open>) => {
+            const fd = open(...args);
+            if (args[0] === stateLock && args[1] === "wx+") stateLocks++;
+            return fd;
+          },
+        );
+        syncBuiltinESMExports();
+        subtest.after(() => {
+          probe.mock.restore();
+          syncBuiltinESMExports();
+        });
+      }
+      const invoke = (operation: "start" | "resume") =>
+        runCoordinatorObjective(
+          {
+            authenticatedPrincipalId: "principal-a",
+            verifyProjectBinding: () => ({
+              status: "verified",
+              repositoryBindingId: binding,
+              repositoryRevision: revision,
+              workingDirectory,
+              repositoryRoot: workingDirectory,
+            }),
+            resolveTaskSelections: () => {
+              selectionReads++;
+              return {
+                status: "resolved",
+                value: taskExecutionSelections(),
+                reason: null,
+              };
+            },
+            createTaskExecutions: () =>
+              original.plan.tasks.map(({ id }) => ({
+                taskId: id,
+                taskRequest: {},
+                repositoryRoot: workingDirectory,
+              })),
+            observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
+            confirmWorkspaceTarget: (
+              _root,
+              _binding,
+              _queueId,
+              _target,
+              handoff,
+            ) => {
+              fromHandoffSave.push(handoff !== undefined);
+              if (mode === "later-completed" && effects === 0) {
+                assert.ok(handoff);
+                const queue = handoff.queue;
+                const ownerGeneration = queue.ownerGeneration;
+                const milestoneId = queue.milestoneId;
+                assert.ok(ownerGeneration && milestoneId);
+                const intake = {
+                  operation: "start",
+                  queueId: queue.queueId,
+                  requestHash: queue.requestHash,
+                  projectId: queue.projectId,
+                  milestoneId,
+                } as const;
+                const state = readProjectExecutionState(
+                  storage,
+                  binding,
+                  queue.projectId,
+                  queue.queueId,
+                ).value;
+                assert.ok(state);
+                const candidate = {
+                  queueId: queue.queueId,
+                  queueGeneration: queue.generation,
+                  stateGeneration: state.generation,
+                  taskId: "task-b",
+                  attemptId: "fixture-attempt",
+                  operationId: "fixture-operation",
+                  authorityBindingId: "fixture-authority",
+                };
+                const owner = {
+                  kind: "project-operation",
+                  repositoryRoot: workingDirectory,
+                  repositoryBindingId: binding,
+                  projectId: queue.projectId,
+                  queueId: queue.queueId,
+                  ownerGeneration,
+                };
+                const before = runtimeSnapshot(workingDirectory);
+                for (const [input, accepted, observed, expected] of [
+                  [
+                    candidate,
+                    { ...intake, requestHash: "0".repeat(64) },
+                    owner,
+                    "coordinator_queue_identity_conflict",
+                  ],
+                  [
+                    { ...candidate, queueGeneration: queue.generation + 1 },
+                    intake,
+                    owner,
+                    "coordinator_queue_generation_conflict",
+                  ],
+                  [
+                    { ...candidate, stateGeneration: state.generation + 1 },
+                    intake,
+                    owner,
+                    "coordinator_state_generation_conflict",
+                  ],
+                  [
+                    candidate,
+                    intake,
+                    { ...owner, ownerGeneration: "other-owner" },
+                    "coordinator_queue_owner_mismatch",
+                  ],
+                  [
+                    candidate,
+                    intake,
+                    undefined,
+                    "coordinator_queue_owner_mismatch",
+                  ],
+                ] as const) {
+                  const refused = prepareNextTask(
+                    storage,
+                    binding,
+                    input,
+                    {
+                      borrowActiveLease: () => observed,
+                      isActiveLeaseObserved: () => observed !== undefined,
+                    },
+                    accepted,
+                  );
+                  assert.equal(refused.reason, expected);
+                  assert.deepEqual(runtimeSnapshot(workingDirectory), before);
+                }
+              }
+              if (
+                mode === "pending" ||
+                mode === "replaced" ||
+                (effects === 1 &&
+                  (mode === "later-pending" || mode === "later-replaced"))
+              ) {
+                assert.ok(handoff);
+                assert.equal(handoff.workspaceTarget.observeStorage(), "clear");
+                const file = path.join(
+                  workingDirectory,
+                  ".crdd",
+                  "execution-model",
+                  "state.json",
+                );
+                const pending = path.join(
+                  path.dirname(file),
+                  "state.pending.json",
+                );
+                const saved = fs.readFileSync(file);
+                const injectPending =
+                  mode === "pending" || mode === "later-pending";
+                if (injectPending) {
+                  const competing = acquireLock({
+                    directory: path.join(workingDirectory, ".crdd", "lock"),
+                    name: "execution-model.state.lock",
+                    identity: "fixture-other-workspace-writer",
+                  });
+                  assert.equal(competing.status, "acquired");
+                  try {
+                    // 相手がpendingを作る前から、引渡しを待たせる。
+                    assert.equal(
+                      handoff.workspaceTarget.observeStorage(),
+                      "contended",
+                    );
+                    const inProgress = confirmPreparedWorkspaceTarget(
+                      _root,
+                      _binding,
+                      _queueId,
+                      _target,
+                      handoff,
+                    );
+                    assert.equal(
+                      inProgress.reason,
+                      "coordinator_snapshot_lock_contended",
+                    );
+                    fs.writeFileSync(pending, saved, { flag: "wx" });
+                  } finally {
+                    if (competing.status === "acquired")
+                      assert.equal(competing.lock.release(), true);
+                  }
+                } else fs.writeFileSync(file, "invalid fixture snapshot");
+                try {
+                  assert.equal(
+                    handoff.workspaceTarget.observeStorage(),
+                    "recheck",
+                  );
+                  return confirmPreparedWorkspaceTarget(
+                    _root,
+                    _binding,
+                    _queueId,
+                    _target,
+                    handoff,
+                  );
+                } finally {
+                  if (injectPending) fs.unlinkSync(pending);
+                  else fs.writeFileSync(file, saved);
+                }
+              }
+              if (mode === "later-completed")
+                return confirmPreparedWorkspaceTarget(
+                  _root,
+                  _binding,
+                  _queueId,
+                  _target,
+                  handoff,
+                );
+              if (
+                ++observations === completedBeforeStop + 1 &&
+                mode !== "later-pending" &&
+                mode !== "later-replaced"
+              )
+                throw Error("private fixture detail");
+              return {
+                status: "completed",
+                reason: "coordinator_direct_target",
+                value: {
+                  workspaceId: null,
+                  ownerRepositoryRoot: workingDirectory,
+                  executionTree: workingDirectory,
+                  baseCommit: null,
+                  head: null,
+                },
+              };
+            },
+            execution: {
+              leaseWait: {},
+              runSingleTaskAttempt: async (input) => {
+                const beforeStart = stateLocks;
+                if (mode === "later-completed" && effects === 1)
+                  // 前Taskの終端保存と後続Taskの引渡し準備だけ。Workspace再読取りはない。
+                  assert.equal(beforeStart - afterFirstStart, 2);
+                effects++;
+                const outcome = await completed(input);
+                if (mode === "later-completed") {
+                  assert.equal(stateLocks - beforeStart, 1);
+                  if (effects === 1) afterFirstStart = stateLocks;
+                }
+                return outcome;
+              },
+            },
+          },
+          { ...original, operation },
+          new AbortController().signal,
+        );
+      const stopped = await invoke("start");
+      if (mode === "later-completed") {
+        assert.equal(stopped.status, "completed", JSON.stringify(stopped));
+        assert.equal(effects, 2);
+        assert.deepEqual(fromHandoffSave, [true, true]);
+        return;
+      }
+      assert.equal(stopped.status, "blocked", JSON.stringify(stopped));
+      if (
+        mode === "pending" ||
+        mode === "replaced" ||
+        mode === "later-pending" ||
+        mode === "later-replaced"
+      ) {
+        assert.equal(effects, completedBeforeStop);
+        assert.deepEqual(
+          fromHandoffSave,
+          completedBeforeStop ? [true, true] : [true],
+        );
+        assert.equal(
+          stopped.reason,
+          mode === "pending" || mode === "later-pending"
+            ? "coordinator_state_reentry_required"
+            : "coordinator_state_read_unconfirmed",
+        );
+        assert.equal(stopped.manualRecoveryRequired, true);
+        assert.equal(stopped.effectState, "unknown");
+        return;
+      }
+      assert.equal(stopped.reason, "coordinator_workspace_preparation_failed");
+      assert.equal(
+        stopped.effectState,
+        completedBeforeStop ? "settled" : "no_effect",
+      );
+      assert.equal(stopped.cleanupConfirmed, true);
+      assert.deepEqual(stopped.recoveryIds, []);
+      assert.ok("queueId" in stopped);
+      assert.equal(effects, completedBeforeStop);
+      assert.equal(observations, completedBeforeStop + 1);
+      const observed = readExecutionState(storage, binding);
+      assert.equal(observed.status, "completed", observed.reason);
+      const queue = observed.value?.queueEntries.find(
+        (item) => item.queueId === stopped.queueId,
+      );
+      assert.equal(queue?.state, "preparation_blocked");
+      assert.equal(queue?.ownerGeneration, null);
+      assert.equal(
+        readQueueState(storage, binding).value?.leaseIntents.length,
+        0,
+      );
+      const tasks = observed.value?.projects.find(
+        (item) => item.queueId === stopped.queueId,
+      )?.tasks;
+      if (completedBeforeStop) assert.equal(tasks?.[0]?.state, "completed");
+      const task = tasks?.[completedBeforeStop];
+      assert.equal(task?.state, "ready");
+      assert.equal(task?.attemptId, null);
+      assert.equal(task?.operationId, null);
+      assert.equal(task?.authorityBindingId, null);
+      const replayed = await invoke("start");
+      assert.equal(replayed.reason, stopped.reason);
+      assert.equal(effects, completedBeforeStop);
+      assert.equal(observations, completedBeforeStop + 1);
+      const resumed = await invoke("resume");
+      assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+      assert.ok("queueId" in resumed);
+      assert.equal(resumed.queueId, stopped.queueId);
+      assert.equal(effects, completedBeforeStop + 1);
+      assert.equal(observations, completedBeforeStop + 2);
+      assert.deepEqual(
+        fromHandoffSave,
+        completedBeforeStop ? [true, true, false] : [true, false],
+      );
+      assert.equal(selectionReads, 1);
+    });
+});
 
 /** @trace PRL-IT-005 実保存Lock競合は受付の未発行と解放不明を区別する。 */
 test("公開Objectiveは短期保存Lockの競合だけを有界に待ち、取消・失効は受付を開始しない", async (t) => {

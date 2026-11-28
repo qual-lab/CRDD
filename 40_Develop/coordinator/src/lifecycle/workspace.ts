@@ -4,7 +4,10 @@
  * @trace ARCH-000004, ARCH-000005
  */
 import path from "node:path";
-import { readWorkspaceState } from "@qual-lab/crdd-execution-model";
+import {
+  type prepareFirstTask,
+  readWorkspaceState,
+} from "@qual-lab/crdd-execution-model";
 import { getRepository, getWorktree } from "@qual-lab/crdd-version-control";
 import { resolveExecutionStorageDirectory } from "./host.ts";
 import type { PreparedWorkspaceTarget } from "./types.ts";
@@ -162,6 +165,14 @@ export function workspacePlanReadyForAcceptance(
   return adopted.length === 1;
 }
 
+type TaskHandoffWorkspaceObservation = Pick<
+  Extract<
+    ReturnType<typeof prepareFirstTask>,
+    { status: "completed" }
+  >["value"],
+  "queue" | "workspaceTarget"
+>;
+
 /**
  * Queueの現在対象から保存Rootと実行Treeを分離して返す。
  * @responsibility Lease取得後・Task搬送前のfreshなWorkspace照合。
@@ -175,13 +186,14 @@ export function workspacePlanReadyForAcceptance(
  * @invariant 保存RootをWorktreeへ変えない。
  * @boundary 保存OwnerとTask搬送。
  * @security Host Pathは内部入力専用、Surfaceへ直接公開しない。
- * @concurrency 結果は再利用せずTaskごとに観測する。
+ * @concurrency 各引渡し準備の同じ確定版だけを再利用し、GitはTaskごとに観測する。
  */
 export function confirmPreparedWorkspaceTarget(
   ownerRepositoryRoot: string,
   binding: string,
   queueId: string,
   prepared?: PreparedWorkspaceTarget | null,
+  handoff?: TaskHandoffWorkspaceObservation,
 ) {
   const failed = (reason: string) => ({
     status: "blocked" as const,
@@ -190,15 +202,32 @@ export function confirmPreparedWorkspaceTarget(
     manualRecoveryRequired: false,
     recoveryId: null,
   });
-  const snapshot = readWorkspaceState(
-    resolveExecutionStorageDirectory(ownerRepositoryRoot),
-    binding,
-  );
-  if (snapshot.status !== "completed") return snapshot;
-  if (!snapshot.value) return failed(snapshot.reason);
-  const queue = snapshot.value.queueEntries.find(
-    (entry) => entry.queueId === queueId,
-  );
+  if (
+    handoff &&
+    (handoff.workspaceTarget.repositoryRoot !== ownerRepositoryRoot ||
+      handoff.workspaceTarget.binding !== binding ||
+      handoff.queue.queueId !== queueId ||
+      handoff.queue.state !== "running" ||
+      !handoff.queue.ownerGeneration)
+  )
+    return failed("coordinator_workspace_state_unavailable");
+  const status = handoff?.workspaceTarget.observeStorage();
+  if (status === "contended")
+    return failed("coordinator_snapshot_lock_contended");
+  // 途中ファイルや観測不能を、確定済みの作業領域投影で覆い隠さない。
+  const reusableHandoff = status === "clear" ? handoff : undefined;
+  const snapshot = reusableHandoff
+    ? null
+    : readWorkspaceState(
+        resolveExecutionStorageDirectory(ownerRepositoryRoot),
+        binding,
+      );
+  if (snapshot && snapshot.status !== "completed") return snapshot;
+  if (snapshot && !snapshot.value)
+    return failed("coordinator_workspace_state_unavailable");
+  const queue =
+    reusableHandoff?.queue ??
+    snapshot?.value?.queueEntries.find((entry) => entry.queueId === queueId);
   if (!queue) return failed("coordinator_workspace_queue_missing");
   if (["completed", "cancelled"].includes(queue.state))
     return failed("coordinator_workspace_queue_closed");
@@ -217,13 +246,29 @@ export function confirmPreparedWorkspaceTarget(
       },
     };
   }
-  const record = snapshot.value.workspaces.find(
+  const fallback = snapshot?.value?.workspaces.find(
     (entry) => entry.workspaceId === queue.workspaceId,
   );
+  const record = reusableHandoff
+    ? reusableHandoff.workspaceTarget.workspace
+    : fallback
+      ? {
+          workspaceId: fallback.workspaceId,
+          phase: fallback.phase,
+          holdUntil: fallback.holdUntil,
+          candidatePhase: fallback.candidate?.phase ?? null,
+          baseCommit: fallback.baseCommit,
+          relativePath: fallback.lastResult?.relativePath,
+          branch: fallback.lastResult?.branch,
+        }
+      : null;
+  if (!record || record.workspaceId !== queue.workspaceId)
+    return failed("coordinator_workspace_target_changed");
   if (
-    record?.phase !== "ready" ||
+    record.phase !== "ready" ||
     record.holdUntil !== null ||
-    (record.candidate && !["fixed", "merged"].includes(record.candidate.phase))
+    (record.candidatePhase !== null &&
+      !["fixed", "merged"].includes(record.candidatePhase))
   )
     return failed("coordinator_workspace_not_ready");
   if (
@@ -231,20 +276,29 @@ export function confirmPreparedWorkspaceTarget(
     prepared.ownerRepositoryRoot !== ownerRepositoryRoot ||
     prepared.workspaceId !== record.workspaceId ||
     prepared.baseCommit !== record.baseCommit ||
-    prepared.worktree.relativePath !== record.lastResult?.relativePath ||
-    prepared.worktree.branch !== record.lastResult?.branch
+    prepared.worktree.relativePath !== record.relativePath ||
+    prepared.worktree.branch !== record.branch
   )
     return failed("coordinator_workspace_target_changed");
   const verified = getRepository(ownerRepositoryRoot);
   if (verified.status !== "completed")
-    return failed("coordinator_workspace_root_invalid");
+    return failed("coordinator_workspace_git_unavailable");
   const git = getWorktree(verified.capability, prepared.worktree, "target");
+  if (git.status !== "completed")
+    return failed(
+      git.reason === "worktree_path_invalid" ||
+        git.reason === "worktree_target_mismatch" ||
+        git.reason === "worktree_branch_in_use"
+        ? "coordinator_workspace_target_changed"
+        : "coordinator_workspace_git_unavailable",
+    );
+  if (git.observation?.locked) return failed("coordinator_workspace_not_ready");
+  if (git.observation?.registered && git.observation.head === null)
+    return failed("coordinator_workspace_git_unavailable");
   if (
-    git.status !== "completed" ||
     git.relativePath === null ||
     git.observation?.registered !== true ||
     !git.observation.directoryPresent ||
-    git.observation.locked ||
     git.observation.prunable ||
     path.join(ownerRepositoryRoot, git.relativePath) !==
       prepared.executionTree ||

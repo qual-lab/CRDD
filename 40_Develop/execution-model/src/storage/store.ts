@@ -63,6 +63,7 @@ import {
   prepareStateHistorySnapshot,
   prepareStateRepairCompletionSnapshot,
   prepareUnifiedTaskSections,
+  prepareUnifiedTaskCandidate,
   projectTaskSnapshot,
   validateRepairWriteCandidate,
   validateStateTransition,
@@ -1455,10 +1456,13 @@ export function readSnapshotOwned(
   lock: SnapshotOwner,
   binding: string,
   readMode: boolean | "history" = false,
+  source?: ReturnType<typeof readStorageSnapshotOwned>,
 ): StoreResult<Snapshot | null> {
   if (!isLiveSnapshotOwner(lock))
     return blocked("coordinator_snapshot_lock_owner_invalid", true);
-  const observed = readStorageSnapshotOwned(lock, readMode);
+  const observed = source ?? readStorageSnapshotOwned(lock, readMode);
+  if (source?.value && taskReadOwners.get(source.value) !== lock)
+    return blocked("coordinator_snapshot_lock_owner_invalid", true);
   if (observed.status !== "completed")
     return observed.reason === "coordinator_state_uninitialized"
       ? completed("coordinator_snapshot_absent", null)
@@ -2487,6 +2491,8 @@ export function readStateSnapshot(
  * @security 入力OwnerのPropertyや関数を信用しない。
  * @concurrency 下位Readerは同じKernelを借用し再取得しない。
  */
+const taskReadOwners = new WeakMap<object, StorageOwner>();
+
 export function readStorageSnapshotOwned(
   owner: unknown,
   taskPublicationRead: boolean | "history" = false,
@@ -2494,7 +2500,7 @@ export function readStorageSnapshotOwned(
   const binding =
     owner && typeof owner === "object" ? readStorageOwnerBinding(owner) : null;
   if (!binding) return readStateSnapshot(null, null);
-  return readStateSnapshot(
+  const observed = readStateSnapshot(
     binding.repository,
     null,
     null,
@@ -2507,6 +2513,86 @@ export function readStorageSnapshotOwned(
     owner as StorageOwner,
     taskPublicationRead,
   );
+  if (observed.status === "completed" && observed.value)
+    taskReadOwners.set(observed.value, owner as StorageOwner);
+  return observed;
+}
+
+type HandoffEvidence = {
+  published?: Readonly<{ identity: StableFileIdentity; boundary: string }>;
+};
+const handoffEvidence = new WeakMap<object, HandoffEvidence>();
+
+/** Task引渡し準備のWriterに、物理確定した版だけを観測する読み取り専用の出口を結ぶ。 @trace ARCH-000008 */
+export function prepareHandoffStorage(owner: StorageOwner) {
+  const evidence: HandoffEvidence = {};
+  const root = owner.repositoryRoot;
+  handoffEvidence.set(owner, evidence);
+  return () => observeHandoffStorage(root, evidence.published);
+}
+
+/** 観測済みの同じ保存版だけを、短期Lockと本文の再読取りなしで使用する。 @trace ARCH-000008 */
+function observeHandoffStorage(
+  repositoryRoot: string,
+  published: HandoffEvidence["published"],
+): "clear" | "contended" | "recheck" {
+  if (!published) return "recheck";
+  const area = observePhysicalExecutionDataArea(
+    repositoryRoot,
+    "execution-model",
+  );
+  if (area.status !== "ready" || area.boundaryIdentity !== published.boundary)
+    return "recheck";
+  const lockArea = observePhysicalExecutionDataArea(repositoryRoot, "lock");
+  if (lockArea.status !== "ready") return "recheck";
+  const markerPath = path.join(
+    lockArea.directory,
+    "execution-model.state.lock",
+  );
+  const observeWriter = () => {
+    try {
+      const marker = fs.lstatSync(markerPath);
+      return marker.isFile() && !marker.isSymbolicLink() && marker.nlink === 1
+        ? ("contended" as const)
+        : ("recheck" as const);
+    } catch (error) {
+      return errorCode(error) === "ENOENT"
+        ? ("clear" as const)
+        : ("recheck" as const);
+    }
+  };
+  const writer = observeWriter();
+  // pending作成前でも、すでに開始しているWriterを追い越さない。
+  if (writer !== "clear") return writer;
+  try {
+    const before = fs.lstatSync(area.directory, { bigint: true });
+    const names = fs.readdirSync(area.directory);
+    if (names.some((name) => !["state.json", "history.jsonl"].includes(name)))
+      return observeWriter() === "contended" ? "contended" : "recheck";
+    const state = fs.lstatSync(path.join(area.directory, "state.json"), {
+      bigint: true,
+    });
+    if (
+      state.nlink !== 1n ||
+      !sameStableFileIdentity(published.identity, identity(state))
+    )
+      return "recheck";
+    const after = fs.lstatSync(area.directory, { bigint: true });
+    if (
+      !before.isDirectory() ||
+      !after.isDirectory() ||
+      !sameStableFileIdentity(before, after)
+    )
+      return "recheck";
+    if (
+      observePhysicalExecutionDataArea(repositoryRoot, "lock", lockArea)
+        .status !== "ready"
+    )
+      return "recheck";
+    return observeWriter();
+  } catch {
+    return "recheck";
+  }
 }
 
 /**
@@ -3463,6 +3549,7 @@ function commitStateSnapshotOwned(
       facts: readonly Record<string, unknown>[];
       rootHash: string;
       initialBoundary: string | null;
+      verifiedBefore?: TaskHistorySnapshot;
     }>;
   },
 ) {
@@ -3792,6 +3879,7 @@ function commitStateSnapshotOwned(
     let currentBytes = read("state.json");
     initializationBoundaryRequired = currentBytes === null;
     if (initializationBoundaryRequired) assertBoundary();
+    const verifiedTaskBefore = taskPublication?.verifiedBefore;
     let current =
       currentBytes === null
         ? null
@@ -3799,7 +3887,11 @@ function commitStateSnapshotOwned(
           ? taskHistoryState.before.bytes.equals(currentBytes)
             ? taskHistoryState.before.decoded
             : null
-          : decodeStateSnapshot(currentBytes, repository.repositoryBinding);
+          : verifiedTaskBefore
+            ? verifiedTaskBefore.bytes.equals(currentBytes)
+              ? verifiedTaskBefore.decoded
+              : null
+            : decodeStateSnapshot(currentBytes, repository.repositoryBinding);
     if (currentBytes !== null && !current) throw new Error("current");
     const recoveryTerminal = settlement?.recoveryTerminal;
     let terminalPending: Buffer | null = null;
@@ -4084,12 +4176,13 @@ function commitStateSnapshotOwned(
             !validateDecodedUnifiedTransition(null, candidate)
           : !current ||
             !currentBytes?.equals(taskPublication.before) ||
-            !prepareUnifiedTaskSections(
-              current,
-              taskPublication.view,
-              taskPublication.rootHash,
-              taskPublication.facts,
-            )?.equals(bytes))
+            (!verifiedTaskBefore &&
+              !prepareUnifiedTaskSections(
+                current,
+                taskPublication.view,
+                taskPublication.rootHash,
+                taskPublication.facts,
+              )?.equals(bytes)))
       )
         throw new Error("task_publication_scope_invalid");
       const projected = projectTaskSnapshot(
@@ -5291,6 +5384,7 @@ function commitStateSnapshotOwned(
         throw new Error("current_completion_history_changed");
     }
     if (!assertFileOwner) assertBoundary();
+    let handoffPublished: StableFileIdentity | undefined;
     if (syncedTaskPending) {
       const stat = fs.lstatSync(path.join(directory, "state.json"), {
         bigint: true,
@@ -5310,6 +5404,7 @@ function commitStateSnapshotOwned(
         })
       )
         throw new Error("published_replaced");
+      handoffPublished = published;
     } else if (
       !currentHistory &&
       !recoveryTerminal &&
@@ -5354,6 +5449,14 @@ function commitStateSnapshotOwned(
     }
     if (assertFileOwner) assertBoundary();
     snapshotConfirmed = true;
+    if (initializationOwner && handoffPublished) {
+      const handoff = handoffEvidence.get(initializationOwner);
+      if (handoff)
+        handoff.published = {
+          identity: handoffPublished,
+          boundary: initial.boundaryIdentity,
+        };
+    }
     if (initializationOwner !== null && typeof initializationOwner === "object")
       initializations.delete(initializationOwner);
     reason = "coordinator_state_snapshot_confirmed";
@@ -5738,6 +5841,63 @@ export function publishStateOwned(
       reason: "coordinator_state_storage_unconfirmed",
       initialHistoryLine: null,
     };
+  return publishOwnedStateCandidate(
+    owner,
+    binding,
+    { bytes, decoded: candidate },
+    publication,
+  );
+}
+
+/** 通常Task保存のみ、同じLockの物理観測とそこで構築した候補を再利用する。 @trace ARCH-000008 */
+export function publishPreparedTaskStateOwned(
+  owner: StorageOwner,
+  observed: NonNullable<ReturnType<typeof readStorageSnapshotOwned>["value"]>,
+  view: Snapshot,
+  facts: readonly Record<string, unknown>[],
+) {
+  const binding = readStorageOwnerBinding(owner);
+  const candidate =
+    binding &&
+    taskReadOwners.get(observed) === owner &&
+    isLiveStorageOwner(owner)
+      ? prepareUnifiedTaskCandidate(
+          observed,
+          view,
+          owner.repositoryRootHash,
+          facts,
+        )
+      : null;
+  if (!binding || !candidate)
+    return {
+      filesystemEffectIssued: false,
+      snapshotConfirmed: false,
+      reason: "coordinator_task_publication_revision_conflict",
+    };
+  const before = Buffer.from(observed.sourceText, "utf8");
+  return publishOwnedStateCandidate(
+    owner,
+    binding,
+    candidate,
+    {
+      kind: "task",
+      before,
+      view,
+      facts,
+      rootHash: owner.repositoryRootHash,
+      initialBoundary: null,
+    },
+    { bytes: before, decoded: observed },
+  );
+}
+
+function publishOwnedStateCandidate(
+  owner: StorageOwner,
+  binding: NonNullable<ReturnType<typeof readStorageOwnerBinding>>,
+  { bytes, decoded: candidate }: TaskHistorySnapshot,
+  publication: OwnedPublication,
+  verifiedBefore?: TaskHistorySnapshot,
+) {
   return commitStateSnapshotOwned({
     repository: binding.repository,
     candidate,
@@ -5767,6 +5927,7 @@ export function publishStateOwned(
             facts: publication.facts,
             rootHash: publication.rootHash,
             initialBoundary: publication.initialBoundary,
+            ...(verifiedBefore ? { verifiedBefore } : {}),
           },
         }
       : publication.kind === "host"

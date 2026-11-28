@@ -29,6 +29,91 @@ import type {
 } from "./types.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../composition/types.ts";
 import { withSnapshotOperation } from "../composition/crud.ts";
+import { readSnapshot } from "../storage/store.ts";
+import { projectCurrentState } from "../composition/transition.ts";
+import { observeTaskStartCandidates } from "../task/transition.ts";
+
+/** 新規Objectiveの再送相関、対象Workspace、元Projectと取得意図を同じ保存断面から返す。 @trace ARCH-000004 */
+export function readObjectiveAdmission(
+  directory: StorageRootInput,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  workspaceId?: string,
+) {
+  const location = snapshotStateRecord(directory, new Set(["directory"]));
+  const repositoryRoot = location?.directory;
+  if (typeof repositoryRoot !== "string")
+    return blocked<never>("coordinator_repository_root_invalid");
+  if (!validId(projectId) || !validId(queueId))
+    return blocked<never>("coordinator_state_identity_invalid");
+  const observed = readSnapshot({ directory: repositoryRoot }, binding);
+  if (observed.status !== "completed" || !observed.value)
+    return observed.status === "completed"
+      ? Object.freeze({ ...observed, value: null })
+      : observed;
+  const current = observed.value;
+  const queue = current.queueEntries.find((item) => item.queueId === queueId);
+  const project = projectCurrentState(current, projectId, queueId);
+  // 同じIDの別要求は衝突判定用にQueueだけを渡し、別Projectの本文は載せない。
+  const replayState =
+    queue?.projectId === projectId &&
+    current.projects.find(
+      (item) =>
+        item.queueId === queueId &&
+        item.projectId === queue.projectId &&
+        item.milestoneId === queue.milestoneId &&
+        item.repositoryRevision === queue.repositoryRevision,
+    );
+  const workspace =
+    workspaceId &&
+    current.queueEntries.some(
+      (item) =>
+        item.projectId === projectId && item.workspaceId === workspaceId,
+    )
+      ? current.workspaces.find((item) => item.workspaceId === workspaceId)
+      : undefined;
+  const replayCandidates = replayState
+    ? observeTaskStartCandidates(replayState)
+    : null;
+  const projectState =
+    project.status === "completed" ? project.value.value : null;
+  return Object.freeze({
+    ...observed,
+    value: Object.freeze({
+      replay: Object.freeze({
+        schemaRevision: current.schemaRevision,
+        queueEntries: queue ? [queue] : [],
+        projects: replayState ? [replayState] : [],
+        taskStartCandidates: replayCandidates ? [replayCandidates] : [],
+      }),
+      acquisition:
+        queue && queue.projectId !== projectId
+          ? blocked<never>(
+              "coordinator_lease_acquisition_project_identity_mismatch",
+            )
+          : projectLeaseAcquisitionOwner(current, binding, queueId),
+      project,
+      taskStartCandidates: projectState
+        ? projectState === replayState
+          ? replayCandidates
+          : observeTaskStartCandidates(projectState)
+        : null,
+      workspace: workspace
+        ? Object.freeze({
+            repositoryRoot,
+            projectId,
+            workspaceId: workspace.workspaceId,
+            phase: workspace.phase,
+            holdUntil: workspace.holdUntil,
+            relativePath: workspace.lastResult?.relativePath,
+            branch: workspace.lastResult?.branch,
+            baseCommit: workspace.baseCommit,
+          })
+        : null,
+    }),
+  });
+}
 
 /**
  * Leaseの固定処置を同じ保存Ownerで確定する。
@@ -436,7 +521,7 @@ export function acquireLease(
   if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "intent": {
-      const tuple = snapshotStateArray(captured.input, 6);
+      const tuple = snapshotStateArray(captured.input, 7);
       if (tuple.status !== "ok" || tuple.value.length < 5)
         return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
@@ -444,12 +529,20 @@ export function acquireLease(
         input[3],
         new Set(["ownerGeneration", "ownerProcessId"]),
       );
+      const admission =
+        input[6] === undefined
+          ? null
+          : snapshotStateRecord(
+              input[6],
+              new Set(["queueGeneration", "stateGeneration"]),
+            );
       if (
         !validId(binding) ||
         !validId(input[0]) ||
         !validId(input[1]) ||
         input[2] !== "project-operation" ||
         !owner ||
+        (input[6] !== undefined && (!admission || input[5] !== undefined)) ||
         (input[5] !== undefined &&
           (!Number.isSafeInteger(input[5]) || Number(input[5]) < 1)) ||
         !validId(owner.ownerGeneration) ||
@@ -481,9 +574,23 @@ export function acquireLease(
           { status: "completed" }
         >["value"]["value"]
       >(workingDirectory, binding, (current, owner) => {
-        const workspaceId = current.queueEntries.find(
+        const queue = current.queueEntries.find(
           (queue) => queue.queueId === input[1],
-        )?.workspaceId;
+        );
+        if (
+          admission &&
+          (queue?.state !== "queued" ||
+            queue.ownerGeneration !== null ||
+            queue.generation !== admission.queueGeneration ||
+            !current.projects.some(
+              (project) =>
+                project.queueId === input[1] &&
+                project.projectId === input[0] &&
+                project.generation === admission.stateGeneration,
+            ))
+        )
+          return blocked("coordinator_execution_admission_changed");
+        const workspaceId = queue?.workspaceId;
         const identity = leaseIdentity(
           binding,
           input[0],
@@ -1168,7 +1275,8 @@ export function prepareLeaseRecoverySettlement(
     initial.queue?.ownerGeneration === first.ownerGeneration &&
     (initial.queue.state === "completed" ||
       initial.queue.state === "cancelled" ||
-      initial.queue.state === "integration_pending");
+      initial.queue.state === "integration_pending" ||
+      initial.queue.state === "preparation_blocked");
   const evidence = createLeaseEvidence(binding, projectId, 2, {
     kind,
     queueId,

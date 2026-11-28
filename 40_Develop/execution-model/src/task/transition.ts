@@ -21,7 +21,7 @@ import type {
   TaskExecutionUpdate,
   TaskStartCandidates,
 } from "./types.ts";
-import { validResultReference } from "./validation.ts";
+import { validResultReference, validTaskDeferralReason } from "./validation.ts";
 
 /**
  * Taskの公開値から保存する元事実・参照だけを組み立てる。
@@ -1151,6 +1151,69 @@ export function prepareTaskExecutionUpdate(
     }
     return prepareTaskSettlement(state, expectedGeneration, request);
   }
+  if (request.kind === "task_defer_before_effect") {
+    const task = state.tasks.find(
+      (item) => item.definition.id === request.taskId,
+    );
+    if (
+      state.generation !== expectedGeneration ||
+      task?.state !== "starting" ||
+      task.startPhase !== "handoff_prepared" ||
+      task.attemptId !== request.attemptId ||
+      task.operationId !== request.operationId ||
+      task.authorityBindingId !== request.authorityBindingId ||
+      task.recoveryObligations.length !== 0 ||
+      task.recoveryUnresolved ||
+      state.tasks.some(
+        (item) =>
+          item !== task &&
+          (item.state === "running" || item.state === "starting"),
+      )
+    )
+      return {
+        status: "blocked" as const,
+        reason: "coordinator_pre_effect_settlement_mismatch",
+        state,
+        taskIds: Object.freeze([]),
+      };
+    const tasks: ProjectExecutionState["tasks"] = state.tasks.map((item) =>
+      item === task
+        ? {
+            ...task,
+            state: "ready",
+            startPhase: "none",
+            attemptId: null,
+            operationId: null,
+            authorityBindingId: null,
+            cleanupConfirmed: true,
+          }
+        : item,
+    );
+    const objectiveUnstarted = tasks.every(
+      (item) =>
+        item.definition.objectiveId !== task.definition.objectiveId ||
+        ["planned", "waiting_dependency", "ready"].includes(item.state),
+    );
+    const objectives = state.objectives.map((item) =>
+      item.definition.id === task.definition.objectiveId && objectiveUnstarted
+        ? { ...item, state: "planned" as const }
+        : item,
+    );
+    return {
+      status: "completed" as const,
+      reason: request.reason,
+      state: {
+        ...state,
+        generation: state.generation + 1,
+        milestone: objectives.every((item) => item.state === "planned")
+          ? { ...state.milestone, state: "planned" as const }
+          : state.milestone,
+        objectives,
+        tasks,
+      },
+      taskIds: Object.freeze([request.taskId]),
+    };
+  }
   if (request.kind === "task_settle_before_effect") {
     const task = state.tasks.find(
       (item) => item.definition.id === request.taskId,
@@ -1356,6 +1419,20 @@ export function captureTaskExecutionUpdate(
       "maximumReplans",
     ]),
   );
+  const deferral = snapshotStateRecord(
+    input,
+    new Set([
+      "kind",
+      "projectId",
+      "taskId",
+      "attemptId",
+      "operationId",
+      "authorityBindingId",
+      "queueGeneration",
+      "ownerGeneration",
+      "reason",
+    ]),
+  );
   const settlement = snapshotStateRecord(
     input,
     new Set([
@@ -1434,6 +1511,7 @@ export function captureTaskExecutionUpdate(
     phase ??
     retry ??
     replan ??
+    deferral ??
     settlement ??
     runningSettlement ??
     recovery ??
@@ -1487,6 +1565,15 @@ export function captureTaskExecutionUpdate(
         Number.isSafeInteger(retry.previousRetryCount) &&
         (retry.previousRetryCount as number) >= 0) ||
       replan?.kind === "task_replan" ||
+      (deferral?.kind === "task_defer_before_effect" &&
+        validId(deferral.taskId) &&
+        validId(deferral.attemptId) &&
+        validId(deferral.operationId) &&
+        validId(deferral.authorityBindingId) &&
+        validId(deferral.ownerGeneration) &&
+        Number.isSafeInteger(deferral.queueGeneration) &&
+        Number(deferral.queueGeneration) > 0 &&
+        validTaskDeferralReason(deferral.reason)) ||
       (settlement?.kind === "task_settle_before_effect" &&
         ["failed", "cancelled", "recovery_required"].includes(
           settlement.outcome as string,

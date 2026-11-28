@@ -61,6 +61,7 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
     "repository_throw",
     "store_blocked",
     "success",
+    "continuation",
     "store_missing",
     "store_throw",
     "group_throw",
@@ -79,12 +80,21 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
     const roots: unknown[] = [];
     const groupInputs: object[] = [];
     const store = { directory: "fixture", retentionDays: 1 };
+    const continuation =
+      mode === "continuation" ? "continued-attempt" : undefined;
+    const groupId = continuation ? "group-for-continuation" : expected;
     const continued = vm.runInNewContext(
-      `${block}\nbeginObjectiveExecutionRecording(recording);beginObjectiveExecutionRecording(recording);true`,
+      `${block}\nbeginObjectiveExecutionRecording(recording, continuation);beginObjectiveExecutionRecording(recording, continuation);true`,
       {
         recording,
         repositoryRoot: "fixture",
         createHash,
+        continuation,
+        createCoordinatorStableId: (prefix: string, parts: string[]) => {
+          assert.equal(prefix, "group");
+          assert.deepEqual(Array.from(parts), [expected, continuation]);
+          return groupId;
+        },
         getRepository: (root: unknown) => {
           roots.push(root);
           attemptedAtLookup.push(recording.attempted);
@@ -102,7 +112,9 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
           groupInputs.push(input);
           if (mode === "group_throw") throw Error("fixture-group");
           return {
-            status: mode === "success" ? "completed" : "blocked",
+            status: ["success", "continuation"].includes(mode)
+              ? "completed"
+              : "blocked",
             recordId: input.groupId,
           };
         },
@@ -112,13 +124,15 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
       },
     );
     assert.equal(continued, true);
-    assert.deepEqual(ids, [expected], mode);
+    assert.deepEqual(ids, [groupId], mode);
     assert.equal(recording.attempted, true);
     assert.deepEqual(attemptedAtLookup, [true]);
     assert.deepEqual(roots, ["fixture"]);
     assert.equal(
       groupInputs.length,
-      ["success", "store_blocked", "group_throw"].includes(mode) ? 1 : 0,
+      ["success", "continuation", "store_blocked", "group_throw"].includes(mode)
+        ? 1
+        : 0,
     );
     if (groupInputs.length) {
       const input = JSON.parse(JSON.stringify(groupInputs[0]));
@@ -129,7 +143,7 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
         "operation",
         "startedAt",
       ]);
-      assert.equal(input.groupId, expected);
+      assert.equal(input.groupId, groupId);
       assert.equal(input.application, "CRDD");
       assert.equal(input.operation, "objective_execution");
       assert.deepEqual(input.metadata, {
@@ -139,10 +153,10 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
       assert.equal(typeof input.startedAt, "string");
     }
     const group = recording.group as { store: unknown; groupId: string } | null;
-    if (mode === "success") {
+    if (mode === "success" || mode === "continuation") {
       assert.ok(group);
       assert.strictEqual(group.store, store);
-      assert.equal(group.groupId, expected);
+      assert.equal(group.groupId, groupId);
       assert.deepEqual(Object.keys(group).sort(), ["groupId", "store"]);
     } else assert.equal(group, null);
   }

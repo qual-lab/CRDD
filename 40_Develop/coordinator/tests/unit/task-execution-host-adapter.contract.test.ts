@@ -233,11 +233,12 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
         const taskId = "task-a", state = { tasks: [], repositoryRevision: "revision-a" };
         const execution = { authorityBindingId: "authority-a" };
         const observeStarted = () => {};
+        const firstTaskObservation = undefined;
         const waitForPreparation = async (observe) => observe();
         const preparationRefusal = (signal) => signal.aborted ? "cancelled" : "denied";
         const isCleanStateContention = () => false;
         ${source.slice(start, end)}
-        return { delegated, stoppedBeforeDelegation, outcome };
+        return { delegated, stoppedBeforeDelegation, deferReason, outcome };
       }`)}\nreturn inspectTarget();`,
   ) as (...args: unknown[]) => Promise<Record<string, unknown>>;
   for (const profile of [
@@ -247,6 +248,8 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
     "missing",
     "unknown",
     "blocked",
+    "held",
+    "git_unavailable",
     "cancelled",
     "observation_throws",
     "delegation_rejects",
@@ -268,9 +271,17 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
           "queue-a",
           workspaceTarget,
         ]);
-        if (profile === "blocked" || profile === "unknown")
+        if (["blocked", "unknown", "held", "git_unavailable"].includes(profile))
           return {
-            status: profile,
+            status: "blocked",
+            reason:
+              profile === "blocked"
+                ? "coordinator_workspace_target_changed"
+                : profile === "held"
+                  ? "coordinator_workspace_not_ready"
+                  : profile === "git_unavailable"
+                    ? "coordinator_workspace_git_unavailable"
+                    : "synthetic-observation-failure",
             value: null,
             manualRecoveryRequired: false,
             recoveryId: null,
@@ -312,11 +323,18 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
     assert.equal(delegations, delegated ? 1 : 0, profile);
     assert.equal(result.delegated, delegated, profile);
     assert.strictEqual(result.outcome, matched ? outcome : null, profile);
+    const deferred = {
+      unknown: "coordinator_workspace_state_unavailable",
+      held: "coordinator_workspace_not_ready",
+      git_unavailable: "coordinator_workspace_git_unavailable",
+      observation_throws: "coordinator_workspace_preparation_failed",
+    } as Partial<Record<typeof profile, string>>;
+    assert.equal(result.deferReason, deferred[profile], profile);
     assert.equal(
       result.stoppedBeforeDelegation,
       profile === "cancelled"
         ? "cancelled"
-        : delegated || profile === "observation_throws"
+        : delegated || deferred[profile]
           ? null
           : "blocked",
       profile,

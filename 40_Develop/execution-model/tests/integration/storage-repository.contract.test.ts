@@ -300,6 +300,7 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
     "releaseLease",
     "releaseLease",
     "readProjectExecutionState",
+    "readObjectiveAdmission",
     "createQueue",
     "readQueueEntry",
     "updateQueue",
@@ -314,6 +315,9 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
     "updateQueue",
     "updateQueue",
     "selectNextQueueEntry",
+    "selectAndClaimQueue",
+    "prepareFirstTask",
+    "prepareNextTask",
     "retireStateRecords",
     "transferHistory",
     "readState",
@@ -329,7 +333,41 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
       const operation = domain[name] as unknown as (...args: unknown[]) => {
         status: string;
       };
-      const result = operation(root, "arbitrary-binding");
+      const lease = {
+        borrowActiveLease: () => assert.fail("偽Rootで実Leaseを借用した"),
+        isActiveLeaseObserved: () => assert.fail("偽Rootで実Leaseを観測した"),
+      };
+      const args =
+        name === "readObjectiveAdmission"
+          ? ["project-a", "queue-a"]
+          : name === "selectAndClaimQueue"
+            ? ["queue-a", 1, lease]
+            : name === "prepareFirstTask" || name === "prepareNextTask"
+              ? [
+                  {
+                    queueId: "queue-a",
+                    queueGeneration: 2,
+                    stateGeneration: 1,
+                    taskId: "task-a",
+                    attemptId: "attempt-a",
+                    authorityBindingId: "authority-a",
+                    operationId: "operation-a",
+                  },
+                  lease,
+                  ...(name === "prepareNextTask"
+                    ? [
+                        {
+                          operation: "start",
+                          queueId: "queue-a",
+                          projectId: "project-a",
+                          milestoneId: "milestone-a",
+                          requestHash: "a".repeat(64),
+                        },
+                      ]
+                    : []),
+                ]
+              : [];
+      const result = operation(root, "arbitrary-binding", ...args);
       assert.equal(result.status, "blocked", name);
       assert.deepEqual(fs.readdirSync(directory.path), before, name);
     }
@@ -346,6 +384,19 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
     "observeSnapshotLeaseResources",
   ])
     assert.equal(name in domain, false, name);
+  const uncheckedRoot = {
+    get directory(): string {
+      return assert.fail("受付投影が未検証のDirectory getterを評価した");
+    },
+  };
+  const rejected = domain.readObjectiveAdmission(
+    uncheckedRoot,
+    "arbitrary-binding",
+    "project-a",
+    "queue-a",
+  );
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.reason, "coordinator_repository_root_invalid");
 });
 
 /**
